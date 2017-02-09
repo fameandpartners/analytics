@@ -7,13 +7,8 @@ library(stringr)
 library(scales)
 library(ggplot2)
 library(shiny)
-pass <- "8fktC9MeVxiZ5Z+oAsUw/jQr"
-fp_con <- src_postgres(
-    dbname = "fandp_web_production",
-    host = "postgres-read-replica.production.fameandpartners.com",
-    user = "peterm",
-    password = pass
-)
+
+source("fp_init.R")
 
 number_format <- function(x){
     dollar(x) %>%
