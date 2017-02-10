@@ -11,7 +11,7 @@ library(shiny)
 source("fp_init.R")
 
 number_format <- function(x){
-    dollar(x) %>%
+    scales::dollar(x) %>%
         str_replace_all("\\$","")
 }
 
