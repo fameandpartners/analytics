@@ -1,7 +1,8 @@
 library(shiny)
 
 shinyUI(fluidPage(
-
+    titlePanel(NULL, "Repeat Customers"),
+    
     fluidRow(
         column(
             4,
