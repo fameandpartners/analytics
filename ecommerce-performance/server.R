@@ -1,22 +1,27 @@
-library(shiny)
-
 shinyServer(function(input, output) {
     
     # ---- Data Set Filters ----
     
     filtered_sales <- reactive({
-        return(products_sold)
+        sales <- products_sold %>%
+            filter(between(order_date, input$order_dates[1], input$order_dates[2]))
+        return(sales)
     })
     
     
-    output$distPlot <- renderDataTable({
+    output$style_ranking <- renderDataTable({
         filtered_sales() %>%
             filter(revenue_usd > 0) %>%
-            group_by(style_name) %>%
-            summarise(units = n(),
-                      revenue = sum(revenue_usd),
-                      return_rate = sum(revenue_usd * item_returned) / sum(revenue_usd),
-                      customization_rate = sum(revenue_usd * physically_customized) / sum(revenue_usd))
+            group_by(`Style Name` = style_name) %>%
+            summarise(Units = n(),
+                      Revenue = sum(revenue_usd),
+                      `Return Rate` = sum(revenue_usd * item_returned) / sum(revenue_usd),
+                      `Customization Rate` = sum(revenue_usd * physically_customized) / sum(revenue_usd)) %>%
+            arrange(desc(Revenue)) %>%
+            datatable(rownames = FALSE) %>%
+            formatCurrency(c("Units"), digits = 0, currency = "") %>%
+            formatCurrency(c("Revenue")) %>%
+            formatPercentage(c("Return Rate", "Customization Rate"))
     })
     
     # ---- Return Reasons ----
@@ -34,37 +39,4 @@ shinyServer(function(input, output) {
     #               legend.title = element_blank())
     #     
     # })
-    
-    output$distPlot3 <- renderPlot({
-        
-        
-        x    <- faithful[, 2]
-        bins <- seq(min(x), max(x), length.out = input$bins + 1)
-        
-        
-        hist(x, breaks = bins, col = 'darkgray', border = 'white')
-        
-    })
-    output$distPlot4 <- renderPlot({
-        
-        
-        x    <- faithful[, 2]
-        bins <- seq(min(x), max(x), length.out = input$bins + 1)
-        
-        
-        hist(x, breaks = bins, col = 'darkgray', border = 'white')
-        
-    })
-    
-    output$distPlot5 <- renderPlot({
-        
-        
-        x    <- faithful[, 2]
-        bins <- seq(min(x), max(x), length.out = input$bins + 1)
-        
-        
-        hist(x, breaks = bins, col = 'darkgray', border = 'white')
-        
-    })
-    
 })

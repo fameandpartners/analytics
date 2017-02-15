@@ -7,6 +7,7 @@ library(stringr)
 library(scales)
 library(ggplot2)
 library(shiny)
+library(DT)
 
 source("fp_init.R")
 

@@ -1,41 +1,27 @@
-library(shiny)
-
 shinyUI(fluidPage(
-    
-    
-    # Application title
     titlePanel(NULL, "Ecommerce Performance"),
     
-    
-    sidebarLayout(
-        sidebarPanel(
-            width = 2,
-            sliderInput(
-                "bins",
-                "Number of bins:",
-                min = 1,
-                max = 50,
-                value = 30
+    fluidRow(
+        column(
+            4,
+            dateRangeInput(
+                "order_dates",
+                label = "Order Date",
+                start = as.Date("2016-01-01"),
+                end = as.Date("2017-01-01")
             )
-            
-        ),
-        
-        mainPanel(
-            width = 10,
-            fluidRow(
-                column(
-                    6,
-                    dataTableOutput("distPlot")
-                ),
-                column(
-                    6,
-                    plotOutput("distPlot2"),
-                    plotOutput("distPlot3")
-                )
-            ),
-            fluidRow(plotOutput("distPlot4")),
-            fluidRow(plotOutput("distPlot5"))
         )
+    ),
+
+    fluidRow(
+        column(1),
+        column(
+            10, 
+            h1("Top Styles", align = "center"),
+            br(),
+            dataTableOutput("style_ranking")
+        ),
+        column(1)
     )
-    
-))
+)
+)
