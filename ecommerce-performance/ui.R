@@ -25,7 +25,7 @@ shinyUI(fluidPage(
             fluidRow(
                 column(
                     6,
-                    tableOutput("distPlot")
+                    dataTableOutput("distPlot")
                 ),
                 column(
                     6,

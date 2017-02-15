@@ -9,7 +9,7 @@ shinyServer(function(input, output) {
     })
     
     
-    output$distPlot <- renderTable({
+    output$distPlot <- renderDataTable({
         filtered_sales() %>%
             filter(revenue_usd > 0) %>%
             group_by(style_name) %>%
