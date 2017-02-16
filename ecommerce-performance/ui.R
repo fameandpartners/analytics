@@ -1,27 +1,33 @@
 shinyUI(fluidPage(
     titlePanel(NULL, "Ecommerce Performance"),
     
+    h1("Ecommerce Performance", align = "center"),
+    
     fluidRow(
         column(
             4,
             dateRangeInput(
                 "order_dates",
                 label = "Order Date",
-                start = as.Date("2016-01-01"),
-                end = as.Date("2017-01-01")
+                start = today() - 90,
+                end = today()
+            ),
+            selectInput(
+                "collections",
+                label = "Collection",
+                choices = sort(unique(products_sold$collection)),
+                selected = unique(products_sold$collection),
+                multiple = TRUE
             )
+        ),
+        column(
+            8,
+            div(dataTableOutput("style_ranking"))
         )
     ),
-
+    
     fluidRow(
-        column(1),
-        column(
-            10, 
-            h1("Top Styles", align = "center"),
-            br(),
-            dataTableOutput("style_ranking")
-        ),
-        column(1)
+        plotOutput("weekly_sales")
     )
 )
 )
