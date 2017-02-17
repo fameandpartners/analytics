@@ -61,6 +61,8 @@ products_sold <-
             "INITCAP(TRIM(ir.reason_category)) return_reason_extra,",
             "CASE WHEN ir.id IS NOT NULL THEN li.order_id END return_order_id,",
             "COALESCE(cust.physical_customization, 0) physically_customized,",
+            "cust.color,",
+            "cust.size,",
             "RANK() OVER (PARTITION BY o.email ORDER BY o.completed_at) order_num",
         "FROM spree_line_items li",
         "LEFT JOIN spree_orders o",
@@ -81,7 +83,9 @@ products_sold <-
             "SELECT", 
                 "lip.line_item_id,",
                 "MAX(CASE WHEN lip.customization_value_ids SIMILAR TO '%([1-9])%'",
-                    "THEN 1 ELSE 0 END) physical_customization",
+                    "THEN 1 ELSE 0 END) physical_customization,",
+                "STRING_AGG(DISTINCT lip.size, ', ') size,",
+                "INITCAP(STRING_AGG(DISTINCT lip.color, ', ')) color",
             "FROM line_item_personalizations lip",
             "LEFT JOIN product_color_values pcv",
                 "ON pcv.id = lip.color_id",
@@ -111,6 +115,7 @@ products_sold <-
     select(-collection_na) %>%
     mutate(ship_year_month = year_month(ship_date),
            order_year_month = year_month(order_date),
+           price_usd = price * ifelse(currency == "AUD", 0.75, 1),
            revenue_usd = order_total * ifelse(currency == "AUD", 0.75, 1),
            refund_amount_usd = refund_amount * ifelse(currency == "AUD", 0.75, 1),
            order_status = 
@@ -121,7 +126,10 @@ products_sold <-
                ifelse(order_state != "canceled", cap1(shipment_state), 
                       cap1(order_state))))) %>%
     left_join(time_dim, by = c("order_date" = "date_value")) %>%
-    rename(order_date_week_starting = week_start_date)
+    rename(order_date_week_starting = week_start_date) %>%
+    separate(size, c("us_size_str","au_size_str"), sep = "/", remove = FALSE) %>% 
+    mutate(us_size = as.integer(str_replace_all(us_size_str, "US", ""))) %>%
+    filter(order_total != 0)
 
 
 

@@ -1,11 +1,18 @@
 shinyServer(function(input, output) {
     
     # ---- Global Data Set Filters ----
+    collection_filter <- reactive({
+        if(length(input$collections) > 0) {
+            input$collections
+        } else { unique(products_sold$collection) }
+    })
     
     filtered_sales <- reactive({
         sales <- products_sold %>%
             filter(between(order_date, input$order_dates[1], input$order_dates[2])) %>%
-            filter(collection %in% input$collections)
+            filter(collection %in% collection_filter()) %>%
+            filter(between(price_usd, input$price_range[1], input$price_range[2])) %>%
+            filter(between(us_size, input$us_size[1], input$us_size[2]))
         return(sales)
     })
     
@@ -49,6 +56,15 @@ shinyServer(function(input, output) {
         }
     })
     
+    # ---- KPIs ----
+    output$kpis <- renderTable({
+        selected_sales() %>%
+            summarise(Units = dollar(n()) %>% str_replace_all("/$", ""),
+                      Revenue = dollar(sum(revenue_usd)),
+                      `Return Rate` = percent(sum(revenue_usd * item_returned) / sum(revenue_usd)),
+                      `Customization Rate` = percent(sum(revenue_usd * physically_customized) / sum(revenue_usd)))
+    })
+    
     # ---- Weekly Sales ----
     
     weekly_sales_data <- reactive({
@@ -58,34 +74,103 @@ shinyServer(function(input, output) {
                       `Revenue USD` = sum(revenue_usd))
     })
     
-    # output$rows_test <- renderText({
-    #     dftest <- weekly_sales_data()
-    #     nrow(dftest)
-    # })
-    
     output$weekly_sales <- renderPlot({
         weekly_sales_data() %>%
             ggplot(aes(x = order_date, y = `Revenue USD`, fill = order_status)) +
             geom_bar(stat = "identity", color = "black", size = 0.2) +
             scale_y_continuous(labels = dollar) +
-            theme_bw(base_size = 12) +
+            theme_bw(base_size = 14) +
             theme(axis.title.x = element_blank(),
-                  legend.title = element_blank())
+                  legend.title = element_blank()) +
+            scale_fill_brewer(palette = "Set3")
     })
     
     # ---- Return Reasons ----
-    # output$distPlot2 <- renderPlot({
-    #     
-    #     returns %>%
-    #         group_by(Reason, `Sub Reason`) %>%
-    #         summarise(items = sum(items)) %>%
-    #         ggplot(aes(x = Reason, y = items, fill = `Sub Reason`)) +
-    #         geom_bar(stat = "identity", position = "fill", color = "black", size = 0.25) +
-    #         scale_y_continuous(labels = percent) + 
-    #         theme_bw(base_size = 12) +
-    #         coord_flip() + 
-    #         theme(axis.title = element_blank(),
-    #               legend.title = element_blank())
-    #     
-    # })
+    
+    return_reason_data <- reactive({
+        selected_sales() %>%
+            filter(item_returned) %>%
+            group_by(return_reason) %>%
+            summarise(Units = n())
+    })
+    
+    output$return_reasons <- renderPlot({
+        returns_df <- return_reason_data()
+        
+        if(nrow(return_reason_data()) > 0){
+            returns_df %>%
+            ggplot(aes(x = "", y = Units, fill = return_reason)) +
+                geom_bar(stat = "identity", position = "fill", color = "black", size = 0.2) +
+                coord_polar("y", start = 0) +
+                theme_minimal(base_size = 14) +
+                theme(axis.text = element_blank(),
+                      axis.title = element_blank(),
+                      legend.title = element_blank(),
+                      legend.position = "left") +
+                scale_fill_brewer(palette = "Set3")
+        } else {
+            ggplot(data_frame(x = c(NA)), aes(x = x)) + 
+                ggtitle("No Returns") + 
+                theme_minimal() + 
+                theme(axis.title = element_blank(), 
+                      axis.text = element_blank())
+        }
+    })
+    
+    # ---- Top Colors ---- 
+    
+    top_colors_data <- reactive({
+        top_colors <- 
+            selected_sales() %>%
+            filter(!is.na(color)) %>%
+            count(color) %>%
+            top_n(10, n) %>%
+            arrange(n)
+        
+        top_colors$color <- factor(
+            top_colors$color,
+            levels = top_colors$color
+        )
+        
+        return(top_colors)
+    })
+    
+    output$top_colors <- renderPlot({
+        top_colors_data() %>%
+            rename(Color = color, Units = n) %>%
+            ggplot(aes(x = Color, y = Units)) +
+            geom_bar(stat = "identity") +
+            theme_bw(base_size = 14) +
+            coord_flip() +
+            theme(axis.title.y = element_blank())
+    })
+    
+    # ---- Download All Data ----
+    output$download_all <- downloadHandler(
+        filename = function() { paste("eCommerce Performance Details ", today(), ".csv", sep='') },
+        content = function(file) {
+            write_csv(selected_sales() %>%
+                          select(
+                              -order_total, 
+                              -item_returned,
+                              -return_reason_extra,
+                              -return_order_id,
+                              -physically_customized,
+                              -us_size_str,
+                              -au_size_str,
+                              -order_num,
+                              -ship_year_month,
+                              -order_year_month,
+                              -price_usd,
+                              -revenue_usd,
+                              -refund_amount_usd,
+                              -order_date_week_starting,
+                              -us_size,
+                              -refund_amount,
+                              -email 
+                          ), 
+                      file)
+        }
+    )
+    
 })
