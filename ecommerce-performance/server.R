@@ -1,10 +1,19 @@
 shinyServer(function(input, output) {
     
     # ---- Global Data Set Filters ----
+    
     collection_filter <- reactive({
         if(length(input$collections) > 0) {
             input$collections
         } else { unique(products_sold$collection) }
+    })
+    
+    product_live_conversion <- reactive({
+        if(input$live == "Yes"){ T } else { F }
+    })
+    
+    product_live_filter <- reactive({
+        if(length(input$live) == 0) { c("Yes", "No") } else { input$live }
     })
     
     filtered_sales <- reactive({
@@ -12,7 +21,8 @@ shinyServer(function(input, output) {
             filter(between(order_date, input$order_dates[1], input$order_dates[2])) %>%
             filter(collection %in% collection_filter()) %>%
             filter(between(price_usd, input$price_range[1], input$price_range[2])) %>%
-            filter(between(us_size, input$us_size[1], input$us_size[2]))
+            filter(between(us_size, input$us_size[1], input$us_size[2])) %>%
+            filter(product_live %in% product_live_filter())
         return(sales)
     })
     
@@ -59,8 +69,8 @@ shinyServer(function(input, output) {
     # ---- KPIs ----
     output$kpis <- renderTable({
         selected_sales() %>%
-            summarise(Units = dollar(n()) %>% str_replace_all("/$", ""),
-                      Revenue = dollar(sum(revenue_usd)),
+            summarise(`Total Units` = short_number(n()),
+                      `Total Revenue` = short_dollar(sum(revenue_usd)),
                       `Return Rate` = percent(sum(revenue_usd * item_returned) / sum(revenue_usd)),
                       `Customization Rate` = percent(sum(revenue_usd * physically_customized) / sum(revenue_usd)))
     })
@@ -145,15 +155,34 @@ shinyServer(function(input, output) {
             theme(axis.title.y = element_blank())
     })
     
+    # ---- Weekly Revenue ----
+    
+    yearless_filter <- reactive({
+        products_sold
+    })
+    
+    output$cumulative_rev <- renderPlot({
+        products_sold %>%
+            group_by(order_year = year(order_date), 
+                     order_week = week(order_date)) %>%
+            summarise(revenue = sum(revenue_usd)) %>%
+            mutate(cumulative_revenue = cumsum(revenue))%>%
+            ggplot(aes(x = order_week, y = cumulative_revenue, color = as.factor(order_year))) +
+            scale_y_continuous(labels = short_dollar) +
+            scale_x_continuous(labels = week_to_month_name, breaks = seq(1, 55, 10)) +
+            geom_line() +
+            theme_bw(base_size = 14) +
+            theme(axis.title = element_blank(),
+                  legend.title = element_blank())
+    })
+    
     # ---- Download All Data ----
     output$download_all <- downloadHandler(
         filename = function() { paste("eCommerce Performance Details ", today(), ".csv", sep='') },
         content = function(file) {
             write_csv(selected_sales() %>%
                           select(
-                              -order_total, 
                               -item_returned,
-                              -return_reason_extra,
                               -return_order_id,
                               -physically_customized,
                               -us_size_str,
@@ -166,7 +195,6 @@ shinyServer(function(input, output) {
                               -refund_amount_usd,
                               -order_date_week_starting,
                               -us_size,
-                              -refund_amount,
                               -email 
                           ), 
                       file)

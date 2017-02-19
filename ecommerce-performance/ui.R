@@ -1,9 +1,9 @@
 shinyUI(fluidPage(
-    
+    theme="styles.css",
     navbarPage(
         title = "eCommerce Performance",
         tabPanel(
-            "Top Styles",
+            "Styles",
             
             fluidRow(
                 column(
@@ -20,6 +20,12 @@ shinyUI(fluidPage(
                         choices = sort(unique(products_sold$collection)),
                         multiple = TRUE
                     ),
+                    # selectInput(
+                    #     "live",
+                    #     "Style Live on Website:",
+                    #     choices = c("Yes","No"),
+                    #     multiple = TRUE
+                    # ),
                     sliderInput(
                         "us_size",
                         "Size (US):",
@@ -38,15 +44,18 @@ shinyUI(fluidPage(
                 ),
                 column(
                     8,
-                    dataTableOutput("style_ranking")#,
-                    #tableOutput("kpis")
+                    div(tableOutput("kpis"), id= "kpis", align = "right"),
+                    dataTableOutput("style_ranking")
                 )
             ),
+            
+            hr(),
             
             fluidRow(
                 h3("Daily Sales", align = "center"),
                 plotOutput("weekly_sales")
             ),
+            
             fluidRow(
                 column(
                     6,
@@ -66,7 +75,11 @@ shinyUI(fluidPage(
         )
         # ,
         # tabPanel(
-        #     "Conversions"
+        #     "Conversions",
+        #     fluidRow(
+        #         h3("Cumulative Revenue"),
+        #         plotOutput("cumulative_rev")
+        #     )
         # )
     ),
     

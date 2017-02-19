@@ -21,20 +21,48 @@ year_month <- function(date_value){
           sep = "-")
 }
 
-collections <- read_csv("static-data/collections_2.csv", col_types = "iccccc") %>%
+short_dollar <- function(number){
+    ifelse(number < 1000, dollar(number),
+        ifelse(number >= 1000 & number < 1000000,
+            paste0("$", round(number / 1000, 1), "K"),
+            ifelse(number >= 1000000,
+                paste0("$", round(number / 1000000, 1), "M"),
+                paste0("$", round(number / 1000000000, 1), "B"))))
+}
+
+short_number <- function(number){
+    ifelse(number < 1000, number,
+           ifelse(number >= 1000 & number < 1000000,
+                  paste0(round(number / 1000, 1), "K"),
+                  ifelse(number >= 1000000,
+                         paste0(round(number / 1000000, 1), "M"),
+                         paste0(round(number / 1000000000, 1), "B"))))
+}
+
+collections <- read_csv("static-data/collections_2.csv", 
+                        col_types = "iccccc") %>%
     transmute(product_id = `Product ID`,
               collection_na = Collection)
 
-time_dim <- data_frame(date_value = seq(as.Date("2016-01-01"), today(), 1)) %>%
-    mutate(year_value = year(date_value),
-           week_value = week(date_value)) %>%
-    group_by(year_value, week_value) %>%
-    mutate(week_start_date = min(date_value)) %>%
-    ungroup() %>%
-    select(date_value, week_start_date)
+abbr_month <- function(date_value){
+    month(date_value, label = TRUE)
+}
 
-products_sold <-
-    tbl(fp_con, sql(paste(
+week_to_month_name <- function(weeks){
+    weeks_df <- data_frame(week_value = weeks)
+    
+    time_dim <- data_frame(date_value = seq(as.Date("2016-01-01"), today(), 1)) %>%
+        transmute(week_value = week(date_value),
+                  month_abbr_name = month(date_value, label = TRUE, abbr = TRUE)) %>%
+        filter(!duplicated(week_value)) %>%
+        rbind(data_frame(week_value = c(0), month_abbr_name = c("Jan")))
+    
+    week_to_month <- weeks_df %>% left_join(time_dim, by = "week_value")
+    
+    return(week_to_month$month_abbr_name)
+}
+
+products_sold <- tbl(fp_con, sql(paste(
         "SELECT",
             "li.id line_item_id,",
             "li.order_id,",
@@ -43,7 +71,8 @@ products_sold <-
             "o.shipment_state,",
             "li.quantity,",
             "li.price,",
-            "o.total / (COUNT(*) OVER (PARTITION BY li.order_id)) order_total,",
+            "o.total / (COUNT(*) OVER (PARTITION BY li.order_id))",
+                "* CASE WHEN o.currency = 'AUD' THEN 0.75 ELSE 1 END revenue_usd,",
             "li.currency,",
             "INITCAP(sa.city) ship_city,",
             "INITCAP(ss.name) ship_state,",
@@ -57,13 +86,22 @@ products_sold <-
             "INITCAP(p.name) style_name,",
             "UPPER(style.number) style_number,",
             "ir.refund_amount IS NOT NULL item_returned,",
-            "ir.refund_amount / 100 refund_amount,",
-            "INITCAP(TRIM(ir.reason_category)) return_reason_extra,",
+            "ir.refund_amount / 100 * CASE WHEN o.currency = 'AUD' THEN 0.75 ELSE 1 END refund_amount_usd,",
+            "CASE",
+                "WHEN ir.refund_amount IS NOT NULL THEN 'Returned'",
+                "WHEN o.state != 'canceled' AND (o.shipment_state = 'partial' OR o.shipment_state IS NULL) THEN 'Paid'",
+                "WHEN o.state != 'canceled' THEN INITCAP(o.shipment_state)",
+            "ELSE INITCAP(o.state) END order_status,",
+            "CASE WHEN LOWER(ir.reason_category) IN ('n/a','na','not specified','not stated','not satisfied')",
+                "THEN 'No Reason' ELSE INITCAP(TRIM(ir.reason_category)) END return_reason,",
             "CASE WHEN ir.id IS NOT NULL THEN li.order_id END return_order_id,",
             "COALESCE(cust.physical_customization, 0) physically_customized,",
             "cust.color,",
             "cust.size,",
-            "RANK() OVER (PARTITION BY o.email ORDER BY o.completed_at) order_num",
+            "RANK() OVER (PARTITION BY o.email ORDER BY o.completed_at) order_num,",
+            "CASE WHEN NOT p.hidden AND (p.deleted_at IS NULL OR p.deleted_at > CURRENT_DATE) AND p.available_on <= CURRENT_DATE",
+                "THEN 'Yes' ELSE 'No' END product_live,",
+            "li.price * CASE WHEN o.currency = 'AUD' THEN 0.75 ELSE 1 END price_usd",
         "FROM spree_line_items li",
         "LEFT JOIN spree_orders o",
             "ON o.id = li.order_id",
@@ -105,77 +143,11 @@ products_sold <-
             "AND o.completed_at >= '2016-01-01'",
             "AND o.payment_state = 'paid'"))) %>%
     collect(n = Inf) %>%
-    mutate(return_reason = ifelse(
-        is.na(return_reason_extra) 
-        | return_reason_extra %in% c("N/A","Na","Not Specified","Not Stated","Not Satisfied"),
-        "No Reason",
-        return_reason_extra)) %>%
     left_join(collections, by = "product_id") %>%
     mutate(collection = ifelse(is.na(collection_na), "Old", collection_na)) %>%
     select(-collection_na) %>%
     mutate(ship_year_month = year_month(ship_date),
-           order_year_month = year_month(order_date),
-           price_usd = price * ifelse(currency == "AUD", 0.75, 1),
-           revenue_usd = order_total * ifelse(currency == "AUD", 0.75, 1),
-           refund_amount_usd = refund_amount * ifelse(currency == "AUD", 0.75, 1),
-           order_status = 
-               ifelse(item_returned, "Returned",
-               ifelse(order_state != "canceled"
-                      & (is.na(shipment_state) | shipment_state == "partial"),
-                      "Paid",
-               ifelse(order_state != "canceled", cap1(shipment_state), 
-                      cap1(order_state))))) %>%
-    left_join(time_dim, by = c("order_date" = "date_value")) %>%
-    rename(order_date_week_starting = week_start_date) %>%
+           order_year_month = year_month(order_date)) %>%
     separate(size, c("us_size_str","au_size_str"), sep = "/", remove = FALSE) %>% 
     mutate(us_size = as.integer(str_replace_all(us_size_str, "US", ""))) %>%
-    filter(order_total != 0)
-
-
-
-
-
-
-
-# returns <- tbl(fp_con, sql(paste(
-#     "SELECT",
-#         "ir.reason_category,",
-#         "ir.reason_sub_category,",
-#         "SUM(li.quantity) items",
-#     "FROM item_returns ir",
-#     "INNER JOIN spree_line_items li",
-#         "ON li.id = ir.line_item_id",
-#     "INNER JOIN spree_orders o",
-#         "ON o.id = li.order_id",
-#     "WHERE o.completed_at IS NOT NULL ",
-#         "AND ir.requested_action = 'return'",
-#         "AND o.completed_at >= CURRENT_DATE - INTERVAL '12 months'",
-#     "GROUP BY",
-#         "ir.reason_category,",
-#         "ir.reason_sub_category"))) %>%
-#     collect() %>%
-#     mutate(Reason = ifelse(reason_category == "Poor quality or faulty",
-#                            "Poor quality\nor faulty",
-#                     ifelse(reason_category == "Looks different to image on site",
-#                            "Looks different to\nimage on site",
-#                     ifelse(reason_category == "Ordered multiple styles or sizes",
-#                            "Ordered multiple\nstyles or sizes",
-#                            reason_category))),
-#            sub_reason = 
-#                ifelse(is.na(reason_sub_category) | str_detect(tolower(reason_sub_category),"not state|reason|n/a|na|cancel|not specifelseied|charged twice|not spec"),"No Reason",
-#                ifelse(str_detect(tolower(reason_sub_category), "bust"),"Bust",
-#                ifelse(str_detect(tolower(reason_sub_category),"waist"),"Waist", 
-#                ifelse(str_detect(tolower(reason_sub_category), "long|short|length"), "Length", 
-#                ifelse(str_detect(tolower(reason_sub_category), "hips"), "Hips", 
-#                ifelse(str_detect(tolower(reason_sub_category), "fit|small|big|size|too low|tight|on the body"), "Fit",
-#                ifelse(str_detect(tolower(reason_sub_category),"late|delivery|ship|transit|received part|event"),"Shipment",
-#                ifelse(str_detect(tolower(reason_sub_category),"difficult to choose|not sure"), "Difficult to Choose", 
-#                ifelse(str_detect(tolower(reason_sub_category),"expectations|not clear|difelseferent|does not match|on the website|wrong"), "Missed Expectations", 
-#                ifelse(str_detect(tolower(reason_sub_category),"poor quality|stain|poorly made|damaged|difelseferent style|marks|customisation|cheap"), "Quality", 
-#                "No Reason")))))))))))  %>%
-#     rename(`Sub Reason` = sub_reason)
-# 
-# returns$`Sub Reason` <- factor(
-#     returns$`Sub Reason`,
-#     levels = c("Fit","Length","Bust","Waist","Hips","Quality","Shipment","Missed Expectations","Difficult to Choose","No Reason")
-# )
+    filter(revenue_usd != 0)
