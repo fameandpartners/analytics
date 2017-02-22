@@ -151,3 +151,8 @@ products_sold <- tbl(fp_con, sql(paste(
     separate(size, c("us_size_str","au_size_str"), sep = "/", remove = FALSE) %>% 
     mutate(us_size = as.integer(str_replace_all(us_size_str, "US", ""))) %>%
     filter(revenue_usd != 0)
+
+products_sold$order_status <- factor(
+    products_sold$order_status,
+    levels = c("Paid","Ready","Shipped","Returned","Canceled")
+)

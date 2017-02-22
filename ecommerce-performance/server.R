@@ -8,12 +8,14 @@ shinyServer(function(input, output) {
         } else { unique(products_sold$collection) }
     })
     
-    product_live_conversion <- reactive({
-        if(input$live == "Yes"){ T } else { F }
+    order_status_filter <- reactive({
+        if(length(input$order_status) > 0) {
+            input$order_status
+        } else { unique(products_sold$order_status) }
     })
-    
+
     product_live_filter <- reactive({
-        if(length(input$live) == 0) { c("Yes", "No") } else { input$live }
+        if(length(input$live) > 0) { input$live } else { c("Yes", "No") }
     })
     
     filtered_sales <- reactive({
@@ -22,14 +24,15 @@ shinyServer(function(input, output) {
             filter(collection %in% collection_filter()) %>%
             filter(between(price_usd, input$price_range[1], input$price_range[2])) %>%
             filter(between(us_size, input$us_size[1], input$us_size[2])) %>%
-            filter(product_live %in% product_live_filter())
+            filter(product_live %in% product_live_filter()) %>%
+            filter(order_status %in% order_status_filter())
         return(sales)
     })
     
     # ---- Top Styles ----
     style_ranking_data <- reactive({
         filtered_sales() %>%
-            filter(revenue_usd > 0 & order_state == 'complete') %>%
+            filter(revenue_usd > 0) %>%
             group_by(style_number) %>%
             summarise(`Style Name` = paste(unique(style_name), collapse = ","),
                       Units = n(),
@@ -68,24 +71,27 @@ shinyServer(function(input, output) {
     
     # ---- KPIs ----
     output$kpis <- renderTable({
-        selected_sales() %>%
+        sum_stats <- 
+            selected_sales() %>%
+            filter(revenue_usd > 0) %>%
             summarise(`Total Units` = short_number(n()),
                       `Total Revenue` = short_dollar(sum(revenue_usd)),
-                      `Return Rate` = percent(sum(revenue_usd * item_returned) / sum(revenue_usd)),
-                      `Customization Rate` = percent(sum(revenue_usd * physically_customized) / sum(revenue_usd)))
+                      `Return Rate` = percent(round(sum(revenue_usd * item_returned) / sum(revenue_usd), 2)),
+                      `Customization Rate` = percent(round(sum(revenue_usd * physically_customized) / sum(revenue_usd), 2)))
+        return(sum_stats)
     })
     
-    # ---- Weekly Sales ----
+    # ---- Daily Sales ----
     
-    weekly_sales_data <- reactive({
+    daily_sales_data <- reactive({
         selected_sales() %>%
             group_by(order_date, order_status) %>%
             summarise(order_week_start = min(order_date),
                       `Revenue USD` = sum(revenue_usd))
     })
     
-    output$weekly_sales <- renderPlot({
-        weekly_sales_data() %>%
+    output$daily_sales <- renderPlot({
+        daily_sales_data() %>%
             ggplot(aes(x = order_date, y = `Revenue USD`, fill = order_status)) +
             geom_bar(stat = "identity", color = "black", size = 0.2) +
             scale_y_continuous(labels = dollar) +
@@ -155,26 +161,26 @@ shinyServer(function(input, output) {
             theme(axis.title.y = element_blank())
     })
     
-    # ---- Weekly Revenue ----
-    
-    yearless_filter <- reactive({
-        products_sold
-    })
-    
-    output$cumulative_rev <- renderPlot({
-        products_sold %>%
-            group_by(order_year = year(order_date), 
-                     order_week = week(order_date)) %>%
-            summarise(revenue = sum(revenue_usd)) %>%
-            mutate(cumulative_revenue = cumsum(revenue))%>%
-            ggplot(aes(x = order_week, y = cumulative_revenue, color = as.factor(order_year))) +
-            scale_y_continuous(labels = short_dollar) +
-            scale_x_continuous(labels = week_to_month_name, breaks = seq(1, 55, 10)) +
-            geom_line() +
-            theme_bw(base_size = 14) +
-            theme(axis.title = element_blank(),
-                  legend.title = element_blank())
-    })
+    # # ---- Weekly Revenue ----
+    # 
+    # yearless_filter <- reactive({
+    #     products_sold
+    # })
+    # 
+    # output$cumulative_rev <- renderPlot({
+    #     products_sold %>%
+    #         group_by(order_year = year(order_date), 
+    #                  order_week = week(order_date)) %>%
+    #         summarise(revenue = sum(revenue_usd)) %>%
+    #         mutate(cumulative_revenue = cumsum(revenue))%>%
+    #         ggplot(aes(x = order_week, y = cumulative_revenue, color = as.factor(order_year))) +
+    #         scale_y_continuous(labels = short_dollar) +
+    #         scale_x_continuous(labels = week_to_month_name, breaks = seq(1, 55, 10)) +
+    #         geom_line() +
+    #         theme_bw(base_size = 14) +
+    #         theme(axis.title = element_blank(),
+    #               legend.title = element_blank())
+    # })
     
     # ---- Download All Data ----
     output$download_all <- downloadHandler(

@@ -20,12 +20,18 @@ shinyUI(fluidPage(
                         choices = sort(unique(products_sold$collection)),
                         multiple = TRUE
                     ),
-                    # selectInput(
-                    #     "live",
-                    #     "Style Live on Website:",
-                    #     choices = c("Yes","No"),
-                    #     multiple = TRUE
-                    # ),
+                    selectInput(
+                        "order_status",
+                        label = "Order Status",
+                        choices = sort(unique(products_sold$order_status)),
+                        multiple = TRUE
+                    ),
+                    selectInput(
+                        "live",
+                        "Style Live on Website:",
+                        choices = c("Yes","No"),
+                        multiple = TRUE
+                    ),
                     sliderInput(
                         "us_size",
                         "Size (US):",
@@ -53,7 +59,7 @@ shinyUI(fluidPage(
             
             fluidRow(
                 h3("Daily Sales", align = "center"),
-                plotOutput("weekly_sales")
+                plotOutput("daily_sales")
             ),
             
             fluidRow(
