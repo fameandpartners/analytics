@@ -50,7 +50,7 @@ shinyUI(fluidPage(
                 ),
                 column(
                     8,
-                    div(tableOutput("kpis"), id= "kpis", align = "right"),
+                    div(tableOutput("kpis"), id = "kpi-wrapper"),
                     dataTableOutput("style_ranking")
                 )
             ),
@@ -78,7 +78,15 @@ shinyUI(fluidPage(
             fluidRow(
                 downloadButton("download_all")
             )
+        ),
+        
+        tabPanel(
+            "Returns",
+            h1("Returns Bulk Export"),
+            p("The download will take up to 1 minute"),
+            downloadButton("download_returns")
         )
+        
         # ,
         # tabPanel(
         #     "Conversions",

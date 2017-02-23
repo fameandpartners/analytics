@@ -94,6 +94,7 @@ products_sold <- tbl(fp_con, sql(paste(
             "ELSE INITCAP(o.state) END order_status,",
             "CASE WHEN LOWER(ir.reason_category) IN ('n/a','na','not specified','not stated','not satisfied')",
                 "THEN 'No Reason' ELSE INITCAP(TRIM(ir.reason_category)) END return_reason,",
+            "ir.reason_sub_category,",
             "CASE WHEN ir.id IS NOT NULL THEN li.order_id END return_order_id,",
             "COALESCE(cust.physical_customization, 0) physically_customized,",
             "cust.color,",
@@ -143,7 +144,10 @@ products_sold <- tbl(fp_con, sql(paste(
             "AND o.completed_at >= '2016-01-01'",
             "AND o.payment_state = 'paid'"))) %>%
     collect(n = Inf) %>%
-    left_join(collections, by = "product_id") %>%
+    left_join(collections %>%
+                  group_by(product_id) %>%
+                  summarise(collection_na = paste(unique(collection_na), collapse = ", ")), 
+              by = "product_id") %>%
     mutate(collection = ifelse(is.na(collection_na), "Old", collection_na)) %>%
     select(-collection_na) %>%
     mutate(ship_year_month = year_month(ship_date),

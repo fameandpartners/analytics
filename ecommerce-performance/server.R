@@ -1,6 +1,8 @@
 shinyServer(function(input, output) {
     
-    # ---- Global Data Set Filters ----
+    # ---- Styles Tab ----
+    
+    # ---- Styles Data Set Filters ----
     
     collection_filter <- reactive({
         if(length(input$collections) > 0) {
@@ -35,7 +37,7 @@ shinyServer(function(input, output) {
             filter(revenue_usd > 0) %>%
             group_by(style_number) %>%
             summarise(`Style Name` = paste(unique(style_name), collapse = ","),
-                      Units = n(),
+                      Units = sum(quantity),
                       Revenue = sum(revenue_usd),
                       `Return Rate` = sum(revenue_usd * item_returned) / sum(revenue_usd),
                       `Customization Rate` = sum(revenue_usd * physically_customized) / sum(revenue_usd)) %>%
@@ -74,7 +76,7 @@ shinyServer(function(input, output) {
         sum_stats <- 
             selected_sales() %>%
             filter(revenue_usd > 0) %>%
-            summarise(`Total Units` = short_number(n()),
+            summarise(`Total Units` = short_number(sum(quantity)),
                       `Total Revenue` = short_dollar(sum(revenue_usd)),
                       `Return Rate` = percent(round(sum(revenue_usd * item_returned) / sum(revenue_usd), 2)),
                       `Customization Rate` = percent(round(sum(revenue_usd * physically_customized) / sum(revenue_usd), 2)))
@@ -160,28 +162,7 @@ shinyServer(function(input, output) {
             coord_flip() +
             theme(axis.title.y = element_blank())
     })
-    
-    # # ---- Weekly Revenue ----
-    # 
-    # yearless_filter <- reactive({
-    #     products_sold
-    # })
-    # 
-    # output$cumulative_rev <- renderPlot({
-    #     products_sold %>%
-    #         group_by(order_year = year(order_date), 
-    #                  order_week = week(order_date)) %>%
-    #         summarise(revenue = sum(revenue_usd)) %>%
-    #         mutate(cumulative_revenue = cumsum(revenue))%>%
-    #         ggplot(aes(x = order_week, y = cumulative_revenue, color = as.factor(order_year))) +
-    #         scale_y_continuous(labels = short_dollar) +
-    #         scale_x_continuous(labels = week_to_month_name, breaks = seq(1, 55, 10)) +
-    #         geom_line() +
-    #         theme_bw(base_size = 14) +
-    #         theme(axis.title = element_blank(),
-    #               legend.title = element_blank())
-    # })
-    
+
     # ---- Download All Data ----
     output$download_all <- downloadHandler(
         filename = function() { paste("eCommerce Performance Details ", today(), ".csv", sep='') },
@@ -199,12 +180,21 @@ shinyServer(function(input, output) {
                               -price_usd,
                               -revenue_usd,
                               -refund_amount_usd,
-                              -order_date_week_starting,
-                              -us_size,
-                              -email 
+                              -us_size
                           ), 
-                      file)
+                      file, na = "")
         }
     )
     
+    # ---- Returns Tab ----
+    
+    # ---- Returns Export ----
+    
+    output$download_returns <- downloadHandler(
+        filename = function() { paste("Returns Details Since Jun 2016 ", today(), ".csv", sep='') },
+        content = function(file) {
+            source("returns-bulk-export.R")
+            write_csv(bulk_export, file, na = "")
+        }
+    )
 })
