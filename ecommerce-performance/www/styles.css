@@ -1,5 +1,9 @@
 #kpis {
 	width:100%;
+	text-align: right;
+}
+#kpi-wrapper {
+	float: right;
 }
 body, header {
 	font-family: brandon-grotesque,Helvetica,Arial,sans-serif;
