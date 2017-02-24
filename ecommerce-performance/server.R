@@ -40,7 +40,7 @@ shinyServer(function(input, output) {
                       Units = sum(quantity),
                       Revenue = sum(revenue_usd),
                       `Return Rate` = sum(revenue_usd * item_returned) / sum(revenue_usd),
-                      `Customization Rate` = sum(revenue_usd * physically_customized) / sum(revenue_usd)) %>%
+                      `Customization Rate` = sum(quantity * physically_customized) / sum(quantity)) %>%
             arrange(desc(Revenue))
     })
     
@@ -78,8 +78,8 @@ shinyServer(function(input, output) {
             filter(revenue_usd > 0) %>%
             summarise(`Total Units` = short_number(sum(quantity)),
                       `Total Revenue` = short_dollar(sum(revenue_usd)),
-                      `Return Rate` = percent(round(sum(revenue_usd * item_returned) / sum(revenue_usd), 2)),
-                      `Customization Rate` = percent(round(sum(revenue_usd * physically_customized) / sum(revenue_usd), 2)))
+                      `Return Rate` = round(sum(revenue_usd * item_returned) / sum(revenue_usd), 2) %>% percent(),
+                      `Customization Rate` = round(sum(quantity * physically_customized) / sum(quantity), 2) %>% percent())
         return(sum_stats)
     })
     
@@ -169,22 +169,64 @@ shinyServer(function(input, output) {
         content = function(file) {
             write_csv(selected_sales() %>%
                           select(
-                              -item_returned,
-                              -return_order_id,
-                              -physically_customized,
-                              -us_size_str,
-                              -au_size_str,
-                              -order_num,
-                              -ship_year_month,
-                              -order_year_month,
-                              -price_usd,
-                              -revenue_usd,
-                              -refund_amount_usd,
-                              -us_size
+                              line_item_id,
+                              order_id,
+                              order_number,
+                              order_state,
+                              shipment_state,
+                              quantity,
+                              price,
+                              currency,
+                              ship_city,
+                              ship_state,
+                              ship_country,
+                              order_date,
+                              ship_date,
+                              email,
+                              user_id,
+                              customer_name,
+                              product_id,
+                              style_name,
+                              style_number,
+                              order_status,
+                              return_reason,
+                              reason_sub_category,
+                              color,
+                              size,
+                              product_live,
+                              collection
                           ), 
                       file, na = "")
         }
     )
+    
+    # ---- Monthly Customization Rates ----
+    output$cust_rates <- renderPlot({
+        selected_sales() %>%
+            group_by(order_year_month) %>% 
+            summarise(Units = sum(physically_customized * quantity) / sum(quantity)) %>% 
+            ggplot(aes(x = order_year_month, y = Units)) + 
+            geom_bar(stat = "identity") +
+            scale_y_continuous(labels = percent) +
+            theme_bw(base_size = 14) +
+            theme(axis.title.x = element_blank(),
+                  legend.title = element_blank(),
+                  axis.text.x = element_text(hjust = 1, angle = 45))
+    })
+    
+    # ---- Size Distrobution ----
+    output$size_dist <- renderPlot({
+        selected_sales() %>%
+            group_by(size) %>%
+            summarise(Units = sum(quantity)) %>%
+            arrange(desc(size)) %>%
+            ggplot(aes(x = size, y = Units)) +
+            geom_bar(stat = "identity") +
+            theme_bw(base_size = 14) +
+            #coord_flip() +
+            theme(axis.title.x = element_blank())
+    })
+    
     
     # ---- Returns Tab ----
     

@@ -39,6 +39,8 @@ short_number <- function(number){
                          paste0(round(number / 1000000000, 1), "B"))))
 }
 
+h3c <- function(x){h3(x, align = "center")}
+
 collections <- read_csv("static-data/collections_2.csv", 
                         col_types = "iccccc") %>%
     transmute(product_id = `Product ID`,
@@ -140,6 +142,12 @@ products_sold <- tbl(fp_con, sql(paste(
             "FROM global_skus",
             "GROUP BY product_id) style",
             "ON style.product_id = v.product_id",
+        "LEFT JOIN (",
+            "SELECT sku, STRING_AGG(size, ',')",
+            "FROM global_skus",
+            "WHERE sku IS NOT NULL and size IS NOT NULL",
+            "GROUP BY sku) gsku",
+            "ON gsku.sku = v.sku",
         "WHERE o.completed_at IS NOT NULL",
             "AND o.completed_at >= '2016-01-01'",
             "AND o.payment_state = 'paid'"))) %>%
@@ -159,4 +167,9 @@ products_sold <- tbl(fp_con, sql(paste(
 products_sold$order_status <- factor(
     products_sold$order_status,
     levels = c("Paid","Ready","Shipped","Returned","Canceled")
+)
+
+products_sold$size <- factor(
+    products_sold$size,
+    levels = paste0("US", seq(0,22,2), "/AU", seq(4,26,2))
 )

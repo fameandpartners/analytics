@@ -36,8 +36,8 @@ shinyUI(fluidPage(
                         "us_size",
                         "Size (US):",
                         min = 0,
-                        max = 20,
-                        value = c(0,20)
+                        max = 22,
+                        value = c(0,22)
                     ),
                     sliderInput(
                         "price_range",
@@ -58,21 +58,31 @@ shinyUI(fluidPage(
             hr(),
             
             fluidRow(
-                h3("Daily Sales", align = "center"),
+                h3c("Daily Sales"),
                 plotOutput("daily_sales")
             ),
             
             fluidRow(
                 column(
                     6,
-                    h3("Return Reasons", align = "center"),
+                    h3c("Return Reasons"),
                     plotOutput("return_reasons")
                 ),
                 column(
                     6,
-                    h3("Top Colors", align = "center"),
+                    h3c("Top Colors"),
                     plotOutput("top_colors")
                 )
+            ),
+            
+            fluidRow(
+                h3c("Monthly Customization Rates"),
+                plotOutput("cust_rates")
+            ),
+            
+            fluidRow(
+                h3c("Size Distribution"),
+                plotOutput("size_dist")
             ),
             
             fluidRow(
