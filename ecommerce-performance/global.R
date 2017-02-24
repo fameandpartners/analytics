@@ -8,8 +8,9 @@ library(scales)
 library(ggplot2)
 library(shiny)
 library(DT)
+library(httr)
 
-source("fp_init.R")
+# ---- FUNCTIONS ----
 
 cap1 <- function(string){
     paste0(toupper(substr(string, 1, 1)), tolower(substr(string, 2, 25)))
@@ -41,11 +42,6 @@ short_number <- function(number){
 
 h3c <- function(x){h3(x, align = "center")}
 
-collections <- read_csv("static-data/collections_2.csv", 
-                        col_types = "iccccc") %>%
-    transmute(product_id = `Product ID`,
-              collection_na = Collection)
-
 abbr_month <- function(date_value){
     month(date_value, label = TRUE)
 }
@@ -64,6 +60,28 @@ week_to_month_name <- function(weeks){
     return(week_to_month$month_abbr_name)
 }
 
+query_aud_to_usd <- function(){
+    resp <- GET("https://api.fixer.io/latest?base=AUD")
+    if(resp$status_code == 200){
+        return(content(resp)$rates$USD)
+    } else { return(0.75) }
+}
+
+# ---- DATA ----
+
+# query conversion rates
+aud_to_usd <- query_aud_to_usd()
+
+# read collections data
+collections <- read_csv("static-data/collections_2.csv", 
+                        col_types = "iccccc") %>%
+    transmute(product_id = `Product ID`,
+              collection_na = Collection)
+
+# set db connection
+source("fp_init.R")
+
+# query sales
 products_sold <- tbl(fp_con, sql(paste(
         "SELECT",
             "li.id line_item_id,",
@@ -74,7 +92,7 @@ products_sold <- tbl(fp_con, sql(paste(
             "li.quantity,",
             "li.price,",
             "o.total / (COUNT(*) OVER (PARTITION BY li.order_id))",
-                "* CASE WHEN o.currency = 'AUD' THEN 0.75 ELSE 1 END revenue_usd,",
+                "* CASE WHEN o.currency = 'AUD' THEN", aud_to_usd, "ELSE 1 END revenue_usd,",
             "li.currency,",
             "INITCAP(sa.city) ship_city,",
             "INITCAP(ss.name) ship_state,",
@@ -88,7 +106,7 @@ products_sold <- tbl(fp_con, sql(paste(
             "INITCAP(p.name) style_name,",
             "UPPER(style.number) style_number,",
             "ir.refund_amount IS NOT NULL item_returned,",
-            "ir.refund_amount / 100 * CASE WHEN o.currency = 'AUD' THEN 0.75 ELSE 1 END refund_amount_usd,",
+            "ir.refund_amount / 100 * CASE WHEN o.currency = 'AUD' THEN", aud_to_usd, "ELSE 1 END refund_amount_usd,",
             "CASE",
                 "WHEN ir.refund_amount IS NOT NULL THEN 'Returned'",
                 "WHEN o.state != 'canceled' AND (o.shipment_state = 'partial' OR o.shipment_state IS NULL) THEN 'Paid'",
@@ -104,7 +122,7 @@ products_sold <- tbl(fp_con, sql(paste(
             "RANK() OVER (PARTITION BY o.email ORDER BY o.completed_at) order_num,",
             "CASE WHEN NOT p.hidden AND (p.deleted_at IS NULL OR p.deleted_at > CURRENT_DATE) AND p.available_on <= CURRENT_DATE",
                 "THEN 'Yes' ELSE 'No' END product_live,",
-            "li.price * CASE WHEN o.currency = 'AUD' THEN 0.75 ELSE 1 END price_usd",
+            "li.price * CASE WHEN o.currency = 'AUD' THEN", aud_to_usd, "ELSE 1 END price_usd",
         "FROM spree_line_items li",
         "LEFT JOIN spree_orders o",
             "ON o.id = li.order_id",
