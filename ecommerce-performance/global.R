@@ -122,7 +122,8 @@ products_sold <- tbl(fp_con, sql(paste(
             "RANK() OVER (PARTITION BY o.email ORDER BY o.completed_at) order_num,",
             "CASE WHEN NOT p.hidden AND (p.deleted_at IS NULL OR p.deleted_at > CURRENT_DATE) AND p.available_on <= CURRENT_DATE",
                 "THEN 'Yes' ELSE 'No' END product_live,",
-            "li.price * CASE WHEN o.currency = 'AUD' THEN", aud_to_usd, "ELSE 1 END price_usd",
+            "li.price * CASE WHEN o.currency = 'AUD' THEN", aud_to_usd, "ELSE 1 END price_usd,",
+            "f.name factory_name",
         "FROM spree_line_items li",
         "LEFT JOIN spree_orders o",
             "ON o.id = li.order_id",
@@ -166,6 +167,8 @@ products_sold <- tbl(fp_con, sql(paste(
             "WHERE sku IS NOT NULL and size IS NOT NULL",
             "GROUP BY sku) gsku",
             "ON gsku.sku = v.sku",
+        "LEFT JOIN factories f",
+            "ON f.id = p.factory_id",
         "WHERE o.completed_at IS NOT NULL",
             "AND o.completed_at >= '2016-01-01'",
             "AND o.payment_state = 'paid'"))) %>%
@@ -174,7 +177,7 @@ products_sold <- tbl(fp_con, sql(paste(
                   group_by(product_id) %>%
                   summarise(collection_na = paste(unique(collection_na), collapse = ", ")), 
               by = "product_id") %>%
-    mutate(collection = ifelse(is.na(collection_na), "Old", collection_na)) %>%
+    mutate(collection = ifelse(is.na(collection_na), "2014-2015 -  Old", collection_na)) %>%
     select(-collection_na) %>%
     mutate(ship_year_month = year_month(ship_date),
            order_year_month = year_month(order_date)) %>%
