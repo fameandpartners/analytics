@@ -45,6 +45,7 @@ shinyServer(function(input, output) {
     })
     
     output$style_ranking <- renderDataTable({
+        # Rename style number here so that selected_product_ids can work
         style_ranking_data() %>%
             rename(`Style Number` = style_number) %>%
             datatable(rownames = FALSE, class = "hover row-border", style = "bootstrap") %>%
@@ -52,6 +53,13 @@ shinyServer(function(input, output) {
             formatCurrency(c("Revenue")) %>%
             formatPercentage(c("Return Rate", "Customization Rate"))
     })
+    
+    output$style_ranking_down <- downloadHandler(
+        filename = function() { paste("Top Styles ", today(), ".csv", sep='') },
+        content = function(file) { write_csv(style_ranking_data() %>% 
+                                                 rename(`Style Number` = style_number), 
+                                             file, na = "") }
+        )
     
     # Filter for products selected in the datatable
     selected_product_ids <- reactive({
@@ -229,6 +237,21 @@ shinyServer(function(input, output) {
     
     
     # ---- Returns Tab ----
+    
+    # ---- Factory Returns ----
+    
+    output$factory_returns <- renderPlot({
+        products_sold %>% 
+            filter(order_status %in% c("Shipped","Returned") & !is.na(factory_name)) %>% 
+            group_by(ship_year_month, factory_name) %>% 
+            summarise(`Return Rate` = sum(revenue_usd * item_returned) / sum(revenue_usd)) %>% 
+            ggplot(aes(x = ship_year_month, y = `Return Rate`)) + 
+            geom_bar(stat = "identity") + 
+            facet_grid(factory_name~.) +
+            theme_bw(base_size = 14) +
+            scale_y_continuous(labels = percent) +
+            theme(axis.title.x = element_blank())
+    })
     
     # ---- Returns Export ----
     
