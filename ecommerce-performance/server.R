@@ -1,4 +1,6 @@
 shinyServer(function(input, output) {
+    # ---- Conversions Tab ----
+    
     
     # ---- Styles Tab ----
     
@@ -39,7 +41,7 @@ shinyServer(function(input, output) {
             summarise(`Style Name` = paste(unique(style_name), collapse = ","),
                       Units = sum(quantity),
                       Revenue = sum(revenue_usd),
-                      `Return Rate` = sum(revenue_usd * item_returned) / sum(revenue_usd),
+                      `Return Rate` = sum(coalesce(refund_amount_usd, 0)) / sum(revenue_usd),
                       `Customization Rate` = sum(quantity * physically_customized) / sum(quantity)) %>%
             arrange(desc(Revenue))
     })
@@ -48,7 +50,7 @@ shinyServer(function(input, output) {
         # Rename style number here so that selected_product_ids can work
         style_ranking_data() %>%
             rename(`Style Number` = style_number) %>%
-            datatable(rownames = FALSE, class = "hover row-border", style = "bootstrap") %>%
+            datatable(class = "hover row-border", style = "bootstrap") %>%
             formatCurrency(c("Units"), digits = 0, currency = "") %>%
             formatCurrency(c("Revenue")) %>%
             formatPercentage(c("Return Rate", "Customization Rate"))
@@ -86,7 +88,7 @@ shinyServer(function(input, output) {
             filter(revenue_usd > 0) %>%
             summarise(`Total Units` = short_number(sum(quantity)),
                       `Total Revenue` = short_dollar(sum(revenue_usd)),
-                      `Return Rate` = round(sum(revenue_usd * item_returned) / sum(revenue_usd), 2) %>% percent(),
+                      `Return Rate` = round(sum(coalesce(refund_amount_usd, 0)) / sum(revenue_usd), 2) %>% percent(),
                       `Customization Rate` = round(sum(quantity * physically_customized) / sum(quantity), 2) %>% percent())
         return(sum_stats)
     })
@@ -225,14 +227,16 @@ shinyServer(function(input, output) {
     # ---- Size Distrobution ----
     output$size_dist <- renderPlot({
         selected_sales() %>%
-            group_by(size) %>%
+            filter(height %in% c("Petite", "Standard", "Tall")) %>%
+            group_by(height, size) %>%
             summarise(Units = sum(quantity)) %>%
             arrange(desc(size)) %>%
             ggplot(aes(x = size, y = Units)) +
             geom_bar(stat = "identity") +
             theme_bw(base_size = 14) +
             #coord_flip() +
-            theme(axis.title.x = element_blank())
+            theme(axis.title.x = element_blank()) +
+            facet_grid(height ~ .)
     })
     
     
@@ -244,7 +248,7 @@ shinyServer(function(input, output) {
         products_sold %>% 
             filter(order_status %in% c("Shipped","Returned") & !is.na(factory_name)) %>% 
             group_by(ship_year_month, factory_name) %>% 
-            summarise(`Return Rate` = sum(revenue_usd * item_returned) / sum(revenue_usd)) %>% 
+            summarise(`Return Rate` = sum(coalesce(refund_amount_usd, 0)) / sum(revenue_usd)) %>% 
             ggplot(aes(x = ship_year_month, y = `Return Rate`)) + 
             geom_bar(stat = "identity") + 
             facet_grid(factory_name~.) +

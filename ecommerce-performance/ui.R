@@ -84,7 +84,7 @@ shinyUI(fluidPage(
             
             fluidRow(
                 h3c("Size Distribution"),
-                plotOutput("size_dist")
+                plotOutput("size_dist", height = "600px")
             ),
             
             fluidRow(
@@ -101,7 +101,7 @@ shinyUI(fluidPage(
             
             hr(),
             
-            fluidRow(plotOutput("factory_returns"))
+            fluidRow(plotOutput("factory_returns", height = "800px"))
         )
         
         # ,

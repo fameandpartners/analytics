@@ -118,7 +118,8 @@ products_sold <- tbl(fp_con, sql(paste(
             "CASE WHEN ir.id IS NOT NULL THEN li.order_id END return_order_id,",
             "COALESCE(cust.physical_customization, 0) physically_customized,",
             "cust.color,",
-            "cust.size,",
+            "CASE WHEN cust.size IS NOT NULL THEN cust.size ELSE gsku.size END size,",
+            "cust.height,",
             "RANK() OVER (PARTITION BY o.email ORDER BY o.completed_at) order_num,",
             "CASE WHEN NOT p.hidden AND (p.deleted_at IS NULL OR p.deleted_at > CURRENT_DATE) AND p.available_on <= CURRENT_DATE",
                 "THEN 'Yes' ELSE 'No' END product_live,",
@@ -145,10 +146,9 @@ products_sold <- tbl(fp_con, sql(paste(
                 "MAX(CASE WHEN lip.customization_value_ids SIMILAR TO '%([1-9])%'",
                     "THEN 1 ELSE 0 END) physical_customization,",
                 "STRING_AGG(DISTINCT lip.size, ', ') size,",
-                "INITCAP(STRING_AGG(DISTINCT lip.color, ', ')) color",
+                "INITCAP(STRING_AGG(DISTINCT lip.color, ', ')) color,",
+                "INITCAP(STRING_AGG(DISTINCT lip.height, ', ')) height",
             "FROM line_item_personalizations lip",
-            "LEFT JOIN product_color_values pcv",
-                "ON pcv.id = lip.color_id",
             "GROUP BY line_item_id) cust",
             "ON cust.line_item_id = li.id",
         "LEFT JOIN (",
@@ -162,7 +162,7 @@ products_sold <- tbl(fp_con, sql(paste(
             "GROUP BY product_id) style",
             "ON style.product_id = v.product_id",
         "LEFT JOIN (",
-            "SELECT sku, STRING_AGG(size, ',')",
+            "SELECT sku, STRING_AGG(size, ',') size",
             "FROM global_skus",
             "WHERE sku IS NOT NULL and size IS NOT NULL",
             "GROUP BY sku) gsku",
@@ -193,4 +193,9 @@ products_sold$order_status <- factor(
 products_sold$size <- factor(
     products_sold$size,
     levels = paste0("US", seq(0,22,2), "/AU", seq(4,26,2))
+)
+
+products_sold$height <- factor(
+    products_sold$height,
+    levels = 
 )
