@@ -4,13 +4,15 @@ library(dplyr)
 library(tidyr)
 library(lubridate)
 library(stringr)
-library(scales)
 library(ggplot2)
 library(shiny)
 library(DT)
 library(httr)
 
 # ---- FUNCTIONS ----
+str_right <- function(x, n){
+    substr(x, nchar(x)-n+1, nchar(x))
+}
 
 cap1 <- function(string){
     paste0(toupper(substr(string, 1, 1)), tolower(substr(string, 2, 25)))
@@ -23,7 +25,7 @@ year_month <- function(date_value){
 }
 
 short_dollar <- function(number){
-    ifelse(number < 1000, dollar(number),
+    ifelse(number < 1000, scales::dollar(number),
         ifelse(number >= 1000 & number < 1000000,
             paste0("$", round(number / 1000, 1), "K"),
             ifelse(number >= 1000000,
@@ -36,28 +38,18 @@ short_number <- function(number){
            ifelse(number >= 1000 & number < 1000000,
                   paste0(round(number / 1000, 1), "K"),
                   ifelse(number >= 1000000,
-                         paste0(round(number / 1000000, 1), "M"),
+                         paste0((round(number / 1000000, 1)), "M"),
                          paste0(round(number / 1000000000, 1), "B"))))
+}
+
+short_number_space <- function(number){
+    paste0(short_number(number), " ")
 }
 
 h3c <- function(x){h3(x, align = "center")}
 
 abbr_month <- function(date_value){
     month(date_value, label = TRUE)
-}
-
-week_to_month_name <- function(weeks){
-    weeks_df <- data_frame(week_value = weeks)
-    
-    time_dim <- data_frame(date_value = seq(as.Date("2016-01-01"), today(), 1)) %>%
-        transmute(week_value = week(date_value),
-                  month_abbr_name = month(date_value, label = TRUE, abbr = TRUE)) %>%
-        filter(!duplicated(week_value)) %>%
-        rbind(data_frame(week_value = c(0), month_abbr_name = c("Jan")))
-    
-    week_to_month <- weeks_df %>% left_join(time_dim, by = "week_value")
-    
-    return(week_to_month$month_abbr_name)
 }
 
 query_aud_to_usd <- function(){
@@ -171,7 +163,8 @@ products_sold <- tbl(fp_con, sql(paste(
             "ON f.id = p.factory_id",
         "WHERE o.completed_at IS NOT NULL",
             "AND o.completed_at >= '2016-01-01'",
-            "AND o.payment_state = 'paid'"))) %>%
+            "AND o.payment_state = 'paid'"
+        ))) %>%
     collect(n = Inf) %>%
     left_join(collections %>%
                   group_by(product_id) %>%
@@ -197,5 +190,19 @@ products_sold$size <- factor(
 
 products_sold$height <- factor(
     products_sold$height,
-    levels = 
+    levels = c("Petite", "Standard", "Tall")
 )
+
+all_touches <- read_csv("static-data/all_touches.csv",
+                        col_types = cols(
+                            .default = col_character(),
+                            order_id = col_integer(),
+                            user_id = col_integer(),
+                            touch_time = col_datetime(format = ""),
+                            ordered_at = col_datetime(format = ""),
+                            added_to_cart_at = col_datetime(format = ""),
+                            total = col_double(),
+                            revenue_usd = col_double(),
+                            step = readr::col_factor(levels = c("Cart","Checkout","Purchase", ordered = TRUE)),
+                            cohort = readr::col_factor(levels = c("Prom", "Bridal", "Contemporary", "Not Assigned", ordered = TRUE))
+                        ))
