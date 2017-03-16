@@ -286,7 +286,7 @@ shinyServer(function(input, output) {
     # ---- Montly Return Rates ----
     output$monthly_return_rates <- renderPlot({
         filtered_for_returns() %>% 
-            filter(order_status %in% c("Shipped","Returned")) %>%
+            filter(order_state == "complete") %>%
             group_by(ship_year_month) %>% 
             summarise(`Revenue (USD)` = sum(coalesce(refund_amount_usd, 0)) / sum(revenue_usd)) %>% 
             ggplot(aes(x = ship_year_month, y = `Revenue (USD)`)) + 
