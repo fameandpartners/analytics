@@ -70,6 +70,20 @@ collections <- read_csv("static-data/collections_2.csv",
     transmute(product_id = `Product ID`,
               collection_na = Collection)
 
+all_touches <- read_csv("static-data/all_touches.csv",
+                        col_types = cols(
+                            .default = col_character(),
+                            order_id = col_integer(),
+                            user_id = col_integer(),
+                            touch_time = col_datetime(format = ""),
+                            ordered_at = col_datetime(format = ""),
+                            added_to_cart_at = col_datetime(format = ""),
+                            total = col_double(),
+                            revenue_usd = col_double(),
+                            step = readr::col_factor(levels = c("Cart","Checkout","Purchase", ordered = TRUE)),
+                            cohort = readr::col_factor(levels = c("Prom", "Bridal", "Contemporary", "Not Assigned", ordered = TRUE))
+                        ))
+
 # set db connection
 source("fp_init.R")
 
@@ -116,7 +130,8 @@ products_sold <- tbl(fp_con, sql(paste(
             "CASE WHEN NOT p.hidden AND (p.deleted_at IS NULL OR p.deleted_at > CURRENT_DATE) AND p.available_on <= CURRENT_DATE",
                 "THEN 'Yes' ELSE 'No' END product_live,",
             "li.price * CASE WHEN o.currency = 'AUD' THEN", aud_to_usd, "ELSE 1 END price_usd,",
-            "f.name factory_name",
+            "f.name factory_name,",
+            "s.ship_states",
         "FROM spree_line_items li",
         "LEFT JOIN spree_orders o",
             "ON o.id = li.order_id",
@@ -144,7 +159,7 @@ products_sold <- tbl(fp_con, sql(paste(
             "GROUP BY line_item_id) cust",
             "ON cust.line_item_id = li.id",
         "LEFT JOIN (",
-            "SELECT order_id, MAX(shipped_at::DATE) ship_date",
+            "SELECT order_id, MAX(shipped_at::DATE) ship_date, STRING_AGG(DISTINCT state, ',') ship_states",
             "FROM spree_shipments",
             "GROUP BY order_id) s",
             "ON s.order_id = li.order_id",
@@ -172,7 +187,8 @@ products_sold <- tbl(fp_con, sql(paste(
               by = "product_id") %>%
     mutate(collection = ifelse(is.na(collection_na), "2014-2015 -  Old", collection_na)) %>%
     select(-collection_na) %>%
-    mutate(ship_year_month = year_month(ship_date),
+    mutate(estimated_ship_date = ifelse(is.na(ship_date), order_date + 10, ship_date) %>% as.Date(origin = "1970-01-01"),
+           ship_year_month = year_month(estimated_ship_date),
            order_year_month = year_month(order_date)) %>%
     separate(size, c("us_size_str","au_size_str"), sep = "/", remove = FALSE) %>% 
     mutate(us_size = as.integer(str_replace_all(us_size_str, "US", ""))) %>%
@@ -192,17 +208,3 @@ products_sold$height <- factor(
     products_sold$height,
     levels = c("Petite", "Standard", "Tall")
 )
-
-all_touches <- read_csv("static-data/all_touches.csv",
-                        col_types = cols(
-                            .default = col_character(),
-                            order_id = col_integer(),
-                            user_id = col_integer(),
-                            touch_time = col_datetime(format = ""),
-                            ordered_at = col_datetime(format = ""),
-                            added_to_cart_at = col_datetime(format = ""),
-                            total = col_double(),
-                            revenue_usd = col_double(),
-                            step = readr::col_factor(levels = c("Cart","Checkout","Purchase", ordered = TRUE)),
-                            cohort = readr::col_factor(levels = c("Prom", "Bridal", "Contemporary", "Not Assigned", ordered = TRUE))
-                        ))
