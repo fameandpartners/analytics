@@ -203,7 +203,7 @@ shinyServer(function(input, output) {
             ggplot(aes(x = us_size, y = Units)) +
             geom_bar(stat = "identity") +
             scale_x_continuous(breaks = seq(min(selected_sales()$us_size), 
-                                            max(selected_sales()$us_size), 1)) +
+                                            max(selected_sales()$us_size), 2)) +
             theme_bw(base_size = 14) +
             #coord_flip() +
             xlab("Size (US)") +
