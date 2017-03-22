@@ -84,8 +84,14 @@ shinyServer(function(input, output) {
         sum_stats <- 
             selected_sales() %>%
             filter(revenue_usd > 0) %>%
+            group_by(order_id) %>%
+            summarise(quantity = sum(quantity), 
+                      revenue_usd = sum(revenue_usd), 
+                      refund_amount_usd = sum(refund_amount_usd),
+                      physically_customized = max(physically_customized)) %>%
             summarise(`Total Units` = short_number(sum(quantity)),
                       `Total Revenue` = short_dollar(sum(revenue_usd)),
+                      `AOV` = short_dollar(mean(revenue_usd)),
                       `Return Rate` = round(sum(coalesce(refund_amount_usd, 0)) / sum(revenue_usd), 2) %>% percent(),
                       `Customization Rate` = round(sum(quantity * physically_customized) / sum(quantity), 2) %>% percent())
         return(sum_stats)

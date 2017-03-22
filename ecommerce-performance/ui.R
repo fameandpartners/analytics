@@ -2,7 +2,6 @@ shinyUI(fluidPage(
     theme="styles.css",
     navbarPage(
         title = "eCommerce Performance",
-        
         tabPanel(
             "Styles",
             fluidRow(
