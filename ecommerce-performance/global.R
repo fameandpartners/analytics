@@ -87,6 +87,14 @@ all_touches <- read_csv("static-data/all_touches.csv",
 # set db connection
 source("fp_init.R")
 
+# min completed_at for orders shipped in jan
+completed_at <- tbl(fp_con, sql(paste(
+    "SELECT MIN(o.completed_at) FROM spree_orders o",
+    "LEFT JOIN spree_shipments s ON s.order_id = o.id",
+    "WHERE COALESCE(s.shipped_at, o.completed_at::DATE + 10) >= '2016-01-01'",
+    "AND o.completed_at IS NOT NULL"))) %>%
+    collect()
+
 # query sales
 products_sold <- tbl(fp_con, sql(paste(
         "SELECT",
@@ -104,7 +112,7 @@ products_sold <- tbl(fp_con, sql(paste(
             "INITCAP(ss.name) ship_state,",
             "INITCAP(sc.name) ship_country,",
             "o.completed_at::date order_date,",
-            "CASE WHEN s.ship_date IS NULL THEN o.projected_delivery_date::DATE ELSE s.ship_date::DATE END ship_date,",
+            "COALESCE(s.ship_date, o.completed_at::DATE + 10) ship_date,",
             "o.email,",
             "o.user_id,",
             "INITCAP(o.user_first_name) || ' ' || INITCAP(o.user_last_name) customer_name,",
@@ -177,7 +185,7 @@ products_sold <- tbl(fp_con, sql(paste(
         "LEFT JOIN factories f",
             "ON f.id = p.factory_id",
         "WHERE o.completed_at IS NOT NULL",
-            "AND o.completed_at >= '2016-01-01'",
+            "AND o.completed_at >=", paste0("'", completed_at$min %>% as.character(), "'"),
             "AND o.payment_state = 'paid'"
         ))) %>%
     collect(n = Inf) %>%
