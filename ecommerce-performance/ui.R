@@ -1,4 +1,5 @@
 shinyUI(fluidPage(
+    tags$head(tags$link(rel="shortcut icon", href="https://www.fameandpartners.com/favicon-194x194.png")),
     theme="styles.css",
     navbarPage(
         title = "eCommerce Performance",
@@ -141,9 +142,6 @@ shinyUI(fluidPage(
                 )
             ),
             
-            h3c("Monthly Return Rates by Factory"),
-            fluidRow(plotOutput("factory_returns", height = "600px")),
-            
             hr(),
             
             h1("Returns Bulk Export"),
@@ -196,6 +194,8 @@ shinyUI(fluidPage(
                     plotOutput("cohort_conversions")
                 )
             ),
+            fluidRow(h3c("Monthly Cohort Distribution"),
+                     plotOutput("monthly_cohorts")),
             fluidRow(
                 column(
                     4,
@@ -213,7 +213,25 @@ shinyUI(fluidPage(
                     plotOutput("camp_conv", height = "800px")
                 )
             )
+        ),
+        tabPanel(
+            "Finances",
+            sidebarLayout(
+                sidebarPanel(),
+                mainPanel(
+                    h1("Monthly Budget vs. Actual", align = "center"),
+                    hr(),
+                    h3c("Gross Revenue (USD)"),
+                    plotOutput("gross_revenue"),
+                    hr(),
+                    h3c("Units Shipped"),
+                    plotOutput("units_shipped"),
+                    hr(),
+                    h3c("Avg. Selling Price"),
+                    plotOutput("average_selling_price")
+                )
+            )
         )
     ),
-    title = titlePanel(NULL, "Ecommerce Performance")
+    title = titlePanel(NULL, "eCommerce Performance")
 ))

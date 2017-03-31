@@ -1,5 +1,30 @@
 shinyServer(function(input, output) {
     library(scales)
+ # ---- Finances Tab ----
+    
+    budget_v_actual_plot <- function(metric_value){
+        plot_data <- monthly_budget_actuals %>%
+            filter(metric == metric_value)
+        
+        max_lim = c(plot_data$actuals_2017,
+                    plot_data$budget_2017) %>% max()
+        
+        plot_data %>%
+            ggplot(aes(x = ship_month)) +
+            geom_bar(aes(y = actuals_2017), stat = "identity") + 
+            geom_bar(aes(y = budget_2017), stat = "identity", alpha = 0, color = "black", size = 0.35) +
+            geom_label(aes(label = percent(percent_of_budget), y = actuals_2017), vjust = -0.15, size = 6) + 
+            scale_y_continuous(labels = short_dollar, limits = c(0, max_lim * 1.05)) +
+            theme_minimal(base_size = 16) +
+            theme(axis.title.y = element_blank()) +
+            xlab("Month") 
+    }
+    
+    # ---- Gross Revenue Budget vs Actual ----
+    output$gross_revenue <- renderPlot(budget_v_actual_plot("gross_revenue"))
+    output$units_shipped <- renderPlot(budget_v_actual_plot("units_shipped"))
+    output$average_selling_price <- renderPlot(budget_v_actual_plot("average_selling_price"))
+    
  # ---- Styles Tab ----
     
     # ---- Styles Data Set Filters ----
@@ -34,12 +59,14 @@ shinyServer(function(input, output) {
     # ---- Top Styles ----
     style_ranking_data <- reactive({
         filtered_sales() %>%
-            filter(revenue_usd > 0) %>%
+            filter(sales_usd > 0) %>%
             group_by(style_number) %>%
             summarise(`Style Name` = paste(unique(style_name), collapse = ","),
+                      `Dress Image` = dress_image_tag[1],
                       Units = sum(quantity),
-                      Revenue = sum(revenue_usd),
-                      `Return Rate` = sum(coalesce(refund_amount_usd, 0)) / sum(revenue_usd),
+                      Revenue = sum(sales_usd),
+                      `Refund Request Rate` = sum(sales_usd * return_requested) / sum(sales_usd),
+                      `Return Rate` = sum(coalesce(refund_amount_usd, 0)) / sum(sales_usd),
                       `Customization Rate` = sum(quantity * physically_customized) / sum(quantity)) %>%
             arrange(desc(Revenue))
     })
@@ -47,19 +74,24 @@ shinyServer(function(input, output) {
     output$style_ranking <- renderDataTable({
         # Rename style number here so that selected_product_ids can work
         style_ranking_data() %>%
-            rename(`Style Number` = style_number) %>%
-            datatable(class = "hover row-border", style = "bootstrap") %>%
+            rename(`Style Number` = style_number,
+                   `Sales` = Revenue) %>%
+            datatable(class = "hover row-border", style = "bootstrap", escape = FALSE,
+                      options = list(lengthMenu = c(5, 10, 50), pageLength = 5)) %>%
             formatCurrency(c("Units"), digits = 0, currency = "") %>%
-            formatCurrency(c("Revenue")) %>%
-            formatPercentage(c("Return Rate", "Customization Rate"))
+            formatCurrency(c("Sales")) %>%
+            formatPercentage(c("Refund Request Rate",
+                               "Return Rate", 
+                               "Customization Rate"))
     })
     
     output$style_ranking_down <- downloadHandler(
         filename = function() { paste("Top Styles ", today(), ".csv", sep='') },
-        content = function(file) { write_csv(style_ranking_data() %>% 
-                                                 rename(`Style Number` = style_number), 
-                                             file, na = "") }
-        )
+        content = function(file) {
+            write_csv(style_ranking_data() %>% 
+                          rename(`Style Number` = style_number), 
+                      file, na = "")
+        })
     
     # Filter for products selected in the datatable
     selected_product_ids <- reactive({
@@ -83,16 +115,20 @@ shinyServer(function(input, output) {
     output$kpis <- renderTable({
         sum_stats <- 
             selected_sales() %>%
-            filter(revenue_usd > 0) %>%
+            filter(sales_usd > 0) %>%
             group_by(order_id) %>%
+            mutate(return_request_amount = sales_usd * return_requested) %>%
             summarise(quantity = sum(quantity), 
-                      revenue_usd = sum(revenue_usd), 
-                      refund_amount_usd = sum(refund_amount_usd),
+                      sales_usd = sum(sales_usd), 
+                      refunds_requested_usd = sum(return_request_amount),
+                      refund_amount_usd = sum(coalesce(refund_amount_usd, 0)),
                       physically_customized = max(physically_customized)) %>%
             summarise(`Total Units` = short_number(sum(quantity)),
-                      `Total Revenue` = short_dollar(sum(revenue_usd)),
-                      `AOV` = short_dollar(mean(revenue_usd)),
-                      `Return Rate` = round(sum(coalesce(refund_amount_usd, 0)) / sum(revenue_usd), 2) %>% percent(),
+                      `Total Sales` = short_dollar(sum(sales_usd)),
+                      `AOV` = short_dollar(mean(sales_usd)),
+                      `Refund Request Rate` = round(sum(refunds_requested_usd) / sum(sales_usd), 2) %>% percent(),
+                      `Return Rate` = round(sum(refund_amount_usd) / sum(sales_usd), 2) %>% percent(),
+                      `Total Returns` = sum(refund_amount_usd) %>% coalesce(0) %>% short_dollar(),
                       `Customization Rate` = round(sum(quantity * physically_customized) / sum(quantity), 2) %>% percent())
         return(sum_stats)
     })
@@ -103,7 +139,7 @@ shinyServer(function(input, output) {
         selected_sales() %>%
             group_by(order_date, order_status) %>%
             summarise(order_week_start = min(order_date),
-                      `Revenue USD` = sum(revenue_usd))
+                      `Revenue USD` = sum(sales_usd))
     })
     
     output$daily_sales <- renderPlot({
@@ -155,9 +191,9 @@ shinyServer(function(input, output) {
                               order_id,
                               order_number,
                               order_state,
-                              shipment_state,
                               quantity,
                               price,
+                              sales_usd,
                               currency,
                               ship_city,
                               ship_state,
@@ -171,6 +207,8 @@ shinyServer(function(input, output) {
                               style_name,
                               style_number,
                               order_status,
+                              return_requested,
+                              return_request_action,
                               return_reason,
                               reason_sub_category,
                               color,
@@ -281,7 +319,7 @@ shinyServer(function(input, output) {
             group_by(`Primary Return Reason` = return_reason, 
                      `Secondary Return Reason` = reason_sub_category) %>% 
             summarise(Units = n(),
-                      `Revenue (USD)` = sum(revenue_usd)) %>%
+                      `Revenue (USD)` = sum(sales_usd)) %>%
             arrange(desc(Units)) %>%
             datatable(class = "hover row-border", style = "bootstrap", 
                       rownames = FALSE, selection = "none") %>%
@@ -294,7 +332,7 @@ shinyServer(function(input, output) {
         filtered_for_returns() %>% 
             filter(order_state == "complete") %>%
             group_by(ship_year_month) %>% 
-            summarise(`Revenue (USD)` = sum(coalesce(refund_amount_usd, 0)) / sum(revenue_usd)) %>% 
+            summarise(`Revenue (USD)` = sum(coalesce(refund_amount_usd, 0)) / sum(sales_usd)) %>% 
             ggplot(aes(x = ship_year_month, y = `Revenue (USD)`)) + 
             geom_bar(stat = "identity") +
             scale_y_continuous(labels = percent) +
@@ -302,21 +340,6 @@ shinyServer(function(input, output) {
             theme(legend.title = element_blank(),
                   axis.title.x = element_blank(),
                   axis.text.x = element_text(hjust = 1, angle = 35))
-    })
-    
-    # ---- Factory Returns ----
-    
-    output$factory_returns <- renderPlot({
-        filtered_for_returns() %>% 
-            filter(order_status %in% c("Shipped","Returned") & !is.na(factory_name)) %>% 
-            group_by(ship_year_month, factory_name) %>% 
-            summarise(`Return Rate` = sum(coalesce(refund_amount_usd, 0)) / sum(revenue_usd)) %>% 
-            ggplot(aes(x = ship_year_month, y = `Return Rate`)) + 
-            geom_bar(stat = "identity") + 
-            facet_grid(factory_name~.) +
-            theme_bw(base_size = 14) +
-            scale_y_continuous(labels = percent) +
-            theme(axis.title.x = element_blank())
     })
     
     # ---- Returns Export ----
@@ -362,16 +385,6 @@ shinyServer(function(input, output) {
             filter(utm_source %in% utm_source_filter()) %>%
             filter(utm_medium %in% utm_medium_filter()) %>%
             filter(utm_campaign %in% utm_campaign_filter())
-    })
-    
-    conversion_sales <- reactive({
-        products_sold %>%
-            inner_join(all_touches %>% 
-                           select(email, cohort) %>% 
-                           unique(), 
-                       by = "email") %>%
-            filter(between(as.Date(order_date), input$conversion_dates[1], input$conversion_dates[2])) %>%
-            filter(cohort %in% cohort_filter())
     })
     
     # ---- Monthly Carts, Orders and Conversion Rates ----
@@ -423,7 +436,7 @@ shinyServer(function(input, output) {
             group_by(order_id) %>% 
             filter(touch_time == max(touch_time)) %>% 
             arrange(order_id, touch_type) %>% 
-            summarise(source = utm_source[1], revenue = sum(revenue_usd)) %>% 
+            summarise(source = utm_source[1], revenue = sum(sales_usd)) %>% 
             group_by(Source = source) %>% 
             summarise(`Revenue (USD)` = sum(revenue)) %>%
             top_n(10, `Revenue (USD)`)
@@ -538,7 +551,7 @@ shinyServer(function(input, output) {
             theme(axis.title = element_blank())
     })
     
-    # ---- UTM Medium Conversions ----
+    # ---- UTM Campaign Conversions ----
     output$camp_conv <- renderPlot({
         utm_camp_orders <- filtered_touches() %>%
             filter(!is.na(utm_campaign)) %>%
@@ -577,10 +590,11 @@ shinyServer(function(input, output) {
     
     # ---- Monthly Cohort Distrobution ----
     output$monthly_cohorts <- renderPlot({
-        conversion_sales() %>%
-            filter(cohort %in% c("Prom","Bridal","Contemporary")) %>% 
+        filtered_touches() %>%
+            filter(cohort %in% c("Prom","Bridal","Contemporary")
+                   & state == "complete") %>% 
             group_by(order_year_month, cohort) %>% 
-            summarise(Orders = n()) %>% 
+            summarise(Orders = n_distinct(order_id)) %>% 
             ggplot(aes(x = order_year_month, y = Orders, fill = cohort)) + 
             geom_bar(stat = "identity", position = "fill", color = "black", size = 0.2) + 
             theme_bw(base_size = 14) +
