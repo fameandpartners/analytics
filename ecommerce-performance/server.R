@@ -1,30 +1,5 @@
 shinyServer(function(input, output) {
-    library(scales)
- # ---- Finances Tab ----
-    
-    budget_v_actual_plot <- function(metric_value){
-        plot_data <- monthly_budget_actuals %>%
-            filter(metric == metric_value)
-        
-        max_lim = c(plot_data$actuals_2017,
-                    plot_data$budget_2017) %>% max()
-        
-        plot_data %>%
-            ggplot(aes(x = ship_month)) +
-            geom_bar(aes(y = actuals_2017), stat = "identity") + 
-            geom_bar(aes(y = budget_2017), stat = "identity", alpha = 0, color = "black", size = 0.35) +
-            geom_label(aes(label = percent(percent_of_budget), y = actuals_2017), vjust = -0.15, size = 6) + 
-            scale_y_continuous(labels = short_dollar, limits = c(0, max_lim * 1.05)) +
-            theme_minimal(base_size = 16) +
-            theme(axis.title.y = element_blank()) +
-            xlab("Month") 
-    }
-    
-    # ---- Gross Revenue Budget vs Actual ----
-    output$gross_revenue <- renderPlot(budget_v_actual_plot("gross_revenue"))
-    output$units_shipped <- renderPlot(budget_v_actual_plot("units_shipped"))
-    output$average_selling_price <- renderPlot(budget_v_actual_plot("average_selling_price"))
-    
+
  # ---- Styles Tab ----
     
     # ---- Styles Data Set Filters ----
@@ -45,6 +20,15 @@ shinyServer(function(input, output) {
         if(length(input$live) > 0) { input$live } else { c("Yes", "No") }
     })
     
+    taxon_filter <- reactive({
+        if(length(input$taxons) > 0){
+            taxon_product_ids <- product_taxons %>%
+                filter(taxon_name %in% input$taxons) %>%
+                select(product_id)
+            return(unique(taxon_product_ids$product_id))
+        } else { unique(products_sold$product_id) }
+    })
+    
     filtered_sales <- reactive({
         sales <- products_sold %>%
             filter(between(order_date, input$order_dates[1], input$order_dates[2])) %>%
@@ -52,7 +36,8 @@ shinyServer(function(input, output) {
             filter(between(price_usd, input$price_range[1], input$price_range[2])) %>%
             filter(between(us_size, input$us_size[1], input$us_size[2])) %>%
             filter(product_live %in% product_live_filter()) %>%
-            filter(order_status %in% order_status_filter())
+            filter(order_status %in% order_status_filter()) %>%
+            filter(product_id %in% taxon_filter())
         return(sales)
     })
     
@@ -332,7 +317,12 @@ shinyServer(function(input, output) {
         filtered_for_returns() %>% 
             filter(order_state == "complete") %>%
             group_by(ship_year_month) %>% 
-            summarise(`Revenue (USD)` = sum(coalesce(refund_amount_usd, 0)) / sum(sales_usd)) %>% 
+            summarise(`Revenue (USD)` = sum(
+                ifelse(# See NOTES in global.R
+                    ship_date >= today() - 90,
+                    coalesce(refund_amount_usd, return_requested * sales_usd * 0.65),
+                    coalesce(refund_amount_usd, 0))
+            ) / sum(gross_revenue_usd)) %>% 
             ggplot(aes(x = ship_year_month, y = `Revenue (USD)`)) + 
             geom_bar(stat = "identity") +
             scale_y_continuous(labels = percent) +
@@ -628,5 +618,114 @@ shinyServer(function(input, output) {
             theme_bw(base_size = 14) +
             theme(axis.title.y = element_blank()) +
             coord_flip()
+        
     })
+    
+    # ---- Finances Tab ----
+    quarter_filter <- reactive({
+        if(input$quarter == "All Year") {
+            seq(1, 4)
+        } else {
+            input$quarter %>% str_replace("Q", "") %>% as.numeric()
+        }
+    })
+    
+    monthly_budget_actuals <- reactive({
+        monthly_budget_actuals_2017 %>%
+            filter(ship_quarter %in% quarter_filter())
+    })
+    
+    quarterly_and_annual_budget_actuals <- reactive({
+        if(input$quarter == "All Year"){
+            annual_budget_actuals_2017
+        } else {
+            quarterly_budget_actuals_2017 %>%
+                filter(ship_quarter %in% quarter_filter())
+        }
+    })
+    
+    budget_v_actual_plot <- function(metric_value, metric_units = "dollar", ylabel){
+        if(nrow(monthly_budget_actuals()) > 0){
+            plot_data <- monthly_budget_actuals() %>%
+                filter(metric == metric_value)
+            
+            max_lim <- c(plot_data$actuals_2017,
+                         plot_data$budget_2017) %>% max()
+            
+            label_func <- 
+                if(metric_units == "number") {
+                    short_number
+                } else if(metric_units == "rate"){
+                    percent 
+                } else { short_dollar }
+            
+            plot_data %>%
+                ggplot(aes(x = ship_month)) +
+                geom_bar(aes(y = actuals_2017), stat = "identity") + 
+                geom_bar(aes(y = budget_2017), stat = "identity", alpha = 0, color = "black", size = 0.35) +
+                geom_label(aes(label = percent(percent_of_budget), y = actuals_2017), vjust = -0.15, size = 6) + 
+                scale_y_continuous(labels = label_func, limits = c(0, max_lim * 1.1)) +
+                theme_minimal(base_size = 16) +
+                xlab("Month") +
+                ylab(ylabel)
+        } else {
+            ggplot() + theme_minimal(base_size = 24) + ggtitle("No data for\nthis quarter yet")
+        }
+    }
+    
+    # ---- Gross Revenue Budget vs Actual ----
+    gross_revenue <- reactive(quarterly_and_annual_budget_actuals() %>% filter(metric == "gross_revenue"))
+    output$gross_revenue_actual <- renderText(dollar(gross_revenue()$actuals_2017[1]))
+    output$gross_revenue_pob <- renderText(percent(gross_revenue()$percent_of_budget[1]))
+    output$gross_revenue_yoy <- renderText(percent(gross_revenue()$percent_change_yoy[1]))
+    
+    units_shipped <- reactive(quarterly_and_annual_budget_actuals() %>% filter(metric == "units_shipped"))
+    output$units_shipped_actual <- renderText(format(units_shipped()$actuals_2017[1], big.mark = ","))
+    output$units_shipped_pob <- renderText(percent(units_shipped()$percent_of_budget[1]))
+    output$units_shipped_yoy <- renderText(percent(units_shipped()$percent_change_yoy[1]))
+    
+    asp <- reactive(quarterly_and_annual_budget_actuals() %>% filter(metric == "average_selling_price"))
+    output$asp_actual <- renderText(dollar(asp()$actuals_2017[1]))
+    output$asp_pob <- renderText(percent(asp()$percent_of_budget[1]))
+    output$asp_yoy <- renderText(percent(asp()$percent_change_yoy[1]))
+    
+    cogs <- reactive(quarterly_and_annual_budget_actuals() %>% filter(metric == "cogs"))
+    output$cogs_actual <- renderText(dollar(cogs()$actuals_2017[1]))
+    output$cogs_pob <- renderText(percent(cogs()$percent_of_budget[1]))
+    output$cogs_yoy <- renderText(percent(cogs()$percent_change_yoy[1]))
+    
+    average_unit_cogs <- reactive(quarterly_and_annual_budget_actuals() %>% filter(metric == "average_unit_cogs"))
+    output$average_unit_cogs_actual <- renderText(dollar(average_unit_cogs()$actuals_2017[1]))
+    output$average_unit_cogs_pob <- renderText(percent(average_unit_cogs()$percent_of_budget[1]))
+    output$average_unit_cogs_yoy <- renderText(percent(average_unit_cogs()$percent_change_yoy[1]))
+    
+    returns <- reactive(quarterly_and_annual_budget_actuals() %>% filter(metric == "returns"))
+    output$returns_actual <- renderText(dollar(returns()$actuals_2017[1]))
+    output$returns_pob <- renderText(percent(returns()$percent_of_budget[1]))
+    output$returns_yoy <- renderText(percent(returns()$percent_change_yoy[1]))
+    
+    return_rate <- reactive(quarterly_and_annual_budget_actuals() %>% filter(metric == "return_rate"))
+    output$return_rate_actual <- renderText(percent(return_rate()$actuals_2017[1]))
+    output$return_rate_pob <- renderText(percent(return_rate()$percent_of_budget[1]))
+    output$return_rate_yoy <- renderText(percent(return_rate()$percent_change_yoy[1]))
+    
+    returns_per_unit <- reactive(quarterly_and_annual_budget_actuals() %>% filter(metric == "returns_per_unit"))
+    output$returns_per_unit_actual <- renderText(dollar(returns_per_unit()$actuals_2017[1]))
+    output$returns_per_unit_pob <- renderText(percent(returns_per_unit()$percent_of_budget[1]))
+    output$returns_per_unit_yoy <- renderText(percent(returns_per_unit()$percent_change_yoy[1]))
+    
+    gross_margin <- reactive(quarterly_and_annual_budget_actuals() %>% filter(metric == "gross_margin"))
+    output$gross_margin_actual <- renderText(percent(gross_margin()$actuals_2017[1]))
+    output$gross_margin_pob <- renderText(percent(gross_margin()$percent_of_budget[1]))
+    output$gross_margin_yoy <- renderText(percent(gross_margin()$percent_change_yoy[1]))
+    
+    output$gross_revenue <- renderPlot(budget_v_actual_plot("gross_revenue", ylabel = "Revenue (USD)"))
+    output$gross_margin <- renderPlot(budget_v_actual_plot("gross_margin", "rate", ylabel = "Revenue (USD)"))
+    output$cogs <- renderPlot(budget_v_actual_plot("cogs", ylabel = "Cost (USD)"))
+    output$units_shipped <- renderPlot(budget_v_actual_plot("units_shipped", "number", ylabel = "Units"))
+    output$average_selling_price <- renderPlot(budget_v_actual_plot("average_selling_price", ylabel = "Price (USD)"))
+    output$average_unit_cogs <- renderPlot(budget_v_actual_plot("average_unit_cogs", ylabel = "Cost (USD)"))
+    output$returns <- renderPlot(budget_v_actual_plot("returns", ylabel = "Lost Revenue (USD)"))
+    output$return_rate <- renderPlot(budget_v_actual_plot("return_rate", "rate", ylabel = "Revenue (USD)"))
+    output$returns_per_unit <- renderPlot(budget_v_actual_plot("returns_per_unit", ylabel = "Revenue Lost (USD)"))
 })

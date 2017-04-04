@@ -32,6 +32,12 @@ shinyUI(fluidPage(
                         choices = c("Yes","No"),
                         multiple = TRUE
                     ),
+                    selectInput(
+                        "taxons",
+                        "Taxons",
+                        choices = product_taxons$taxon_name %>% unique() %>% sort(),
+                        multiple = TRUE
+                    ),
                     sliderInput(
                         "us_size",
                         "Size (US):",
@@ -217,18 +223,124 @@ shinyUI(fluidPage(
         tabPanel(
             "Finances",
             sidebarLayout(
-                sidebarPanel(),
+                sidebarPanel(
+                    h2("Budget vs. Actual", align = "center"),
+                    selectizeInput(
+                        "year",
+                        "Year",
+                        seq(2017, today() %>% year())
+                    ),
+                    selectizeInput(
+                        "quarter",
+                        "Quarter",
+                        c("All Year","Q1","Q2","Q3","Q4")
+                    ),
+                    hr(),
+                    tags$table(
+                        id = "finance_summary",
+                        tags$th(
+                            tags$td(strong("Actuals")),
+                            tags$td(strong("Percent of Budget")),
+                            tags$td(strong("Percent Change YoY"))
+                        ),
+                        tags$tr(
+                            tags$td(h4("Gross Revenue:")),
+                            tags$td(textOutput("gross_revenue_actual")),
+                            tags$td(textOutput("gross_revenue_pob")),
+                            tags$td(textOutput("gross_revenue_yoy"))
+                        ),
+                        tags$tr(
+                            tags$td(h4("Units Shipped:")),
+                            tags$td(textOutput("units_shipped_actual")),
+                            tags$td(textOutput("units_shipped_pob")),
+                            tags$td(textOutput("units_shipped_yoy"))
+                        ),
+                        tags$tr(
+                            tags$td(h4("ASP:")),
+                            tags$td(textOutput("asp_actual")),
+                            tags$td(textOutput("asp_pob")),
+                            tags$td(textOutput("asp_yoy"))
+                        ),
+                        tags$tr(
+                            tags$td(h4("COGS:")),
+                            tags$td(textOutput("cogs_actual")),
+                            tags$td(textOutput("cogs_pob")),
+                            tags$td(textOutput("cogs_yoy"))
+                        ),
+                        tags$tr(
+                            tags$td(h4("Avg. Unit COGS:")),
+                            tags$td(textOutput("average_unit_cogs_actual")),
+                            tags$td(textOutput("average_unit_cogs_pob")),
+                            tags$td(textOutput("average_unit_cogs_yoy"))
+                        ),
+                        tags$tr(
+                            tags$td(h4("Returns:")),
+                            tags$td(textOutput("returns_actual")),
+                            tags$td(textOutput("returns_pob")),
+                            tags$td(textOutput("returns_yoy"))
+                        ),
+                        tags$tr(
+                            tags$td(h4("Return Rate:")),
+                            tags$td(textOutput("return_rate_actual")),
+                            tags$td(textOutput("return_rate_pob")),
+                            tags$td(textOutput("return_rate_yoy"))
+                        ),
+                        tags$tr(
+                            tags$td(h4("Returns per Unit:")),
+                            tags$td(textOutput("returns_per_unit_actual")),
+                            tags$td(textOutput("returns_per_unit_pob")),
+                            tags$td(textOutput("returns_per_unit_yoy"))
+                        ),
+                        tags$tr(
+                            tags$td(h4("Gross Margin:")),
+                            tags$td(textOutput("gross_margin_actual")),
+                            tags$td(textOutput("gross_margin_pob")),
+                            tags$td(textOutput("gross_margin_yoy"))
+                        )
+                    )
+                ),
                 mainPanel(
-                    h1("Monthly Budget vs. Actual", align = "center"),
-                    hr(),
-                    h3c("Gross Revenue (USD)"),
-                    plotOutput("gross_revenue"),
-                    hr(),
-                    h3c("Units Shipped"),
-                    plotOutput("units_shipped"),
-                    hr(),
-                    h3c("Avg. Selling Price"),
-                    plotOutput("average_selling_price")
+                    tabsetPanel(
+                        tabPanel(
+                            "Sales",
+                            h3c("Gross Revenue"),
+                            plotOutput("gross_revenue", height = "300px"),
+                            hr(),
+                            h3c("Units Shipped"),
+                            plotOutput("units_shipped", height = "300px"),
+                            hr(),
+                            h3c("Avgerage Selling Price"),
+                            plotOutput("average_selling_price", height = "300px")
+                        ),
+                        tabPanel(
+                            "COGS",
+                            h3c("Cost of Goods Sold"),
+                            plotOutput("cogs", height = "300px"),
+                            hr(),
+                            h3c("Avgerage Unit COGS"),
+                            plotOutput("average_unit_cogs", height = "300px")
+                        ),
+                        tabPanel(
+                            "Returns",
+                            h3c("Returns"),
+                            p("These estimates are not accurate until 30 Days after month end.", align = "center") %>% em(),
+                            plotOutput("returns", height = "300px"),
+                            hr(),
+                            h3c("Return Rate"),
+                            p("These estimates are not accurate until 30 Days after month end.", align = "center") %>% em(),
+                            plotOutput("return_rate", height = "300px"),
+                            hr(),
+                            h3c("Returns per Unit"),
+                            p("These estimates are not accurate until 30 Days after month end.", align = "center") %>% em(),
+                            plotOutput("returns_per_unit", height = "300px")
+                        ),
+                        tabPanel(
+                            "Margin",
+                            h3c("Gross Margin"),
+                            p("These estimates are not accurate until 30 Days after month end.", align = "center") %>% em(),
+                            plotOutput("gross_margin", height = "300px")
+                        )
+                    )
                 )
             )
         )
