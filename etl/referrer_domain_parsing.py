@@ -4,7 +4,7 @@ conn = psql.connect(
 	dbname="fandp_web_production",
 	user="peterm",
 	host="postgres-read-replica.production.fameandpartners.com",
-	password="8fktC9MeVxiZ5Z+oAsUw/jQr")
+	password="")
 
 cur = conn.cursor()
 
@@ -13,7 +13,7 @@ SELECT referrer, created_at::DATE visit_date, COUNT(*)
 FROM marketing_user_visits
 WHERE LOWER(utm_source) = 'linkshare'
 	AND referrer IS NOT NULL
-	AND created_at IS NOT NULL 
+	AND created_at IS NOT NULL
 GROUP BY referrer, created_at::DATE
 """)
 
