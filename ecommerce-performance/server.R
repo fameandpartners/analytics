@@ -45,29 +45,32 @@ shinyServer(function(input, output) {
     style_ranking_data <- reactive({
         filtered_sales() %>%
             filter(sales_usd > 0) %>%
+            mutate(net_revenue = gross_revenue_usd + adjustments_usd,
+                   cogs = coalesce(manufacturing_cost, 70) + li_shipping_cost + payment_processing_cost) %>%
             group_by(style_number) %>%
             summarise(`Style Name` = paste(unique(style_name), collapse = ","),
                       `Dress Image` = dress_image_tag[1],
                       Units = sum(quantity),
-                      Revenue = sum(sales_usd),
+                      Sales = sum(sales_usd),
+                      ASP = mean(sales_usd),
                       `Refund Request Rate` = sum(sales_usd * return_requested) / sum(sales_usd),
-                      `Return Rate` = sum(coalesce(refund_amount_usd, 0)) / sum(sales_usd),
-                      `Customization Rate` = sum(quantity * physically_customized) / sum(quantity)) %>%
-            arrange(desc(Revenue))
+                      `Customization Rate` = sum(quantity * physically_customized) / sum(quantity),
+                      Margin = (sum(net_revenue) - sum(cogs)) / sum(net_revenue)) %>%
+            arrange(desc(Sales))
     })
     
     output$style_ranking <- renderDataTable({
         # Rename style number here so that selected_product_ids can work
         style_ranking_data() %>%
-            rename(`Style Number` = style_number,
-                   `Sales` = Revenue) %>%
+            rename(`Style Number` = style_number) %>%
             datatable(class = "hover row-border", style = "bootstrap", escape = FALSE,
                       options = list(lengthMenu = c(5, 10, 50), pageLength = 5)) %>%
             formatCurrency(c("Units"), digits = 0, currency = "") %>%
-            formatCurrency(c("Sales")) %>%
+            formatCurrency(c("Sales","ASP")) %>%
             formatPercentage(c("Refund Request Rate",
-                               "Return Rate", 
-                               "Customization Rate"))
+                               #"Return Rate", 
+                               "Customization Rate",
+                               "Margin"))
     })
     
     output$style_ranking_down <- downloadHandler(
@@ -98,24 +101,26 @@ shinyServer(function(input, output) {
     
     # ---- KPIs ----
     output$kpis <- renderTable({
-        sum_stats <- 
-            selected_sales() %>%
+        selected_sales() %>%
             filter(sales_usd > 0) %>%
             group_by(order_id) %>%
-            mutate(return_request_amount = sales_usd * return_requested) %>%
+            mutate(return_request_amount = sales_usd * return_requested,
+                   net_revenue = gross_revenue_usd + adjustments_usd,
+                   cogs = coalesce(manufacturing_cost, 70) + li_shipping_cost + payment_processing_cost) %>%
             summarise(quantity = sum(quantity), 
                       sales_usd = sum(sales_usd), 
                       refunds_requested_usd = sum(return_request_amount),
                       refund_amount_usd = sum(coalesce(refund_amount_usd, 0)),
-                      physically_customized = max(physically_customized)) %>%
+                      physically_customized = max(physically_customized),
+                      net_revenue = sum(net_revenue),
+                      cogs = sum(cogs)) %>%
             summarise(`Total Units` = short_number(sum(quantity)),
                       `Total Sales` = short_dollar(sum(sales_usd)),
+                      ASP = dollar(sum(sales_usd) / sum(quantity)),
                       `AOV` = short_dollar(mean(sales_usd)),
                       `Refund Request Rate` = round(sum(refunds_requested_usd) / sum(sales_usd), 2) %>% percent(),
-                      `Return Rate` = round(sum(refund_amount_usd) / sum(sales_usd), 2) %>% percent(),
-                      `Total Returns` = sum(refund_amount_usd) %>% coalesce(0) %>% short_dollar(),
-                      `Customization Rate` = round(sum(quantity * physically_customized) / sum(quantity), 2) %>% percent())
-        return(sum_stats)
+                      `Customization Rate` = round(sum(quantity * physically_customized) / sum(quantity), 2) %>% percent(),
+                      `Margin` = ((sum(net_revenue) - sum(cogs)) / sum(net_revenue)) %>% percent())
     })
     
     # ---- Daily Sales ----
@@ -124,14 +129,14 @@ shinyServer(function(input, output) {
         selected_sales() %>%
             group_by(order_date, order_status) %>%
             summarise(order_week_start = min(order_date),
-                      `Revenue USD` = sum(sales_usd))
+                      `Sales (USD)` = sum(sales_usd))
     })
     
     output$daily_sales <- renderPlot({
         daily_sales_data() %>%
-            ggplot(aes(x = order_date, y = `Revenue USD`, fill = order_status)) +
+            ggplot(aes(x = order_date, y = `Sales (USD)`, fill = order_status)) +
             geom_bar(stat = "identity", color = "black", size = 0.2) +
-            scale_y_continuous(labels = dollar) +
+            scale_y_continuous(labels = short_dollar) +
             theme_bw(base_size = 14) +
             theme(axis.title.x = element_blank(),
                   legend.title = element_blank()) +
@@ -315,7 +320,7 @@ shinyServer(function(input, output) {
     # ---- Montly Return Rates ----
     output$monthly_return_rates <- renderPlot({
         filtered_for_returns() %>% 
-            filter(order_state == "complete") %>%
+            filter(is_shipped & order_state == "complete") %>%
             group_by(ship_year_month) %>% 
             summarise(`Revenue (USD)` = sum(
                 ifelse(# See NOTES in global.R
@@ -412,7 +417,7 @@ shinyServer(function(input, output) {
             ggplot(aes(x = cart_year_month, y = Orders, fill = step)) + 
             geom_bar(stat = "identity", position = "dodge") + 
             theme_minimal(base_size = 14) +
-            scale_y_continuous(labels = short_number_space) +
+            scale_y_continuous(labels = short_number) +
             theme(axis.title.x = element_blank(),
                   legend.position = "bottom",
                   legend.title = element_blank()) +
@@ -669,11 +674,17 @@ shinyServer(function(input, output) {
                 xlab("Month") +
                 ylab(ylabel)
         } else {
-            ggplot() + theme_minimal(base_size = 24) + ggtitle("No data for\nthis quarter yet")
+            ggplot() + theme_minimal(base_size = 24) + ggtitle("No data available for this quarter yet.")
         }
     }
     
     # ---- Gross Revenue Budget vs Actual ----
+    output$download_finances <- downloadHandler(
+        filename = function() { paste("Finances ", today(), ".csv", sep='') },
+        content = function(file) {
+            write_csv(monthly_budget_actuals_2017, file, na = "")
+        })
+    
     gross_revenue <- reactive(quarterly_and_annual_budget_actuals() %>% filter(metric == "gross_revenue"))
     output$gross_revenue_actual <- renderText(dollar(gross_revenue()$actuals_2017[1]))
     output$gross_revenue_pob <- renderText(percent(gross_revenue()$percent_of_budget[1]))
