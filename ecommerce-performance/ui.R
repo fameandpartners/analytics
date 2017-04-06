@@ -342,6 +342,9 @@ shinyUI(fluidPage(
                         )
                     )
                 )
+            ),
+            fluidRow(
+                downloadButton("download_finances")
             )
         )
     ),
