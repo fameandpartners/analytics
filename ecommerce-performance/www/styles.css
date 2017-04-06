@@ -8,3 +8,7 @@
 body, header {
 	font-family: brandon-grotesque,Helvetica,Arial,sans-serif;
 }
+#finance_summary {
+    width: 100%;
+	text-align: right;
+}
