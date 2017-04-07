@@ -198,7 +198,6 @@ shinyServer(function(input, output) {
                               style_number,
                               order_status,
                               return_requested,
-                              return_request_action,
                               return_reason,
                               reason_sub_category,
                               color,
@@ -682,7 +681,7 @@ shinyServer(function(input, output) {
     output$download_finances <- downloadHandler(
         filename = function() { paste("Finances ", today(), ".csv", sep='') },
         content = function(file) {
-            write_csv(monthly_budget_actuals_2017, file, na = "")
+            write_csv(monthly_actuals_2017, file, na = "")
         })
     
     gross_revenue <- reactive(quarterly_and_annual_budget_actuals() %>% filter(metric == "gross_revenue"))
