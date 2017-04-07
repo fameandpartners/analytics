@@ -408,37 +408,15 @@ monthly_actuals_2017 <- products_sold %>%
            returns_per_unit = returns / units_shipped,
            average_discount = abs(total_adjustments) / gross_revenue)
 # NOTES:
-# 98% of returns are processed within 90 days, which is also our policy
-# products_sold %>%
-#     filter(!is.na(refunded_at)) %>%
-#     mutate(ship_to_return_request = difftime(refunded_at,
-#                                              ship_date,
-#                                              units = "days") %>% round(),
-#            less_than_90_days = ship_to_return_request < 90) %>%
-#     ggplot(aes(x = ship_to_return_request, fill = less_than_90_days)) +
-#     geom_histogram(binwidth = 1) +
-#     scale_x_continuous(breaks = seq(0, 150, 10), limits = c(0, 150))
-# products_sold %>%
-#     filter(!is.na(refunded_at)) %>%
-#     mutate(ship_to_return_request = difftime(refunded_at,
-#                                              ship_date,
-#                                              units = "days") %>% round(),
-#            less_than_90_days = ship_to_return_request < 90) %>%
-#     count(less_than_90_days) %>%
-#     mutate(n / sum(n))
+# 98% of returns are processed within 90 days
 # less_than_90_days n `n/sum(n)`
-#  <lgl>          <int>   <dbl>
 # 1 FALSE           87 0.01549145
 # 2 TRUE          5529 0.98450855
 
 # # 74% of refund request dollars are refunded
 # # This observation drives the crude estimate of 0.65 * refunds requesteds
 # # We anticipate that this rate will drop this year because of bridal returns
-# products_sold %>%
-#     filter(return_requested & ship_date < today() - 90) %>%
-#     summarise(refunded = sum(coalesce(refund_amount_usd, 0)) / sum(sales_usd))
 # # refunded
-# #   <dbl>
 # # 1 0.7391868
 
 monthly_budget_actuals_2017 <- monthly_actuals_2017 %>%
