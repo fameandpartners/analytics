@@ -17,7 +17,6 @@ year_month <- function(date_value){
 }
 
 dollar <- function(number){
-    require(magrittr)
     paste0("$", round(number, digits = 2) %>%
                format(nsmall = 2, big.mark = ","))
 }
@@ -172,14 +171,14 @@ customizations <- tbl(fp_con, sql(paste(
 products <- tbl(fp_con, sql(paste(
     "SELECT",
         "p.id product_id,",
-        "UPPER(g.style) style_number,",
+        "g.style style_number,",
         "INITCAP(p.name) style_name,",
         "p.hidden,",
         "p.deleted_at,",
         "p.available_on",
     "FROM spree_products p",
     "LEFT JOIN (",
-        "SELECT product_id, STRING_AGG(DISTINCT style_number, ',') style",
+        "SELECT product_id, STRING_AGG(DISTINCT UPPER(style_number), ',') style",
         "FROM global_skus",
         "GROUP BY product_id",
     ") g ON g.product_id = p.id",
@@ -236,20 +235,19 @@ li_shipments <- shipment_data %>%
 returns <- tbl(fp_con, "item_returns") %>%
     select(requested_at, refunded_at, line_item_id, refund_amount, 
            reason_category, reason_sub_category, acceptance_status) %>%
-    filter(acceptance_status != "rejected" & line_item_id %in% ordered_units$line_item_id) %>%
+    filter(line_item_id %in% ordered_units$line_item_id) %>%
     collect()
 
 # ---- PAYMENTS ----
 payments <- tbl(fp_con, sql(paste(
-    "SELECT order_id, state p_state, amount p_amount",
+    "SELECT order_id, amount p_amount",
     "FROM spree_payments",
-    "WHERE state != 'failed'",
+    "WHERE state = 'completed'",
         "AND created_at >= '2015-12-01'"))) %>%
     collect() %>%
     group_by(order_id) %>%
     summarise(order_payments = n(),
-              total_payment_amount = sum(p_amount),
-              payment_states = paste(p_state, collapse = ","))
+              total_payment_amount = sum(p_amount))
 
 # ---- TAXES ----
 taxes <- tbl(fp_con, sql(paste(
@@ -305,6 +303,7 @@ dress_images <- tbl(fp_con, sql(paste(
         )
     )
 
+# ---- MERGE + TRANSFORM QUERIES INTO MASTER SALES DF ----
 products_sold <- ordered_units %>%
     left_join(customizations, by = "line_item_id") %>%
     left_join(products, by = "product_id") %>%
