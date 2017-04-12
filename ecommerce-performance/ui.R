@@ -27,12 +27,6 @@ shinyUI(fluidPage(
                         multiple = TRUE
                     ),
                     selectInput(
-                        "live",
-                        "Style Live on Website:",
-                        choices = c("Yes","No"),
-                        multiple = TRUE
-                    ),
-                    selectInput(
                         "taxons",
                         "Taxons",
                         choices = product_taxons$taxon_name %>% unique() %>% sort(),
@@ -131,7 +125,8 @@ shinyUI(fluidPage(
                 column(
                     8,
                     h3c("Monthly Return Rates"),
-                    plotOutput("monthly_return_rates")
+                    plotOutput("monthly_return_rates"),
+                    downloadButton("return_rates_down")
                 )
             ),
             
@@ -139,12 +134,14 @@ shinyUI(fluidPage(
                 column(
                     5,
                     h3c("Return Reasons"),
-                    plotOutput("return_reasons")
+                    plotOutput("return_reasons"),
+                    downloadButton("return_reasons_down")
                 ),
                 column(
                     7,
                     h3c("Primary and Secondary Return Reasons"),
-                    dataTableOutput("sec_return_reasons")
+                    dataTableOutput("sec_return_reasons"),
+                    downloadButton("sec_return_reasons_down")
                 )
             ),
             
