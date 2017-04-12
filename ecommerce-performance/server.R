@@ -15,10 +15,6 @@ shinyServer(function(input, output) {
             input$order_status
         } else { unique(products_sold$order_status) }
     })
-
-    product_live_filter <- reactive({
-        if(length(input$live) > 0) { input$live } else { c("Yes", "No") }
-    })
     
     taxon_filter <- reactive({
         if(length(input$taxons) > 0){
@@ -35,7 +31,6 @@ shinyServer(function(input, output) {
             filter(collection %in% collection_filter()) %>%
             filter(between(price_usd, input$price_range[1], input$price_range[2])) %>%
             filter(between(us_size, input$us_size[1], input$us_size[2])) %>%
-            filter(product_live %in% product_live_filter()) %>%
             filter(order_status %in% order_status_filter()) %>%
             filter(product_id %in% taxon_filter())
         return(sales)
@@ -202,7 +197,6 @@ shinyServer(function(input, output) {
                               reason_sub_category,
                               color,
                               size,
-                              product_live,
                               collection
                           ), 
                       file, na = "")
@@ -276,12 +270,15 @@ shinyServer(function(input, output) {
     })
     
     # ---- Return Reasons ----
-    
-    output$return_reasons <- renderPlot({
-        returns_df <- filtered_returns() %>%
+    return_reasons_data <- reactive({
+        filtered_returns() %>%
             filter(!is.na(return_reason)) %>%
             group_by(return_reason) %>%
             summarise(Units = n())
+    })
+    
+    output$return_reasons <- renderPlot({
+        returns_df <- return_reasons_data()
         
         if(nrow(returns_df) > 0){
             returns_df %>%
@@ -303,30 +300,50 @@ shinyServer(function(input, output) {
         }
     })
     
-    output$sec_return_reasons <- renderDataTable({
+    output$return_reasons_down <- downloadHandler(
+        filename = function() { paste0("Return Reasons ", today(), ".csv") },
+        content = function(file) { write_csv(return_reasons_data(), file, na = "") }
+    )
+    
+    # ---- Secondary Return Reasons ----
+    sec_return_reasons_data <- reactive({
         filtered_returns() %>%
             group_by(`Primary Return Reason` = return_reason, 
                      `Secondary Return Reason` = reason_sub_category) %>% 
             summarise(Units = n(),
                       `Revenue (USD)` = sum(sales_usd)) %>%
-            arrange(desc(Units)) %>%
+            arrange(desc(Units))
+    })
+    
+    output$sec_return_reasons <- renderDataTable({
+        sec_return_reasons_data() %>%
             datatable(class = "hover row-border", style = "bootstrap", 
                       rownames = FALSE, selection = "none") %>%
             formatCurrency(c("Units"), digits = 0, currency = "") %>%
             formatCurrency(c("Revenue (USD)"))
     })
     
+    output$sec_return_reasons_down <- downloadHandler(
+        filename = function() { paste0("Secondary Return Reasons ", today(), ".csv") },
+        content = function(file){ write_csv(sec_return_reasons_data(), file, na = "")}
+    )
+    
     # ---- Montly Return Rates ----
-    output$monthly_return_rates <- renderPlot({
+    return_rates_data <- reactive({
         filtered_for_returns() %>% 
             filter(is_shipped & order_state == "complete") %>%
             group_by(ship_year_month) %>% 
-            summarise(`Revenue (USD)` = sum(
-                ifelse(# See NOTES in global.R
-                    ship_date >= today() - 90,
-                    coalesce(refund_amount_usd, return_requested * sales_usd * 0.65),
-                    coalesce(refund_amount_usd, 0))
-            ) / sum(gross_revenue_usd)) %>% 
+            summarise(`Gross Revenue` = sum(gross_revenue_usd),
+                      `Processed Refunds` = sum(coalesce(refund_amount_usd, 0)),
+                      `Estimated Refunds` = sum(ifelse(# See NOTES in global.R
+                          ship_date >= today() - 90,
+                          coalesce(refund_amount_usd, return_requested * sales_usd * 0.65),
+                          coalesce(refund_amount_usd, 0))),
+                      `Return Rate` = `Estimated Refunds` / `Gross Revenue`)
+    })
+    output$monthly_return_rates <- renderPlot({
+         return_rates_data() %>% 
+            rename(`Revenue (USD)` = `Return Rate`) %>%
             ggplot(aes(x = ship_year_month, y = `Revenue (USD)`)) + 
             geom_bar(stat = "identity") +
             scale_y_continuous(labels = percent) +
@@ -335,6 +352,11 @@ shinyServer(function(input, output) {
                   axis.title.x = element_blank(),
                   axis.text.x = element_text(hjust = 1, angle = 35))
     })
+    
+    output$return_rates_down <- downloadHandler(
+        filename = function() { paste0("Monthly Return Rates ", today(), ".csv") },
+        content = function(file){ write_csv(return_rates_data(), file, na = "") }
+    )
     
     # ---- Returns Export ----
     
