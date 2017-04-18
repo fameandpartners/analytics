@@ -41,7 +41,7 @@ shinyServer(function(input, output) {
         filtered_sales() %>%
             filter(sales_usd > 0) %>%
             mutate(net_revenue = gross_revenue_usd + adjustments_usd,
-                   cogs = coalesce(manufacturing_cost, 70) + li_shipping_cost + payment_processing_cost) %>%
+                   cogs = manufacturing_cost + li_shipping_cost + payment_processing_cost) %>%
             group_by(style_number) %>%
             summarise(`Style Name` = paste(unique(style_name), collapse = ","),
                       `Dress Image` = dress_image_tag[1],
@@ -72,7 +72,8 @@ shinyServer(function(input, output) {
         filename = function() { paste("Top Styles ", today(), ".csv", sep='') },
         content = function(file) {
             write_csv(style_ranking_data() %>% 
-                          rename(`Style Number` = style_number), 
+                          rename(`Style Number` = style_number) %>%
+                          select(-`Dress Image`), 
                       file, na = "")
         })
     
@@ -357,6 +358,27 @@ shinyServer(function(input, output) {
         filename = function() { paste0("Monthly Return Rates ", today(), ".csv") },
         content = function(file){ write_csv(return_rates_data(), file, na = "") }
     )
+    
+    # ---- Return Rates by Height and Length ----
+    height_length_return_rate_data <- reactive({
+        filtered_for_returns() %>%
+            filter(!is.na(height) & !is.na(length)) %>%
+            group_by(Height = height, Length = length) %>%
+            summarise(Revenue = sum(gross_revenue_usd),
+                      `Returns Requested` = sum(gross_revenue_usd * return_requested),
+                      Returns = sum(coalesce(refund_amount_usd, 0))) %>%
+            ungroup() %>%
+            mutate(`Return Request Rate` = `Returns Requested` / Revenue,
+                   `Return Rate` = Returns / Revenue) 
+    })
+    
+    output$height_length_return_rate <- renderDataTable({
+        height_length_return_rate_data() %>%
+            datatable(class = "hover row-border", style = "bootstrap", 
+                      rownames = FALSE, selection = "none") %>%
+            formatPercentage(c("Return Request Rate","Return Rate")) %>%
+            formatCurrency(c("Revenue","Returns Requested","Returns"))
+    })
     
     # ---- Returns Export ----
     
@@ -699,11 +721,30 @@ shinyServer(function(input, output) {
         }
     }
     
+    finance_downloader <- function(reactive_df, export_name){
+        downloadHandler(
+            filename = function() { paste0("Finances - ", export_name, " ", today(), ".csv") },
+            content = function(file) { write_csv(reactive_df %>% select(-metric), file, na = "") }
+        )
+    }
+    
     # ---- Gross Revenue Budget vs Actual ----
+    line_item_details <- reactive({
+        products_sold %>%
+            filter(year(ship_date) %in% as.numeric(input$year)
+                   & quarter(ship_date) %in% quarter_filter()) %>%
+            mutate(ship_quarter = quarter(ship_date),
+                   ship_month = month(ship_date)) %>%
+            arrange(ship_date) %>%
+            select(line_item_id, order_number, currency, order_state, payment_state, order_status,
+                   gross_revenue_usd, shipping_usd, taxes_usd, promotions_usd,
+                   other_adjustments_usd, adjustments_usd, sales_usd, order_date, ship_date)
+    })
+    
     output$download_finances <- downloadHandler(
         filename = function() { paste("Finances ", today(), ".csv", sep='') },
         content = function(file) {
-            write_csv(monthly_actuals_2017, file, na = "")
+            write_csv(line_item_details(), file, na = "")
         })
     
     gross_revenue <- reactive(quarterly_and_annual_budget_actuals() %>% filter(metric == "gross_revenue"))
@@ -752,12 +793,29 @@ shinyServer(function(input, output) {
     output$gross_margin_yoy <- renderText(percent(gross_margin()$percent_change_yoy[1]))
     
     output$gross_revenue <- renderPlot(budget_v_actual_plot("gross_revenue", ylabel = "Revenue (USD)"))
+    output$gross_revenue_down <- finance_downloader(monthly_budget_actuals() %>% filter(metric == "gross_revenue"), "Gross Revenue")
+    
     output$gross_margin <- renderPlot(budget_v_actual_plot("gross_margin", "rate", ylabel = "Revenue (USD)"))
+    output$gross_margin_down <- finance_downloader(monthly_budget_actuals() %>% filter(metric == "gross_margin"), "Gross Margin")
+    
     output$cogs <- renderPlot(budget_v_actual_plot("cogs", ylabel = "Cost (USD)"))
+    output$cogs_down <- finance_downloader(monthly_budget_actuals() %>% filter(metric == "cogs_down"), "COGS")
+    
     output$units_shipped <- renderPlot(budget_v_actual_plot("units_shipped", "number", ylabel = "Units"))
+    output$units_shipped_down <- finance_downloader(monthly_budget_actuals() %>% filter(metric == "units_shipped"), "Units Shipped")
+    
     output$average_selling_price <- renderPlot(budget_v_actual_plot("average_selling_price", ylabel = "Price (USD)"))
+    output$average_selling_price_down <- finance_downloader(monthly_budget_actuals() %>% filter(metric == "average_selling_price_down"), "ASP")
+    
     output$average_unit_cogs <- renderPlot(budget_v_actual_plot("average_unit_cogs", ylabel = "Cost (USD)"))
+    output$average_unit_cogs_down <- finance_downloader(monthly_budget_actuals() %>% filter(metric == "average_unit_cogs"), "Avg. Unit COGS")
+    
     output$returns <- renderPlot(budget_v_actual_plot("returns", ylabel = "Lost Revenue (USD)"))
+    output$returns_down <- finance_downloader(monthly_budget_actuals() %>% filter(metric == "returns"), "Returns")
+    
     output$return_rate <- renderPlot(budget_v_actual_plot("return_rate", "rate", ylabel = "Revenue (USD)"))
+    output$return_rate_down <- finance_downloader(monthly_budget_actuals() %>% filter(metric == "return_rate"), "Return Rate")
+    
     output$returns_per_unit <- renderPlot(budget_v_actual_plot("returns_per_unit", ylabel = "Revenue Lost (USD)"))
+    output$returns_per_unit_down <- finance_downloader(monthly_budget_actuals() %>% filter(metric == "returns_per_unit"), "Returns per Unit")
 })

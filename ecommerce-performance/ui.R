@@ -141,7 +141,10 @@ shinyUI(fluidPage(
                     7,
                     h3c("Primary and Secondary Return Reasons"),
                     dataTableOutput("sec_return_reasons"),
-                    downloadButton("sec_return_reasons_down")
+                    downloadButton("sec_return_reasons_down"),
+                    h3c("Return Rate by Height and Length"),
+                    dataTableOutput("height_length_return_rate"),
+                    downloadButton("height_length_return_rate_down")
                 )
             ),
             
@@ -302,45 +305,56 @@ shinyUI(fluidPage(
                             "Sales",
                             h3c("Gross Revenue"),
                             plotOutput("gross_revenue", height = "300px"),
+                            downloadButton("gross_revenue_down"),
                             hr(),
                             h3c("Units Shipped"),
                             plotOutput("units_shipped", height = "300px"),
+                            downloadButton("units_shipped_down"),
                             hr(),
                             h3c("Avgerage Selling Price"),
-                            plotOutput("average_selling_price", height = "300px")
+                            plotOutput("average_selling_price", height = "300px"),
+                            downloadButton("average_selling_price_down")
                         ),
                         tabPanel(
                             "COGS",
                             h3c("Cost of Goods Sold"),
                             plotOutput("cogs", height = "300px"),
+                            downloadButton("cogs_down"),
                             hr(),
                             h3c("Avgerage Unit COGS"),
-                            plotOutput("average_unit_cogs", height = "300px")
+                            plotOutput("average_unit_cogs", height = "300px"),
+                            downloadButton("average_unit_cogs_down")
                         ),
                         tabPanel(
                             "Returns",
                             h3c("Returns"),
                             p("These estimates are not accurate until 30 Days after month end.", align = "center") %>% em(),
                             plotOutput("returns", height = "300px"),
+                            downloadButton("returns_down"),
                             hr(),
                             h3c("Return Rate"),
                             p("These estimates are not accurate until 30 Days after month end.", align = "center") %>% em(),
                             plotOutput("return_rate", height = "300px"),
+                            downloadButton("return_rate_down"),
                             hr(),
                             h3c("Returns per Unit"),
                             p("These estimates are not accurate until 30 Days after month end.", align = "center") %>% em(),
-                            plotOutput("returns_per_unit", height = "300px")
+                            plotOutput("returns_per_unit", height = "300px"),
+                            downloadButton("returns_per_unit_down")
                         ),
                         tabPanel(
                             "Margin",
                             h3c("Gross Margin"),
                             p("These estimates are not accurate until 30 Days after month end.", align = "center") %>% em(),
-                            plotOutput("gross_margin", height = "300px")
+                            plotOutput("gross_margin", height = "300px"),
+                            downloadButton("gross_margin_down")
                         )
                     )
                 )
             ),
             fluidRow(
+                em("Line Item Details"),
+                br(),
                 downloadButton("download_finances")
             )
         )

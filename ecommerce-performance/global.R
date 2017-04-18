@@ -147,7 +147,7 @@ ordered_units <- tbl(fp_con, sql(paste(
            conversion_rate = ifelse(currency == "AUD", aud_to_usd, 1),
            sales_usd = (price + net_extra_attributed) * conversion_rate,
            gross_revenue_usd = (price + gross_extra_attributed) * conversion_rate,
-           adjustments_total_percentage = o_adjustments / total,
+           adjustments_total_percentage = o_adjustments / item_total,
            adjustments_usd = gross_revenue_usd * adjustments_total_percentage,
            order_date = as.Date(completed_timestamp)) %>%
     ungroup()
@@ -249,15 +249,18 @@ payments <- tbl(fp_con, sql(paste(
     summarise(order_payments = n(),
               total_payment_amount = sum(p_amount))
 
-# ---- TAXES ----
-taxes <- tbl(fp_con, sql(paste(
-    "SELECT adjustable_id order_id, SUM(amount) order_taxes",
+# ---- ADJUSTMENTS ----
+adjustments <- tbl(fp_con, sql(paste(
+    "SELECT adjustable_id order_id, originator_type, SUM(amount) adjustments",
     "FROM spree_adjustments",
-    "WHERE originator_type = 'Spree::TaxRate'",
-        "AND eligible",
-        "AND amount > 0",
-    "GROUP BY order_id"))) %>%
-    collect()
+    "WHERE amount != 0 AND eligible",
+    "GROUP BY order_id, originator_type"))) %>%
+    collect() %>%
+    left_join(data_frame(originator_type = c("Spree::TaxRate","Spree::ShippingMethod","Spree::PromotionAction",NA), 
+                         adjustment_type = c("o_taxes","o_shipping","o_promotions","o_other_adjustments")), 
+              by = "originator_type") %>%
+    select(-originator_type) %>%
+    spread(adjustment_type, adjustments, fill = 0)
 
 # ---- PRODUCT TAXONS ----
 product_taxons <- tbl(fp_con, sql(paste(
@@ -312,9 +315,21 @@ products_sold <- ordered_units %>%
     left_join(li_shipments, by = "line_item_id") %>%
     left_join(returns, by = "line_item_id") %>%
     left_join(payments, by = "order_id") %>%
-    left_join(taxes, by = "order_id") %>%
+    left_join(adjustments, by = "order_id") %>%
+    left_join(product_taxons %>%
+                  filter(taxon_name %>% tolower() %>% str_detect("mini|knee|petti|midi|ankle|maxi|long")
+                         & !str_detect(taxon_name, " ")) %>%
+                  group_by(product_id) %>%
+                  summarise(length = paste0(taxon_name[1] %>% str_trim() %>% substr(1, 1) %>% toupper(), 
+                                            taxon_name[1] %>% str_trim() %>% substr(2, 10))),
+              by = "product_id") %>%
     group_by(order_id) %>%
-    mutate(payments = coalesce(order_payments / n(), 0)) %>%
+    mutate(payments = coalesce(order_payments / n(), 0),
+           item_total_usd = item_total * conversion_rate,
+           promotions_usd = gross_revenue_usd * (o_promotions / item_total),
+           shipping_usd = gross_revenue_usd * (o_shipping / item_total),
+           taxes_usd = gross_revenue_usd * (o_taxes / item_total),
+           other_adjustments_usd = gross_revenue_usd * (o_other_adjustments / item_total)) %>%
     ungroup() %>%
     mutate(ship_date = coalesce(li_ship_date, o_ship_date),
            refund_amount_usd = (refund_amount / 100) * ifelse(currency == "AUD", aud_to_usd, 1),
@@ -330,8 +345,7 @@ products_sold <- ordered_units %>%
            order_status = ifelse(order_state == "canceled", "Canceled",
                           ifelse(item_returned, "Returned",
                           ifelse(return_requested, "Refund Requested",
-                          ifelse(is_shipped, "Shipped",
-                                 "Paid")))),
+                          ifelse(is_shipped, "Shipped","Paid")))),
            return_reason = ifelse(tolower(reason_category) %in% c('n/a','na','not specified','not stated','not satisfied')
                                   | is.na(reason_category),
                                   "No Reason", 
