@@ -85,6 +85,10 @@ all_touches <- read_csv("static-data/all_touches.csv",
                         )) %>%
     rename(sales_usd = revenue_usd)
 
+cohort_assigments <- all_touches %>%
+    transmute(email, assigned_cohort = cohort) %>%
+    unique()
+
 # factory manufacturing cost data
 # still missing some costs
 factory_costs <- read_csv("static-data/eCommerce Factory Cost.csv",
@@ -324,6 +328,7 @@ products_sold <- ordered_units %>%
                   summarise(length = paste0(taxon_name[1] %>% str_trim() %>% substr(1, 1) %>% toupper(), 
                                             taxon_name[1] %>% str_trim() %>% substr(2, 10))),
               by = "product_id") %>%
+    left_join(cohort_assigments, by = "email") %>%
     group_by(order_id) %>%
     mutate(payments = coalesce(order_payments / n(), 0),
            item_total_usd = item_total * conversion_rate,
@@ -355,7 +360,7 @@ products_sold <- ordered_units %>%
            estimated_ship_date = ifelse(is.na(ship_date), order_date + 10, ship_date) %>% as.Date(origin = "1970-01-01"),
            ship_year_month = year_month(estimated_ship_date),
            order_year_month = year_month(order_date),
-           payment_processing_cost = sales_usd * 0.029 * payments,
+           payment_processing_cost = (sales_usd * 0.029) + 0.3,
            physically_customized = ifelse(is.na(customized), 0, customized)) %>%
     left_join(collections %>%
                   group_by(product_id) %>%

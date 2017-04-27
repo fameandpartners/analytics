@@ -25,6 +25,12 @@ shinyServer(function(input, output) {
         } else { unique(products_sold$product_id) }
     })
     
+    assigned_cohort_filter <- reactive({
+        if(length(input$assigned_cohort)){
+            input$assigned_cohort
+        } else { unique(products_sold$assigned_cohort) }
+    })
+    
     filtered_sales <- reactive({
         sales <- products_sold %>%
             filter(between(order_date, input$order_dates[1], input$order_dates[2])) %>%
@@ -32,7 +38,8 @@ shinyServer(function(input, output) {
             filter(between(price_usd, input$price_range[1], input$price_range[2])) %>%
             filter(between(us_size, input$us_size[1], input$us_size[2])) %>%
             filter(order_status %in% order_status_filter()) %>%
-            filter(product_id %in% taxon_filter())
+            filter(product_id %in% taxon_filter()) %>%
+            filter(assigned_cohort %in% assigned_cohort_filter())
         return(sales)
     })
     
@@ -40,7 +47,7 @@ shinyServer(function(input, output) {
     style_ranking_data <- reactive({
         filtered_sales() %>%
             filter(sales_usd > 0) %>%
-            mutate(net_revenue = gross_revenue_usd + adjustments_usd,
+            mutate(net_sales = gross_revenue_usd + adjustments_usd,
                    cogs = manufacturing_cost + li_shipping_cost + payment_processing_cost) %>%
             group_by(style_number) %>%
             summarise(`Style Name` = paste(unique(style_name), collapse = ","),
@@ -50,7 +57,7 @@ shinyServer(function(input, output) {
                       ASP = mean(sales_usd),
                       `Refund Request Rate` = sum(sales_usd * return_requested) / sum(sales_usd),
                       `Customization Rate` = sum(quantity * physically_customized) / sum(quantity),
-                      Margin = (sum(net_revenue) - sum(cogs)) / sum(net_revenue)) %>%
+                      Margin = (sum(net_sales) - sum(cogs)) / sum(net_sales)) %>%
             arrange(desc(Sales))
     })
     

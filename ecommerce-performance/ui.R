@@ -32,6 +32,12 @@ shinyUI(fluidPage(
                         choices = product_taxons$taxon_name %>% unique() %>% sort(),
                         multiple = TRUE
                     ),
+                    selectInput(
+                        "assigned_cohort",
+                        "Cohort",
+                        choices = products_sold$assigned_cohort %>% unique() %>% sort(),
+                        multiple = TRUE
+                    ),
                     sliderInput(
                         "us_size",
                         "Size (US):",
