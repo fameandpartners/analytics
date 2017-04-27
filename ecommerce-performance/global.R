@@ -149,10 +149,10 @@ ordered_units <- tbl(fp_con, sql(paste(
            gross_revenue_usd = (price + gross_extra_attributed) * conversion_rate,
            adjustments_total_percentage = o_adjustments / item_total,
            adjustments_usd = gross_revenue_usd * adjustments_total_percentage,
-           order_date = as.Date(completed_timestamp)) %>%
+           order_date = as_date(completed_timestamp)) %>%
     ungroup()
 
-# ---- CUSTOMIZATIONS ----
+# ---- CUSTOMIZATIONS + HEIGHTS ----
 customizations <- tbl(fp_con, sql(paste(
     "SELECT",
         "lip.line_item_id,",
@@ -234,7 +234,7 @@ li_shipments <- shipment_data %>%
 
 # ---- RETURNS ----
 returns <- tbl(fp_con, "item_returns") %>%
-    select(requested_at, refunded_at, line_item_id, refund_amount, 
+    select(requested_at, refunded_at, line_item_id, refund_amount,
            reason_category, reason_sub_category, acceptance_status) %>%
     filter(line_item_id %in% ordered_units$line_item_id) %>%
     collect()

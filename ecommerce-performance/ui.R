@@ -139,9 +139,21 @@ shinyUI(fluidPage(
                 ),
                 column(
                     7,
-                    h3c("Primary and Secondary Return Reasons"),
-                    dataTableOutput("sec_return_reasons"),
-                    downloadButton("sec_return_reasons_down"),
+                    h3c("Primary and Secondary Return Reason Details"),
+                    dataTableOutput("reason_details"),
+                    downloadButton("reason_details_down")
+                )
+            ),
+            
+            fluidRow(
+                column(
+                    5,
+                    h3c("Secondary Return Reasons"),
+                    plotOutput("sec_return_reasons"),
+                    downloadButton("sec_return_reasons_down")
+                ),
+                column(
+                    7,
                     h3c("Return Rate by Height and Length"),
                     dataTableOutput("height_length_return_rate"),
                     downloadButton("height_length_return_rate_down")

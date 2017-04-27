@@ -267,7 +267,7 @@ shinyServer(function(input, output) {
     })
     
     filtered_returns <- reactive({
-        filtered_for_returns() %>% filter(item_returned)
+        filtered_for_returns() %>% filter(return_requested)
     })
     
     # ---- Return Reasons ----
@@ -306,8 +306,61 @@ shinyServer(function(input, output) {
         content = function(file) { write_csv(return_reasons_data(), file, na = "") }
     )
     
-    # ---- Secondary Return Reasons ----
+    # --- Secondary Return Reasons ----
     sec_return_reasons_data <- reactive({
+        filtered_returns() %>%
+            group_by(reason_sub_category) %>%
+            summarise(Units = n()) %>%
+            mutate(ranking = rank(-Units),
+                   sec_reason = ifelse(ranking < 10, reason_sub_category, "Other Reason")) %>%
+            group_by(sec_reason) %>%
+            summarise(Units = sum(Units)) %>%
+            arrange(desc(Units)) %>%
+            ungroup()
+    })
+    
+    output$sec_return_reasons <- renderPlot({
+        returns_df <- sec_return_reasons_data()
+    
+        returns_df$sec_reason <- factor(
+            returns_df$sec_reason,
+            levels = c(returns_df$sec_reason[returns_df$sec_reason != "Other Reason"], "Other Reason")
+        )
+        
+        if(nrow(returns_df) > 0){
+            returns_df %>%
+                ggplot(aes(x = "", y = Units, fill = sec_reason)) +
+                geom_bar(stat = "identity", position = "fill", color = "black", size = 0.2) +
+                coord_polar("y", start = 0) +
+                theme_minimal(base_size = 14) +
+                theme(axis.text = element_blank(),
+                      axis.title = element_blank(),
+                      legend.title = element_blank(),
+                      legend.position = "left") +
+                scale_fill_brewer(palette = "Set3")
+        } else {
+            ggplot(data_frame(x = c(NA)), aes(x = x)) + 
+                ggtitle("No Returns") + 
+                theme_minimal() + 
+                theme(axis.title = element_blank(), 
+                      axis.text = element_blank())
+        }
+    })
+    
+    output$sec_return_reasons_down <- downloadHandler(
+        filename = function() { paste0("Secondary Return Reasons ", today(), ".csv") },
+        content = function(file) { write_csv(
+            filtered_returns() %>%
+                group_by(reason_sub_category) %>%
+                summarise(Units = n()) %>%
+                arrange(desc(Units)) %>%
+                mutate(`Percent of Total` = Units / sum(Units)) %>%
+                rename(`Secondary Return Reason` = reason_sub_category), 
+            file, na = "") }
+    )
+    
+    # ---- Primary and Secondary Return Reason Details ----
+    reason_details_data <- reactive({
         filtered_returns() %>%
             group_by(`Primary Return Reason` = return_reason, 
                      `Secondary Return Reason` = reason_sub_category) %>% 
@@ -316,42 +369,46 @@ shinyServer(function(input, output) {
             arrange(desc(Units))
     })
     
-    output$sec_return_reasons <- renderDataTable({
-        sec_return_reasons_data() %>%
+    output$reason_details <- renderDataTable({
+        reason_details_data() %>%
             datatable(class = "hover row-border", style = "bootstrap", 
                       rownames = FALSE, selection = "none") %>%
             formatCurrency(c("Units"), digits = 0, currency = "") %>%
             formatCurrency(c("Revenue (USD)"))
     })
     
-    output$sec_return_reasons_down <- downloadHandler(
+    output$reason_details_down <- downloadHandler(
         filename = function() { paste0("Secondary Return Reasons ", today(), ".csv") },
-        content = function(file){ write_csv(sec_return_reasons_data(), file, na = "")}
+        content = function(file){ write_csv(reason_details_data(), file, na = "")}
     )
     
     # ---- Montly Return Rates ----
     return_rates_data <- reactive({
         filtered_for_returns() %>% 
-            filter(is_shipped & order_state == "complete") %>%
+            filter(order_status %in% c("Shipped","Refund Requested","Returned")) %>%
             group_by(ship_year_month) %>% 
             summarise(`Gross Revenue` = sum(gross_revenue_usd),
-                      `Processed Refunds` = sum(coalesce(refund_amount_usd, 0)),
-                      `Estimated Refunds` = sum(ifelse(# See NOTES in global.R
+                      `Processed Returns` = sum(coalesce(refund_amount_usd, 0)),
+                      `Requested Returns` = sum(return_requested * gross_revenue_usd),
+                      `Estimated Returns` = sum(ifelse(# See NOTES in global.R
                           ship_date >= today() - 90,
                           coalesce(refund_amount_usd, return_requested * sales_usd * 0.65),
                           coalesce(refund_amount_usd, 0))),
-                      `Return Rate` = `Estimated Refunds` / `Gross Revenue`)
+                      `Refund Request Rate` = `Requested Returns` / `Gross Revenue`,
+                      `Return Rate` = `Processed Returns` / `Gross Revenue`)
     })
     output$monthly_return_rates <- renderPlot({
          return_rates_data() %>% 
-            rename(`Revenue (USD)` = `Return Rate`) %>%
-            ggplot(aes(x = ship_year_month, y = `Revenue (USD)`)) + 
-            geom_bar(stat = "identity") +
-            scale_y_continuous(labels = percent) +
+            ggplot(aes(x = ship_year_month)) +
+            geom_line(aes(y = `Return Rate`, color = "Return Rate"), group = 1) +
+            geom_line(aes(y = `Refund Request Rate`, color = "Refund Request Rate"), group = 1) +
+            scale_y_continuous(labels = percent, limits = c(0, max(return_rates_data()$`Refund Request Rate`)*1.1)) +
             theme_bw(base_size = 14) +
             theme(legend.title = element_blank(),
                   axis.title.x = element_blank(),
-                  axis.text.x = element_text(hjust = 1, angle = 35))
+                  axis.text.x = element_text(hjust = 1, angle = 35)) +
+            ylab("Revenue (USD)") +
+            scale_color_brewer(palette = "Set1")
     })
     
     output$return_rates_down <- downloadHandler(
