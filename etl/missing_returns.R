@@ -3,8 +3,8 @@ source("~/code/analytics/ecommerce-performance/global.R")
 setwd("~/data")
 
 returns <- tbl(fp_con, "item_returns") %>%
-    select(requested_at, refunded_at, line_item_id, refund_amount, comments,
-           reason_category, reason_sub_category, acceptance_status) %>%
+    select(id, requested_at, refunded_at, line_item_id, refund_amount, comments, uuid,
+           reason_category, reason_sub_category, acceptance_status, order_paid_currency) %>%
     filter(line_item_id %in% ordered_units$line_item_id) %>%
     collect()
 
@@ -79,15 +79,48 @@ missing_return_details <- matched_returns %>%
 #write_csv(missing_return_details, "missing returns details.csv", na = '')
 
 # Pull refund amount from comments
-missing_return_details %>%
-    filter(has_comments) %>%
-    mutate(refund_amount_from_comments_str = return_comments %>% 
+comments_refund_amount <- returns %>%
+    filter(!is.na(comments) & requested_at >= as.Date("2017-01-01")) %>%
+    mutate(refund_amount_from_comments_str = comments %>% 
                str_extract("\\$(.*) ") %>%
                str_replace_all("\\$","") %>%
                str_extract("[0-9]{1,6}.[0-9]{0,2}") %>%
-               str_trim(),
-           refund_amount_from_comments = as.numeric(refund_amount_from_comments_str)
-           )
+               str_trim()) %>%
+    filter(!is.na(refund_amount_from_comments_str)) %>%
+    mutate(refund_amount_from_comments = as.numeric(refund_amount_from_comments_str),
+           refund_amount_for_update = refund_amount_from_comments * 100)
+
+# Pull refund amounts from return events
+return_events <- tbl(fp_con, "item_return_events") %>%
+    filter(event_type == "refund") %>%
+    collect() %>%
+    mutate(refund_amount_from_event_data = data %>% 
+               str_extract("[0-9]{1,6}.[0-9]{0,2}") %>%
+               str_replace_all("\\'","") %>%
+               as.numeric()) %>%
+    rename(uuid = item_return_uuid) %>%
+    select(-id)
+
+events_refund_amount <- returns %>%
+    filter(is.na(refund_amount)) %>%
+    inner_join(return_events, by = "uuid") %>%
+    mutate(refund_amount_for_update = refund_amount_from_event_data * 100)
+
+refund_amount_updates <- bind_rows(list(
+    comments_refund_amount %>%
+        filter(id != 10895) %>% # Bad record
+        select(id, refund_amount_for_update),
+    events_refund_amount %>%
+        select(id, refund_amount_for_update)))
+
+write_csv(refund_amount_updates, "item_returns updates 2017-04-28.csv")
+
+refund_amount_updates %>%
+    inner_join(returns, by = "id") %>%
+    inner_join(products_sold, by = "line_item_id") %>%
+    filter(!duplicated(line_item_id)) %>%
+    group_by(ship_year_month) %>%
+    summarise(sum((refund_amount_for_update * conversion_rate) / 100))
 
 # ---- Returns Missing from Warehouses ----
 order_summary %>%
