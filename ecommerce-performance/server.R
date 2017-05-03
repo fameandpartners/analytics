@@ -696,7 +696,9 @@ shinyServer(function(input, output) {
     
     output$camp_conv_down <- downloadHandler(
         filename = function() {paste("UTM Campaign Conversions ", today(), ".csv", sep='')},
-        content = function(file) { write_csv(utm_camp_conversions(), file, na = "" )}
+        content = function(file) { write_csv(utm_camp_conversions() %>%
+                                                 select(-ord), 
+                                             file, na = "" )}
     )
     
     # ---- Monthly Cohort Distrobution ----
