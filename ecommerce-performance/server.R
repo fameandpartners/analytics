@@ -389,7 +389,7 @@ shinyServer(function(input, output) {
         content = function(file){ write_csv(reason_details_data(), file, na = "")}
     )
     
-    # ---- Montly Return Rates ----
+    # ---- Monthly Return Rates ----
     return_rates_data <- reactive({
         filtered_for_returns() %>% 
             filter(order_status %in% c("Shipped","Refund Requested","Returned")) %>%
@@ -454,7 +454,7 @@ shinyServer(function(input, output) {
         }
     )
     
-    # ---- Conversions Tab ----
+# ---- Conversions Tab ----
     
     cohort_filter <- reactive({
         if(length(input$cohort_select) > 0) {
@@ -654,7 +654,7 @@ shinyServer(function(input, output) {
     })
     
     # ---- UTM Campaign Conversions ----
-    output$camp_conv <- renderPlot({
+    utm_camp_conversions <- reactive({
         utm_camp_orders <- filtered_touches() %>%
             filter(!is.na(utm_campaign)) %>%
             group_by(utm_campaign, step) %>%
@@ -677,8 +677,12 @@ shinyServer(function(input, output) {
             levels = top5_m$utm_campaign
         )
         
-        ggplot(utm_camp_conversions %>%
-                   filter(utm_campaign %in% top5_m$utm_campaign), 
+        utm_camp_conversions %>%
+            filter(utm_campaign %in% top5_m$utm_campaign)
+    })
+    
+    output$camp_conv <- renderPlot({
+        ggplot(utm_camp_conversions(), 
                aes(x = step, y = order_conversion)) +
             geom_bar(stat = "identity") +
             geom_text(aes(label = percent(order_conversion)), vjust = -1) +
@@ -689,6 +693,11 @@ shinyServer(function(input, output) {
             theme_bw(base_size = 16) +
             theme(axis.title = element_blank())
     })
+    
+    output$camp_conv_down <- downloadHandler(
+        filename = function() {paste("UTM Campaign Conversions ", today(), ".csv", sep='')},
+        content = function(file) { write_csv(utm_camp_conversions(), file, na = "" )}
+    )
     
     # ---- Monthly Cohort Distrobution ----
     output$monthly_cohorts <- renderPlot({
@@ -733,7 +742,7 @@ shinyServer(function(input, output) {
         
     })
     
-    # ---- Finances Tab ----
+# ---- Finances Tab ----
     quarter_filter <- reactive({
         if(input$quarter == "All Year") {
             seq(1, 4)

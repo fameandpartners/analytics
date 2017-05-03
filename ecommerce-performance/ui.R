@@ -234,7 +234,8 @@ shinyUI(fluidPage(
                 column(
                     4,
                     h3c("UTM Campaign Conversions"),
-                    plotOutput("camp_conv", height = "800px")
+                    plotOutput("camp_conv", height = "800px"),
+                    downloadButton("camp_conv_down")
                 )
             )
         ),
