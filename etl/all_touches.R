@@ -4,20 +4,35 @@ library(readr)
 library(stringr)
 library(lubridate)
 
-source("~/Documents/Code/analytics/ecommerce-performance/fp_init.R")
+source("~/code/analytics/ecommerce-performance/fp_init.R")
 
-mc <- read_csv("~/Documents/Code/analytics/ecommerce-performance/static-data/subscribed_members_export_3ccca61159.csv",
-               col_types = cols(
-                   .default = col_character(),
-                   Birthday = col_date(format = ""),
-                   `Facebook UID` = col_double(),
-                   MEMBER_RATING = col_integer(),
-                   OPTIN_TIME = col_datetime(format = ""),
-                   CONFIRM_TIME = col_datetime(format = ""),
-                   LAST_CHANGED = col_datetime(format = ""),
-                   LEID = col_integer()
-               )) %>%
-    rename(email = `Email Address`, event_type_d = `Event Type`) %>%
+br_csv <- read_csv("~/data/Contacts-Master_List.csv",
+                   col_types = cols(
+                       .default = col_character())) %>%
+    mutate(CONFIRM_TIME = substr(`Date Created`, 1, 10) %>%
+               as.Date(format = "%m/%d/%Y") %>%
+               as.POSIXct())
+
+mc_csv <- read_csv("~/data/subscribed_members_export_3ccca61159.csv",
+                   col_types = cols(
+                       .default = col_character(),
+                       Birthday = col_date(format = ""),
+                       `Facebook UID` = col_double(),
+                       MEMBER_RATING = col_integer(),
+                       OPTIN_TIME = col_datetime(format = ""),
+                       CONFIRM_TIME = col_datetime(format = ""),
+                       LAST_CHANGED = col_datetime(format = ""),
+                       LEID = col_integer()
+                   ))
+
+mc <- bind_rows(list(
+    mc_csv %>%
+        rename(email = `Email Address`, event_type_d = `Event Type`) %>%
+        select(email, event_type_d, utm_source, utm_medium, utm_campaign, CONFIRM_TIME),
+    br_csv %>%
+        rename(email = `Email Address`, event_type_d = `EventType`) %>%
+        select(email, event_type_d, utm_source, utm_medium, utm_campaign, CONFIRM_TIME))) %>%
+    filter(!duplicated(email)) %>%
     mutate(mc_cohort = ifelse(str_detect(tolower(event_type_d), "bridal"),
                               "Bridal", 
                               ifelse(str_detect(tolower(event_type_d), "formal|cocktail|wedding guest|daytime|work"), 
@@ -176,4 +191,4 @@ all_touches <-
            utm_s = coalesce(utm_source, "No UTM Source")) %>%
     left_join(step_state_map, by = "state")
 
-write_csv(all_touches, "~/Documents/Code/analytics/ecommerce-performance/static-data/all_touches.csv", na = "")
+write_csv(all_touches, "~/code/analytics/ecommerce-performance/static-data/all_touches.csv", na = "")
