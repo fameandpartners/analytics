@@ -109,11 +109,11 @@ style_lifecycle <- product_rankings_per_quarter %>%
     group_by(style_number) %>%
     summarise(quarters = n(),
               total_net_units = sum(net_return_request_units),
+              mean_net_units = mean(net_return_request_units),
+              sd_net_units = sd(net_return_request_units),
               best_ranking = min(quarterly_ranking),
               worst_ranking = max(quarterly_ranking),
               best_percentile = min(performance_percentile),
               worst_percentile = max(performance_percentile),
-              mean_percentile = mean(performance_percentile),
-              sd_percentile = sd(performance_percentile),
               first_quarter = min(order_year_quarter),
               last_quarter = max(order_year_quarter))
