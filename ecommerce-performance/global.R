@@ -366,7 +366,7 @@ products_sold <- ordered_units %>%
                   group_by(product_id) %>%
                   summarise(collection_na = paste(unique(collection_na), collapse = ", ")),
               by = "product_id") %>%
-    mutate(collection = ifelse(is.na(collection_na), "2014-2015 -  Old", collection_na)) %>%
+    mutate(collection = ifelse(is.na(collection_na), "2014-2015 - Old", collection_na)) %>%
     select(-collection_na) %>%
     separate(size, c("us_size_str","au_size_str"), sep = "/", remove = FALSE) %>%
     mutate(us_size = as.integer(str_replace_all(us_size_str, "US", ""))) %>%
