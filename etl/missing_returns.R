@@ -3,7 +3,7 @@ source("~/code/analytics/ecommerce-performance/global.R")
 setwd("~/data")
 
 returns <- tbl(fp_con, "item_returns") %>%
-    select(id, requested_at, refunded_at, line_item_id, refund_amount, comments, uuid,
+    select(id, requested_at, refunded_at, line_item_id, refund_amount, comments, uuid, request_id,
            reason_category, reason_sub_category, acceptance_status, order_paid_currency) %>%
     filter(line_item_id %in% ordered_units$line_item_id) %>%
     collect()
@@ -101,10 +101,17 @@ return_events <- tbl(fp_con, "item_return_events") %>%
     rename(uuid = item_return_uuid) %>%
     select(-id)
 
+bergen_processes <- tbl(fp_con, "bergen_return_item_processes") %>%
+    collect()
+
 events_refund_amount <- returns %>%
     filter(is.na(refund_amount)) %>%
     inner_join(return_events, by = "uuid") %>%
-    mutate(refund_amount_for_update = refund_amount_from_event_data * 100)
+    mutate(refund_amount_for_update = refund_amount_from_event_data * 100) %>%
+    left_join(bergen_processes %>%
+                   rename(request_id = return_request_item_id) %>%
+                   select(-id, -created_at),
+               by = "request_id")
 
 refund_amount_updates <- bind_rows(list(
     comments_refund_amount %>%
@@ -119,8 +126,9 @@ refund_amount_updates %>%
     inner_join(returns, by = "id") %>%
     inner_join(products_sold, by = "line_item_id") %>%
     filter(!duplicated(line_item_id)) %>%
+    inner_join(all_warehouse, by = "order_number") %>%
     group_by(ship_year_month) %>%
-    summarise(sum((refund_amount_for_update * conversion_rate) / 100))
+    summarise(missing_returns = sum((refund_amount_for_update * conversion_rate) / 100))
 
 # ---- Returns Missing from Warehouses ----
 order_summary %>%
@@ -128,3 +136,13 @@ order_summary %>%
            & year(order_date) == 2017 & month(order_date) < 4) %>%
     anti_join(all_warehouse, by = "order_number") #%>%
     #$write_csv("Returns Missing From Warehouse.csv")
+
+# ---- Returns that do not have a Bergen Process ----
+returns %>% 
+    filter(year(requested_at) == 2017) %>% 
+    anti_join(bergen_processes %>% 
+                  rename(request_id = return_request_item_id), 
+              by = "request_id") %>% 
+    filter(!is.na(refund_amount) & order_paid_currency  == "USD")
+
+
