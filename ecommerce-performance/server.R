@@ -1,5 +1,4 @@
 shinyServer(function(input, output) {
-
  # ---- Styles Tab ----
     
     # ---- Styles Data Set Filters ----
@@ -393,7 +392,9 @@ shinyServer(function(input, output) {
     return_rates_data <- reactive({
         filtered_for_returns() %>% 
             filter(order_status %in% c("Shipped","Refund Requested","Returned")) %>%
-            group_by(ship_year_month) %>% 
+            group_by(ship_year_week = paste(year(ship_date), 
+                                            formatC(week(ship_date), width = 2, flag = "0"), 
+                                            sep = " W")) %>% 
             summarise(`Gross Revenue` = sum(gross_revenue_usd),
                       `Processed Returns` = sum(coalesce(refund_amount_usd, 0)),
                       `Requested Returns` = sum(return_requested * gross_revenue_usd),
@@ -406,7 +407,7 @@ shinyServer(function(input, output) {
     })
     output$monthly_return_rates <- renderPlot({
          return_rates_data() %>% 
-            ggplot(aes(x = ship_year_month)) +
+            ggplot(aes(x = ship_year_week)) +
             geom_line(aes(y = `Return Rate`, color = "Return Rate"), group = 1) +
             geom_line(aes(y = `Refund Request Rate`, color = "Refund Request Rate"), group = 1) +
             scale_y_continuous(labels = percent, limits = c(0, max(return_rates_data()$`Refund Request Rate`)*1.1)) +
