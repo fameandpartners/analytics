@@ -64,12 +64,29 @@ sql_convert_to_LA_time <- function(utc_time){
 # query conversion rates
 aud_to_usd <- 0.77  # query_aud_to_usd()
 
-# read collections data
+# ---- COLLECTIONS ----
 collections <- read_csv("static-data/collections_2.csv",
                         col_types = "iccccc") %>%
     transmute(product_id = `Product ID`,
               collection_na = Collection)
 
+# ---- MANUFACTURING COSTS ----
+factory_costs <- read_csv("static-data/eCommerce Factory Cost.csv",
+                          col_types = cols(
+                              StyleNumber = col_character(),
+                              `Unit Price` = col_double())) %>%
+    transmute(style_number = toupper(StyleNumber), manufacturing_cost = `Unit Price`)
+
+# ---- SHIPPING COSTS ----
+shipping_costs <- read_csv("static-data/avg_shipping_costs.csv",
+                           col_types = cols(
+                               YearNum = col_integer(),
+                               MonthNum = col_integer(),
+                               USD = col_double())) %>%
+    rename(ship_year = YearNum, ship_month = MonthNum, avg_order_shipping_cost = USD) %>%
+    mutate(ship_year_month = year_month(as.Date(paste(ship_year, ship_month, 1, sep = "-"))))
+
+# ---- TOUCH POINTS ----
 all_touches <- read_csv("static-data/all_touches.csv",
                         col_types = cols(
                             .default = col_character(),
@@ -85,25 +102,10 @@ all_touches <- read_csv("static-data/all_touches.csv",
                         )) %>%
     rename(sales_usd = revenue_usd)
 
+# ---- COHORTS ----
 cohort_assigments <- all_touches %>%
     transmute(email, assigned_cohort = cohort) %>%
     unique()
-
-# factory manufacturing cost data
-# still missing some costs
-factory_costs <- read_csv("static-data/eCommerce Factory Cost.csv",
-                          col_types = cols(
-                              StyleNumber = col_character(),
-                              `Unit Price` = col_double())) %>%
-    transmute(style_number = toupper(StyleNumber), manufacturing_cost = `Unit Price`)
-
-shipping_costs <- read_csv("static-data/avg_shipping_costs.csv",
-                           col_types = cols(
-                               YearNum = col_integer(),
-                               MonthNum = col_integer(),
-                               USD = col_double())) %>%
-    rename(ship_year = YearNum, ship_month = MonthNum, avg_order_shipping_cost = USD) %>%
-    mutate(ship_year_month = year_month(as.Date(paste(ship_year, ship_month, 1, sep = "-"))))
 
 # set db connection
 source("fp_init.R")
