@@ -1,8 +1,23 @@
 source("~/code/analytics/etl/full_global.R")
 setwd("~/data")
 
+# ---- YoY Daily Sales ----
+products_sold %>%
+    filter(order_date < today() - 1) %>%
+    group_by(order_year = year(order_date) %>% as.character(), 
+             order_month_day = paste(formatC(month(order_date), flag = "0", width = 2),
+                                     formatC(day(order_date), flag = "0", width = 2),
+                                     sep = "-")) %>%
+    summarise(Units = n()) %>%
+    ggplot(aes(x = order_month_day)) +
+    geom_line(aes(y = Units, color = order_year), group = 4) +
+    theme(axis.ticks.x = element_blank(),
+          axis.text.x = element_blank(),
+          axis.title.x = element_blank())
+
 # ---- YoY Weekly Sales ----
 products_sold %>%
+    filter(order_date <= today() - 4) %>%
     group_by(order_year = year(order_date) %>% as.character(), 
              order_week = week(order_date)) %>%
     summarise(Units = n()) %>%
