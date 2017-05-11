@@ -269,11 +269,11 @@ li_shipments <- shipment_data %>%
 # ---- SHIP DATE CORRECTIONS ----
 correct_shipments <- read_csv(
     "static-data/Correct Ship Dates 2017-05-11.csv",
-    col_types = cols(LINE = col_character(),
+    col_types = cols(LINE = col_number(),
                      `SENT DATE` = col_date(format = ""))) %>%
     rename(line_item_id = LINE,
            correct_ship_date = `SENT DATE`)
-    
+correct_shipments$line_item_id <- as.integer(correct_shipments$line_item_id)
 
 # ---- RETURNS ----
 returns <- tbl(fp_con, "item_returns") %>%
@@ -368,7 +368,7 @@ products_sold <- ordered_units %>%
                                             taxon_name[1] %>% str_trim() %>% substr(2, 10))),
               by = "product_id") %>%
     left_join(cohort_assigments, by = "email") %>%
-    left_join(correct_shipments, by = c("line_item_id", "order_id")) %>%
+    left_join(correct_shipments, by = "line_item_id") %>%
     group_by(order_id) %>%
     mutate(payments = coalesce(order_payments / n(), 0),
            item_total_usd = item_total * conversion_rate,
