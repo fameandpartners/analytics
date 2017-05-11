@@ -8,6 +8,10 @@ returns <- tbl(fp_con, "item_returns") %>%
     filter(line_item_id %in% ordered_units$line_item_id) %>%
     collect()
 
+return_requests <- tbl(fp_con, "return_request_items") %>%
+    filter(line_item_id %in% ordered_units$line_item_id) %>%
+    collect()
+
 r1 <- read_csv("warehouse-returns-1.csv")
 r2 <- read_csv("warehouse-returns-2.csv")
 br <- read_csv("bad returns.csv")
@@ -120,7 +124,7 @@ refund_amount_updates <- bind_rows(list(
     events_refund_amount %>%
         select(id, refund_amount_for_update)))
 
-write_csv(refund_amount_updates, "item_returns updates 2017-04-28.csv")
+#write_csv(refund_amount_updates, "item_returns updates 2017-04-28.csv")
 
 refund_amount_updates %>%
     inner_join(returns, by = "id") %>%
