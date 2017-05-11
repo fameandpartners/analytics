@@ -92,8 +92,8 @@ ga_fb <- fb %>%
 
 # ---- PULL UTM CAMPAIGN TO PRODUCT NAME LOOKUP ----
 upper_products_campaigns <- ga_fb %>% 
-    select(utm_campaign, C15) %>%
-    separate(C15, sep = "-", into = paste0("A", 1:7)) %>%
+    select(utm_campaign, products) %>%
+    separate(products, sep = "-", into = paste0("A", 1:7)) %>%
     gather(AX, product, -utm_campaign) %>%
     filter(!is.na(product) & product != "NA") %>%
     select(-AX) %>%
