@@ -2,11 +2,12 @@ setwd("~/code/analytics/ecommerce-performance/")
 source("~/code/analytics/ecommerce-performance/global.R")
 setwd("~/data")
 
-shipment_data_2017 <- read_csv("ben line item ship dates 2017-04-19.csv",
-                                col_types = cols(
-                                    .default = col_character(),
-                                    `SENT DATE` = col_date(format = "%m/%d/%y"),
-                                    LINE = col_integer())) %>%
+shipment_data_2017 <- read_csv(
+    "ben line item ship dates 2017-04-19.csv",
+    col_types = cols(
+        .default = col_character(),
+        `SENT DATE` = col_date(format = "%m/%d/%y"),
+        LINE = col_integer())) %>%
     rename(order_number = `ORDER NO.`,
            line_item_id = LINE,
            ship_date = `SENT DATE`)
