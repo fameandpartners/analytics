@@ -99,7 +99,7 @@ shinyUI(fluidPage(
                     dateRangeInput(
                         "ship_dates_r",
                         label = "Ship Date",
-                        start = today() - 120,
+                        start = today() - 180,
                         end = today() - 30
                     ),
                     selectInput(

@@ -392,9 +392,7 @@ shinyServer(function(input, output) {
     return_rates_data <- reactive({
         filtered_for_returns() %>% 
             filter(order_status %in% c("Shipped","Refund Requested","Returned")) %>%
-            group_by(ship_year_week = paste(year(ship_date), 
-                                            formatC(week(ship_date), width = 2, flag = "0"), 
-                                            sep = " W")) %>% 
+            group_by(ship_year_month) %>% 
             summarise(`Gross Revenue` = sum(gross_revenue_usd),
                       `Processed Returns` = sum(coalesce(refund_amount_usd, 0)),
                       `Requested Returns` = sum(return_requested * gross_revenue_usd),
@@ -407,7 +405,7 @@ shinyServer(function(input, output) {
     })
     output$monthly_return_rates <- renderPlot({
          return_rates_data() %>% 
-            ggplot(aes(x = ship_year_week)) +
+            ggplot(aes(x = ship_year_month)) +
             geom_line(aes(y = `Return Rate`, color = "Return Rate"), group = 1) +
             geom_line(aes(y = `Refund Request Rate`, color = "Refund Request Rate"), group = 1) +
             scale_y_continuous(labels = percent, limits = c(0, max(return_rates_data()$`Refund Request Rate`)*1.1)) +
@@ -418,12 +416,10 @@ shinyServer(function(input, output) {
             ylab("Revenue (USD)") +
             scale_color_brewer(palette = "Set1")
     })
-    
     output$return_rates_down <- downloadHandler(
         filename = function() { paste0("Monthly Return Rates ", today(), ".csv") },
         content = function(file){ write_csv(return_rates_data(), file, na = "") }
     )
-    
     # ---- Return Rates by Height and Length ----
     height_length_return_rate_data <- reactive({
         filtered_for_returns() %>%
