@@ -17,13 +17,14 @@ products_sold %>%
 
 # ---- YoY Weekly Sales ----
 products_sold %>%
-    filter(order_date <= today() - 4) %>%
+    filter(order_date <= today() - 5) %>%
     group_by(order_year = year(order_date) %>% as.character(), 
              order_week = week(order_date)) %>%
     summarise(Units = n()) %>%
     ggplot(aes(x = order_week)) +
     geom_line(aes(y = Units, color = order_year), group = 4) +
-    scale_x_continuous(limits = c(1, 52), labels = short_number) 
+    scale_x_continuous(limits = c(1, 52), labels = short_number) +
+    xlab("Order Week")
 
 # ---- YoY Monthly Sales ----
 products_sold %>%
