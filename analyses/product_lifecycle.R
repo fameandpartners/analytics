@@ -106,8 +106,8 @@ quarterly_summaries <- product_rankings_per_quarter %>%
 
 top_10p_summaries <- product_rankings_per_quarter %>%
     filter(performance_decile == "01") %>%
-    mutate(top_10p_decile = ntile(-net_return_request_units, 10)) %>%
-    group_by(order_year_quarter, top_10p_decile) %>%
+    mutate(top_10p_quartile = ntile(-net_return_request_units, 4)) %>%
+    group_by(order_year_quarter, top_10p_quartile) %>%
     summarise(styles = n_distinct(style_number),
               total_net_units = sum(net_return_request_units),
               best_style = max(net_return_request_units),
