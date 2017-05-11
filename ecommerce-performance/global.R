@@ -59,10 +59,8 @@ sql_convert_to_LA_time <- function(utc_time){
     paste0("(", utc_time, " at time zone 'UTC') at time zone 'America/Los_Angeles'")
 }
 
-# ---- DATA ----
-
 # query conversion rates
-aud_to_usd <- 0.77  # query_aud_to_usd()
+aud_to_usd <- 0.74  # query_aud_to_usd()
 
 # ---- COLLECTIONS ----
 collections <- read_csv("static-data/collections_2.csv",
@@ -101,6 +99,36 @@ all_touches <- read_csv("static-data/all_touches.csv",
                             cohort = readr::col_factor(levels = c("Prom", "Bridal", "Contemporary", "Not Assigned", ordered = TRUE))
                         )) %>%
     rename(sales_usd = revenue_usd)
+# ---- GA & FB ----
+col_args <- function(){
+    cols(.default = col_number(),
+         utm_campaign = col_character(),
+         Date = col_date(format = ""))
+}
+fb <- read_csv("static-data/fb.csv", col_types = col_args())
+ga <- read_csv("static-data/ga.csv", col_types = col_args())
+ga_fb <- read_csv("static-data/ga_fb.csv",
+                  col_types = cols(
+                      .default = col_number(),
+                      utm_campaign = col_character(),
+                      cohort = col_character(),
+                      country = col_character(),
+                      region = col_character(),
+                      age = col_character(),
+                      target = col_character(),
+                      device_type = col_character(),
+                      creative_type = col_character(),
+                      creative_strategy = col_character(),
+                      theme = col_character(),
+                      ad_format = col_character(),
+                      pic_source = col_character(),
+                      copy_type = col_character(),
+                      landing_page = col_character(),
+                      product_category = col_character(),
+                      products = col_character(),
+                      creative = col_character(),
+                      prospecting = col_logical(),
+                      Date = col_date(format = "")))
 
 # ---- COHORTS ----
 cohort_assigments <- all_touches %>%
@@ -238,6 +266,15 @@ li_shipments <- shipment_data %>%
     group_by(line_item_id) %>%
     summarise(o_ship_date = max(shipped_at) %>% as.Date)
 
+# ---- SHIP DATE CORRECTIONS ----
+correct_shipments <- read_csv(
+    "static-data/Correct Ship Dates 2017-05-11.csv",
+    col_types = cols(LINE = col_character(),
+                     `SENT DATE` = col_date(format = ""))) %>%
+    rename(line_item_id = LINE,
+           correct_ship_date = `SENT DATE`)
+    
+
 # ---- RETURNS ----
 returns <- tbl(fp_con, "item_returns") %>%
     select(requested_at, refunded_at, line_item_id, refund_amount,
@@ -331,6 +368,7 @@ products_sold <- ordered_units %>%
                                             taxon_name[1] %>% str_trim() %>% substr(2, 10))),
               by = "product_id") %>%
     left_join(cohort_assigments, by = "email") %>%
+    left_join(correct_shipments, by = c("line_item_id", "order_id")) %>%
     group_by(order_id) %>%
     mutate(payments = coalesce(order_payments / n(), 0),
            item_total_usd = item_total * conversion_rate,
@@ -339,7 +377,7 @@ products_sold <- ordered_units %>%
            taxes_usd = gross_revenue_usd * (o_taxes / item_total),
            other_adjustments_usd = gross_revenue_usd * (o_other_adjustments / item_total)) %>%
     ungroup() %>%
-    mutate(ship_date = coalesce(li_ship_date, o_ship_date),
+    mutate(ship_date = coalesce(correct_ship_date, li_ship_date, o_ship_date),
            refund_amount_usd = (refund_amount / 100) * ifelse(currency == "AUD", aud_to_usd, 1),
            price_usd = price * ifelse(currency == "AUD", aud_to_usd, 1),
            height = paste0(substr(lip_height, 1, 1) %>% toupper(), substr(lip_height, 2, 250)),
@@ -398,10 +436,10 @@ products_sold$size <- factor(
 
 products_sold$height <- factor(
     products_sold$height,
-    levels = c(c("Petite", "Standard", "Tall"))
+    levels = c("Petite", "Standard", "Tall", paste0("Length", 1:6))
 )
 
-# ---- Budget Data ----
+# ---- BUDGET DATA ----
 
 monthly_budget_2017 <- read_csv("static-data/direct_2017_monthly_budget.csv",
                                 col_types = "iddddddddddddddd")
