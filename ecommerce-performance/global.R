@@ -445,7 +445,7 @@ monthly_budget_2017 <- read_csv("static-data/direct_2017_monthly_budget.csv",
                                 col_types = "iddddddddddddddd")
 
 monthly_actuals_2017 <- products_sold %>%
-    filter(is_shipped & order_state == "complete" & year(ship_date) >= 2016) %>%
+    filter(is_shipped & order_state != "canceled" & year(ship_date) >= 2016) %>%
     mutate(estimated_returns = ifelse(# See NOTES
         ship_date >= today() - 90,
         coalesce(refund_amount_usd, return_requested * sales_usd * 0.65),
@@ -453,6 +453,7 @@ monthly_actuals_2017 <- products_sold %>%
     group_by(ship_year = year(ship_date),
              ship_month = month(ship_date)) %>%
     summarise(gross_revenue = sum(gross_revenue_usd),
+              net_sales = sum(sales_usd),
               units_shipped = sum(quantity),
               cogs = sum(coalesce(manufacturing_cost, 70))
                     + sum(li_shipping_cost)
