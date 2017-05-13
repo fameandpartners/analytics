@@ -128,7 +128,8 @@ ga_fb <- read_csv("static-data/ga_fb.csv",
                       products = col_character(),
                       creative = col_character(),
                       prospecting = col_logical(),
-                      Date = col_date(format = "")))
+                      Date = col_date(format = ""))) %>%
+    mutate(Amount_Spent_USD = Amount_Spent_AUD * aud_to_usd)
 
 # ---- COHORTS ----
 cohort_assigments <- all_touches %>%
