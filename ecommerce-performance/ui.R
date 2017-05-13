@@ -240,6 +240,34 @@ shinyUI(fluidPage(
             )
         ),
         tabPanel(
+            "FB & IG",
+            sidebarLayout(
+                sidebarPanel(
+                    width = 2,
+                    selectInput("conv_prospecting", NULL, c("Prospecting","Retargeting"), selected = "Prospecting"),
+                    dateRangeInput("conv_dates",NULL, start = today() - 14, end = today()),
+                    selectInput("conv_cohort", "Cohort", ga_fb$cohort %>% unique, multiple = TRUE),
+                    selectInput("conv_target", "Target", ga_fb$target %>% unique, multiple = TRUE),
+                    selectInput("conv_country", "Country", ga_fb$country %>% unique(), multiple = TRUE),
+                    selectInput("conv_region", "Region", ga_fb$region %>% unique(), multiple = TRUE),
+                    selectInput("conv_age", "Age", ga_fb$age %>% unique(), multiple = TRUE),
+                    selectInput("conv_device_type", "Device Type", ga_fb$device_type %>% unique(), multiple = TRUE),
+                    selectInput("conv_creative_type", "Creative Type", ga_fb$creative_type %>% unique(), multiple = TRUE),
+                    selectInput("conv_creative_strategy", "Creative Strategy", ga_fb$creative_strategy %>% unique(), multiple = TRUE),
+                    selectInput("conv_theme", "Theme", ga_fb$theme %>% unique(), multiple = TRUE),
+                    selectInput("conv_ad_format", "Ad Format", ga_fb$ad_format %>% unique(), multiple = TRUE),
+                    selectInput("conv_pic_source", "Pic Source", ga_fb$pic_source %>% unique(), multiple = TRUE),
+                    selectInput("conv_copy_type", "Copy Type", ga_fb$copy_type %>% unique(), multiple = TRUE),
+                    selectInput("conv_landing_page", "Landing Page", ga_fb$landing_page %>% unique(), multiple = TRUE),
+                    selectInput("conv_product_category", "Product Category", ga_fb$product_category %>% unique(), multiple = TRUE)
+                ),
+                mainPanel(
+                    fluidRow(div(tableOutput("conv_kpis"), id = "kpi-wrapper")),
+                    fluidRow(dataTableOutput("conv_creative_summary"))
+                )
+            )
+        ),
+        tabPanel(
             "Finances",
             sidebarLayout(
                 sidebarPanel(

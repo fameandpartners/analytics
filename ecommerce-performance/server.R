@@ -741,6 +741,168 @@ shinyServer(function(input, output) {
         
     })
     
+# ---- FB & GA Tab ----
+    
+    # ---- Filter Functions ----
+    conv_cohort_filter <- reactive({
+        if(length(input$conv_cohort) > 0){
+            input$conv_cohort
+        } else { unique(ga_fb$cohort) }
+    })
+    
+    target_filter <- reactive({
+        if(length(input$conv_target) > 0){
+            input$conv_target
+        } else { unique(ga_fb$target) }
+    })
+    
+    country_filter <- reactive({
+        if(length(input$conv_country) > 0){
+            input$conv_country
+        } else { unique(ga_fb$country) }
+    })
+    
+    region_filter <- reactive({
+        if(length(input$conv_region) > 0){
+            input$conv_region
+        } else { unique(ga_fb$region) }
+    })
+    
+    age_filter <- reactive({
+        if(length(input$conv_region) > 0){
+            input$conv_age
+        } else { unique(ga_fb$age)}
+    })
+    
+    device_type_filter <- reactive({
+        if(length(input$conv_device_type) > 0){
+            input$conv_device_type
+        } else { unique(ga_fb$device_type)}
+    })
+    
+    creative_type_filter <- reactive({
+        if(length(input$conv_creative_type) > 0){
+            input$conv_creative_type
+        } else { unique(ga_fb$creative_type)}
+    })
+    
+    creative_strategy_filter <- reactive({
+        if(length(input$conv_creative_strategy) > 0){
+            input$conv_creative_strategy
+        } else {unique(ga_fb$creative_strategy)}
+    })
+    
+    theme_filter <- reactive({
+        if(length(input$conv_theme) > 0){
+            input$conv_theme
+        } else { unique(ga_fb$theme)}
+    })
+    
+    ad_format_filter <- reactive({
+        if(length(input$conv_ad_format)){
+            input$conv_ad_format
+        } else {unique(ga_fb$ad_format)}
+    })
+    
+    pic_source_filter <- reactive({
+        if(length(input$conv_pic_source)){
+            input$conv_pic_source
+        } else {unique(ga_fb$pic_source)}
+    })
+    
+    copy_type_filter <- reactive({
+        if(length(input$conv_copy_type)) {
+            input$conv_copy_type
+        } else {unique(ga_fb$copy_type)}
+    })
+    
+    landing_page_filter <- reactive({
+        if(length(input$conv_landing_page)){
+            input$conv_landing_page
+        } else {unique(ga_fb$landing_page)}
+    })
+    
+    product_category_filter <- reactive({
+        if(length(input$conv_product_category)){
+            input$conv_product_category
+        } else {unique(ga_fb$product_category)}
+    })
+    
+    filtered_ga_fb <- reactive({
+        ga_fb %>%
+            filter(ifelse(input$conv_prospecting == "Prospecting", T, F) == prospecting) %>%
+            filter(between(Date, input$conv_dates[1], input$conv_dates[2])) %>%
+            filter(cohort %in% conv_cohort_filter()) %>%
+            filter(target %in% target_filter()) %>%
+            filter(country %in% country_filter()) %>%
+            filter(region %in% region_filter()) %>%
+            filter(age %in% age_filter()) %>%
+            filter(device_type %in% device_type_filter()) %>%
+            filter(creative_type %in% creative_type_filter()) %>%
+            filter(creative_strategy %in% creative_strategy_filter()) %>%
+            filter(theme %in% theme_filter()) %>%
+            filter(ad_format %in% ad_format_filter()) %>%
+            filter(pic_source %in% pic_source_filter()) %>%
+            filter(copy_type %in% copy_type_filter()) %>%
+            filter(landing_page %in% landing_page_filter()) %>%
+            filter(product_category %in% product_category_filter())
+    })
+    
+    # ---- Summary Tables ----
+    conv_kpi_summarise <- function(conv_df){
+        conv_df %>%
+            summarise(Reach = sum(Reach),
+                      Impressions = sum(Impressions),
+                      `Spend (USD)` = sum(coalesce(Amount_Spent_USD, 0)),
+                      Unique_Clicks = sum(coalesce(Unique_Clicks, 0)),
+                      Unique_Link_Clicks = sum(coalesce(Unique_Link_Clicks, 0)),
+                      Adds_to_Cart = sum(coalesce(Adds_to_Cart, 0)),
+                      Conversions = sum(coalesce(Conversions, 0)),
+                      Purchases  = sum(coalesce(Purchases + Transactions, 0)),
+                      Post_Shares = sum(coalesce(Post_Shares, 0)),
+                      Post_Comments = sum(coalesce(Post_Comments, 0)),
+                      Post_Reactions = sum(coalesce(Post_Reactions, 0)),
+                      Bounces = sum(coalesce(Bounces, 0)),
+                      Sessions = sum(coalesce(Sessions, 0))) %>%
+            mutate(CTR = coalesce(Unique_Clicks / Reach, 0),
+                   CPC = coalesce(`Spend (USD)` / Unique_Clicks, 0),
+                   CAC = coalesce(`Spend (USD)` / Purchases),
+                   `Bounce Rate` = coalesce((Bounces / Sessions), 0)) %>%
+            replace(. == Inf, 0)
+    }
+    
+    creative_summary_data <- reactive({
+        filtered_ga_fb() %>% 
+            group_by(Creative = creative) %>% 
+            conv_kpi_summarise() %>%
+            arrange(desc(`Spend (USD)`)) %>%
+            select(Creative, `Spend (USD)`, Purchases, CAC, CTR, CPC, `Bounce Rate`)
+    })
+    
+    output$conv_kpis <- renderTable(
+        filtered_ga_fb() %>% 
+            conv_kpi_summarise() %>% 
+            transmute(`Spend (USD)` = dollar(`Spend (USD)`), 
+                      Purchases = short_number(Purchases), CAC = dollar(CAC), 
+                      CTR = percent(CTR), CPC = dollar(CPC), 
+                      `Bounce Rate` = percent(`Bounce Rate`))
+    )
+    
+    output$conv_creative_summary <- renderDataTable({
+        df <- creative_summary_data()
+        
+        if(nrow(df) > 0){
+            df %>% 
+                datatable(class = "hover row-border", style = "bootstrap", escape = FALSE,
+                             options = list(lengthMenu = c(10, 25, 50), pageLength = 10)) %>%
+                formatPercentage(c("CTR","Bounce Rate")) %>%
+                formatCurrency(c("Spend (USD)", "CAC", "CPC"))
+        } else {data_frame(a = c("NO DATA")) %>%
+                datatable(class = "hover row-border", 
+                          style = "bootstrap", escape = FALSE, 
+                          options = list(lengthMenu = c(10, 25, 50), pageLength = 10))}
+            
+    })
 # ---- Finances Tab ----
     quarter_filter <- reactive({
         if(input$quarter == "All Year") {
