@@ -14,11 +14,15 @@ ga <- lapply(
         Source = col_character(),
         Medium = col_character(),
         Campaign = col_character(),
+        `Session Duration` = col_character(),
+        `Avg. Session Duration` = col_character(),
         Date = col_date(format = "%Y%m%d"))) %>%
     bind_rows() %>%
+    separate(`Session Duration`, into = c("SDH","SDM","SDS"), sep = ":") %>%
     mutate(utm_campaign = Campaign,
            New_Sessions = `% New Sessions` * Sessions,
            Page_Views = Clicks / (CTR / 100),
+           Session_Duration_min = as.numeric(SDH) * 60 + as.numeric(SDM) + as.numeric(SDS) / 60,
            ga_id = row_number()) %>%
     group_by(Date, utm_campaign) %>%
     summarise(Page_Views = sum(coalesce(Page_Views, 0)),
@@ -28,9 +32,11 @@ ga <- lapply(
               Clicks = sum(coalesce(Clicks, 0)),
               Cost = sum(coalesce(Cost, 0)),
               Transactions = sum(coalesce(Transactions, 0)),
-              Revenue = sum(coalesce(Revenue, 0))) %>%
+              Revenue = sum(coalesce(Revenue, 0)),
+              Session_Duration_min = sum(coalesce(Session_Duration_min, 0))) %>%
     mutate(`% New Sessions` = coalesce(100 * (New_Sessions / Sessions), 0),
            Bounce_Rate = coalesce(100 * (Bounces / Sessions), 0),
+           Avg_Session_Duration_min = coalesce(Session_Duration_min / Sessions, 0),
            CPC = coalesce(100 * (Cost / Clicks), 0),
            CTR = coalesce(Clicks / Page_Views, 0)) %>%
     select(-Page_Views)
@@ -73,12 +79,6 @@ fb <- lapply(
            fb_id = row_number()) %>%
     replace(. == Inf, 0)
 
-initcap <- function(string){
-    require(dplyr)
-    paste0(string %>% substr(1, 1) %>% toupper(),
-           string %>% substr(2, 100000) %>% tolower())
-}
-
 # ---- MERGE GA & FB ----
 ga_fb <- fb %>% 
     inner_join(ga, by = c("utm_campaign","Date")) %>%
@@ -86,8 +86,7 @@ ga_fb <- fb %>%
                                     'device_type','creative_type','creative_strategy','theme','ad_format',
                                     'pic_source','copy_type','landing_page','product_category','products'), 
              sep = "_", extra = "merge", remove = FALSE) %>%
-    mutate(creative = paste(initcap(creative_type), initcap(creative_strategy), initcap(theme),
-                            initcap(ad_format), initcap(pic_source), initcap(copy_type)),
+    mutate(creative = paste(creative_type, creative_strategy, theme, ad_format, pic_source, copy_type),
            prospecting = !str_detect(cohort, "-RE"))
 
 # ---- PULL UTM CAMPAIGN TO PRODUCT NAME LOOKUP ----
