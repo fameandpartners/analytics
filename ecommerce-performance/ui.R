@@ -243,8 +243,8 @@ shinyUI(fluidPage(
             "FB & IG",
             sidebarLayout(
                 sidebarPanel(
-                    width = 2,
-                    selectInput("conv_prospecting", NULL, c("Prospecting","Retargeting"), selected = "Prospecting"),
+                    width = 3,
+                    selectInput("conv_prospecting",NULL, c("Prospecting","Retargeting"), selected = "Prospecting"),
                     dateRangeInput("conv_dates",NULL, start = today() - 14, end = today()),
                     selectInput("conv_cohort", "Cohort", ga_fb$cohort %>% unique, multiple = TRUE),
                     selectInput("conv_target", "Target", ga_fb$target %>% unique, multiple = TRUE),
@@ -262,10 +262,33 @@ shinyUI(fluidPage(
                     selectInput("conv_product_category", "Product Category", ga_fb$product_category %>% unique(), multiple = TRUE)
                 ),
                 mainPanel(
+                    width = 9,
                     fluidRow(div(tableOutput("conv_kpis"), id = "kpi-wrapper")),
-                    fluidRow(dataTableOutput("conv_creative_summary"))
+                    fluidRow(h3c("Snapshot"),
+                             dataTableOutput("conv_creative_summary"),
+                             downloadButton("conv_creative_summary_down")),
+                    fluidRow(h3c("Comparisons"),
+                             tabsetPanel(
+                                 tabPanel("Cohort", plotOutput("conv_cohort_comp")),
+                                 tabPanel("Target", plotOutput("conv_target_comp")),
+                                 tabPanel("Country", plotOutput("conv_country_comp")),
+                                 #tabPanel("Region", plotOutput("conv_region_comp")),
+                                 tabPanel("Age", plotOutput("conv_age_comp")),
+                                 tabPanel("Device Type", plotOutput("conv_device_type_comp")),
+                                 tabPanel("Creative Type", plotOutput("conv_creative_type_comp")),
+                                 tabPanel("Creative Strategy", plotOutput("conv_creative_strategy_comp")),
+                                 tabPanel("Theme", plotOutput("conv_theme_comp")),
+                                 tabPanel("Ad Format", plotOutput("conv_ad_format_comp")),
+                                 #tabPanel("Pic Source", plotOutput("conv_pic_source_comp")),
+                                 tabPanel("Copy Type", plotOutput("conv_copy_type_comp")),
+                                 tabPanel("Landing Page", plotOutput("conv_landing_page_comp")),
+                                 tabPanel("Product Category", plotOutput("conv_product_category_comp"))
+                             )
+                    )
                 )
-            )
+            ),
+            fluidRow(h3c("Trends"), 
+                     plotOutput("conv_trends"))
         ),
         tabPanel(
             "Finances",
