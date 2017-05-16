@@ -33,7 +33,7 @@ short_dollar <- function(number){
 }
 
 short_number <- function(number){
-    ifelse(number < 1000, number,
+    ifelse(number < 1000, round(number),
     ifelse(number < 1000000, paste0(round(number / 1000, 1), "K"),
     ifelse(number < 1000000000, paste0((round(number / 1000000, 1)), "M"),
     paste0(round(number / 1000000000, 1), "B"))))
@@ -417,6 +417,10 @@ products_sold <- ordered_units %>%
               by = "style_number") %>%
     # Filter out Lacey's PR Order discounted improperly
     filter(order_id != 26075489) %>%
+    # Filter out mysterious Manual order that's not right
+    filter(order_id != 32162864) %>%
+    # Filter PR orders
+    filter(adjustments_total_percentage > -0.7) %>%
     left_join(shipping_costs, by = c("ship_year_month")) %>%
     group_by(order_id) %>%
     mutate(li_shipping_cost = coalesce(avg_order_shipping_cost / n(),
@@ -581,3 +585,4 @@ annual_budget_actuals_2017 <- monthly_actuals_2017 %>%
               budget_2017  = round(budget_2017, 2),
               percent_change_yoy = (actuals_2017 - actuals_2016) / actuals_2016,
               percent_of_budget = round(actuals_2017 / budget_2017, 4))
+
