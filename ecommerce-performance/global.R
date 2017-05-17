@@ -33,7 +33,7 @@ short_dollar <- function(number){
 }
 
 short_number <- function(number){
-    ifelse(number < 1000, round(number),
+    ifelse(number < 1000, round(number) %>% as.integer(),
     ifelse(number < 1000000, paste0(round(number / 1000, 1), "K"),
     ifelse(number < 1000000000, paste0((round(number / 1000000, 1)), "M"),
     paste0(round(number / 1000000000, 1), "B"))))
@@ -103,6 +103,7 @@ all_touches <- read_csv("static-data/all_touches.csv",
 col_args <- function(){
     cols(.default = col_number(),
          utm_campaign = col_character(),
+         Platform = col_character(),
          Date = col_date(format = ""))
 }
 fb <- read_csv("static-data/fb.csv", col_types = col_args())
@@ -127,6 +128,7 @@ ga_fb <- read_csv("static-data/ga_fb.csv",
                       product_category = col_character(),
                       products = col_character(),
                       creative = col_character(),
+                      Platform = col_character(),
                       prospecting = col_logical(),
                       Date = col_date(format = ""))) %>%
     mutate(Amount_Spent_USD = Amount_Spent_AUD * aud_to_usd)
