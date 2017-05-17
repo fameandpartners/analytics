@@ -219,7 +219,8 @@ shinyUI(fluidPage(
                 )
             ),
             fluidRow(h3c("Monthly Cohort Distribution"),
-                     plotOutput("monthly_cohorts")),
+                     plotOutput("monthly_cohorts"),
+                     downloadButton("monthly_cohorts_down")),
             fluidRow(
                 column(
                     4,
@@ -246,6 +247,7 @@ shinyUI(fluidPage(
                     width = 3,
                     selectInput("conv_prospecting",NULL, c("Prospecting","Retargeting"), selected = "Prospecting"),
                     dateRangeInput("conv_dates",NULL, start = today() - 14, end = today()),
+                    selectInput("conv_platform", "Platform", ga_fb$Platform %>% unique, multiple = TRUE),
                     selectInput("conv_cohort", "Cohort", ga_fb$cohort %>% unique, multiple = TRUE),
                     selectInput("conv_target", "Target", ga_fb$target %>% unique, multiple = TRUE),
                     selectInput("conv_country", "Country", ga_fb$country %>% unique(), multiple = TRUE),
@@ -288,7 +290,16 @@ shinyUI(fluidPage(
                 )
             ),
             fluidRow(h3c("Trends"), 
-                     plotOutput("conv_trends"))
+                     tabsetPanel(
+                         tabPanel("Acquisition", plotOutput("conv_acquisition")),
+                         tabPanel("CPC", plotOutput("conv_cpc")),
+                         tabPanel("CTR", plotOutput("conv_ctr")),
+                         tabPanel("Reach", plotOutput("conv_reach")),
+                         tabPanel("Sessions", plotOutput("conv_sessions")),
+                         tabPanel("Clicks", plotOutput("conv_clicks")),
+                         tabPanel("Purchases", plotOutput("conv_purchases"))
+                     )
+            )
         ),
         tabPanel(
             "Finances",
