@@ -23,8 +23,10 @@ ga <- lapply(
            New_Sessions = `% New Sessions` * Sessions,
            Page_Views = Clicks / (CTR / 100),
            Session_Duration_min = as.numeric(SDH) * 60 + as.numeric(SDM) + as.numeric(SDS) / 60,
+           Platform = ifelse(str_detect(Source, "fbps|[f|F]acebook"), "Facebook",
+               ifelse(str_detect(Source, "igps|[i|I]nstagram"), "Instagram", "Other")),
            ga_id = row_number()) %>%
-    group_by(Date, utm_campaign) %>%
+    group_by(Date, Platform, utm_campaign) %>%
     summarise(Page_Views = sum(coalesce(Page_Views, 0)),
               Sessions = sum(coalesce(Sessions, 0)),
               New_Sessions = sum(coalesce(New_Sessions, 0)),
@@ -39,7 +41,7 @@ ga <- lapply(
            Avg_Session_Duration_min = coalesce(Session_Duration_min / Sessions, 0),
            CPC = coalesce(100 * (Cost / Clicks), 0),
            CTR = coalesce(Clicks / Page_Views, 0)) %>%
-    select(-Page_Views)
+    replace(. == Inf, 0)
 
 # ---- FACEBOOK ----
 fb <- lapply(
@@ -52,7 +54,8 @@ fb <- lapply(
         `Reporting Ends` = col_date(),
         `Ad Name` = col_character(),
         `Campaign Name` = col_character(),
-        `Ad Set Name` = col_character())) %>%
+        `Ad Set Name` = col_character(),
+        Platform = col_character())) %>%
     bind_rows() %>%
     mutate(utm_campaign = `Ad Name`,
            Date = `Reporting Starts`,
@@ -60,7 +63,7 @@ fb <- lapply(
            fb_id = row_number()) %>%
     filter(Impressions > 0 & Reach > 0) %>%
     # Remove these aggregates after data cleaned
-    group_by(Date, utm_campaign) %>%
+    group_by(Date, Platform, utm_campaign) %>%
     summarise(Reach = sum(Reach),
               Impressions = sum(Impressions),
               Amount_Spent_AUD = sum(coalesce(`Amount Spent (AUD)`, 0)),
@@ -81,7 +84,7 @@ fb <- lapply(
 
 # ---- MERGE GA & FB ----
 ga_fb <- fb %>% 
-    inner_join(ga, by = c("utm_campaign","Date")) %>%
+    inner_join(ga, by = c("utm_campaign","Date","Platform")) %>%
     separate(utm_campaign, into = c('cohort','country','region','age','target',
                                     'device_type','creative_type','creative_strategy','theme','ad_format',
                                     'pic_source','copy_type','landing_page','product_category','products'), 
