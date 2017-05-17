@@ -1,6 +1,5 @@
 shinyServer(function(input, output) {
  # ---- Styles Tab ----
-    
     # ---- Styles Data Set Filters ----
     
     collection_filter <- reactive({
@@ -715,12 +714,16 @@ shinyServer(function(input, output) {
     )
     
     # ---- Monthly Cohort Distrobution ----
-    output$monthly_cohorts <- renderPlot({
+    cohort_dist_data <- reactive({
         filtered_touches() %>%
             filter(cohort %in% c("Prom","Bridal","Contemporary")
                    & state == "complete") %>% 
             group_by(order_year_month, cohort) %>% 
-            summarise(Orders = n_distinct(order_id)) %>% 
+            summarise(Orders = n_distinct(order_id)) 
+    })
+    
+    output$monthly_cohorts <- renderPlot({
+        cohort_dist_data() %>% 
             ggplot(aes(x = order_year_month, y = Orders, fill = cohort)) + 
             geom_bar(stat = "identity", position = "fill", color = "black", size = 0.2) + 
             theme_bw(base_size = 14) +
@@ -730,6 +733,18 @@ shinyServer(function(input, output) {
             scale_fill_brewer(palette = "Set3") + 
             scale_y_continuous(labels = percent)
     })
+    
+    output$monthly_cohorts_down <- downloadHandler(
+        filename = function() {paste("Monthly Cohort Distribution ", today(), ".csv")},
+        content = function(file) {
+            write_csv(cohort_dist_data() %>%
+                          group_by(order_year_month) %>%
+                          mutate(`% of Orders` = Orders / sum(Orders)) %>%
+                          rename(Cohort = cohort,
+                                 `Order Month` = order_year_month),
+                      file, na = "")
+        }
+    )
     
     # ---- Days from First Touch to Purchase ----
     output$sales_cycle <- renderPlot({
@@ -759,6 +774,12 @@ shinyServer(function(input, output) {
     
 # ---- FB & GA Tab ----
     # ---- Filter Functions ----
+    conv_platform_filter <- reactive({
+        if(length(input$conv_platform) > 0){
+            input$conv_platform
+        } else { unique(ga_fb$Platform) }
+    })
+    
     conv_cohort_filter <- reactive({
         if(length(input$conv_cohort) > 0){
             input$conv_cohort
@@ -860,7 +881,8 @@ shinyServer(function(input, output) {
             filter(pic_source %in% pic_source_filter()) %>%
             filter(copy_type %in% copy_type_filter()) %>%
             filter(landing_page %in% landing_page_filter()) %>%
-            filter(product_category %in% product_category_filter())
+            filter(product_category %in% product_category_filter()) %>%
+            filter(Platform %in% conv_platform_filter())
     })
     
     # ---- Summary Tables ----
@@ -899,6 +921,8 @@ shinyServer(function(input, output) {
                       CPC = dollar(CPC), 
                       CPAC = dollar(CPAC),
                       `T.O.S.` = paste(round(`Avg. Session Duration`, 2), "min"),
+                      Sessions = short_number(Sessions),
+                      `Total Carts` = short_number(Adds_to_Cart),
                       `Bounce Rate` = percent(`Bounce Rate`))
     )
     
@@ -912,13 +936,16 @@ shinyServer(function(input, output) {
                       CTR, 
                       CPC = ifelse(CPC == 0, NA, CPC), 
                       CPAC = ifelse(CPAC == 0, NA, CPAC), 
-                      `T.O.S.` = `Avg. Session Duration`, `Bounce Rate`)
+                      `T.O.S.` = `Avg. Session Duration`, 
+                      Sessions,
+                      `Total Carts` = Adds_to_Cart,
+                      `Bounce Rate`)
     })
     
     output$conv_creative_summary <- renderDataTable({
         perf_thresh <- if(input$conv_prospecting == "Prospecting"){
             c(100, 300)
-        } else { c(20, 30) }
+        } else { c(25, 50) }
         
         creative_summary_data() %>% 
             datatable(class = "hover row-border", style = "bootstrap", escape = FALSE,
@@ -926,6 +953,7 @@ shinyServer(function(input, output) {
             formatPercentage(c("CTR","Bounce Rate"), digits = 1) %>%
             formatCurrency(c("Spend (USD)", "CAC", "CPC", "CPAC")) %>%
             formatCurrency(c("T.O.S."), before = FALSE, currency = " min") %>%
+            formatCurrency(c("Sessions","Total Carts"), currency = "", digits = 0) %>%
             formatStyle(
                 "CAC", background = styleInterval(
                     perf_thresh, c("#f97068","#f9fc5f","#77ff68") %>% rev()
@@ -933,7 +961,7 @@ shinyServer(function(input, output) {
             ) %>%
             formatStyle(
                 "CPAC", background = styleInterval(
-                    perf_thresh / 4, c("#f97068","#f9fc5f","#77ff68") %>% rev()
+                    perf_thresh / 3, c("#f97068","#f9fc5f","#77ff68") %>% rev()
                 )
             )
     })
@@ -945,199 +973,479 @@ shinyServer(function(input, output) {
     
     # ---- Comparisons ----
     output$conv_cohort_comp <- renderPlot({
-        df <- filtered_ga_fb() %>%
-            group_by(cohort) %>%
-            summarise(Purchases = sum(Purchases)) %>%
-            filter(Purchases > 0) %>%
-            arrange(desc(Purchases))
-        df$cohort <- factor(df$cohort, levels = df$cohort)
-        df %>%
-            ggplot(aes(x = cohort, y = Purchases)) +
-            geom_bar(stat = "identity") +
-            theme_bw(base_size = 14) +
-            theme(axis.title.x = element_blank())
+        if(input$conv_prospecting == "Prospecting"){
+            df <- filtered_ga_fb() %>%
+                group_by(cohort) %>%
+                summarise(CTR = sum(Unique_Clicks) / sum(Reach)) %>%
+                filter(CTR > 0) %>%
+                arrange(desc(CTR))
+            df$cohort <- factor(df$cohort, levels = df$cohort)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = cohort, fill = cohort, y = CTR)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = percent) 
+            }
+        } else {
+            df <- filtered_ga_fb() %>%
+                group_by(cohort) %>%
+                summarise(Purchases = sum(Purchases)) %>%
+                filter(Purchases > 0) %>%
+                arrange(desc(Purchases))
+            df$cohort <- factor(df$cohort, levels = df$cohort)
+            df %>%
+                ggplot(aes(x = cohort, fill = cohort, y = Purchases)) +
+                geom_bar(stat = "identity") +
+                theme_bw(base_size = 14) +
+                theme(axis.title.x = element_blank(),
+                      legend.position = "none") +
+                scale_y_continuous(labels = short_number)
+        }
     })
     
     output$conv_target_comp <- renderPlot({
-        df <- filtered_ga_fb() %>%
-            group_by(target) %>%
-            summarise(Purchases = sum(Purchases)) %>%
-            filter(Purchases > 0) %>%
-            arrange(desc(Purchases))
-        df$target <- factor(df$target, levels = df$target)
-        df %>%
-            ggplot(aes(x = target, y = Purchases)) +
-            geom_bar(stat = "identity") +
-            theme_bw(base_size = 14) +
-            theme(axis.title.x = element_blank())
+        if(input$conv_prospecting == "Prospecting"){
+            df <- filtered_ga_fb() %>%
+                group_by(target) %>%
+                summarise(CTR = sum(Unique_Clicks) / sum(Reach)) %>%
+                filter(CTR > 0) %>%
+                arrange(desc(CTR))
+            df$target <- factor(df$target, levels = df$target)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = target, fill = target, y = CTR)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = percent) 
+            }
+        } else {
+            df <- filtered_ga_fb() %>%
+                group_by(target) %>%
+                summarise(Purchases = sum(Purchases)) %>%
+                filter(Purchases > 0) %>%
+                arrange(desc(Purchases))
+            df$target <- factor(df$target, levels = df$target)
+            df %>%
+                ggplot(aes(x = target, fill = target, y = Purchases)) +
+                geom_bar(stat = "identity") +
+                theme_bw(base_size = 14) +
+                theme(axis.title.x = element_blank(),
+                      legend.position = "none") +
+                scale_y_continuous(labels = short_number)
+        }
     })
     
     output$conv_country_comp <- renderPlot({
-        df <- filtered_ga_fb() %>%
-            group_by(country) %>%
-            summarise(Purchases = sum(Purchases)) %>%
-            filter(Purchases > 0) %>%
-            arrange(desc(Purchases))
-        df$country <- factor(df$country, levels = df$country)
-        df %>%
-            ggplot(aes(x = country, y = Purchases)) +
-            geom_bar(stat = "identity") +
-            theme_bw(base_size = 14) +
-            theme(axis.title.x = element_blank())
+        if(input$conv_prospecting == "Prospecting"){
+            df <- filtered_ga_fb() %>%
+                group_by(country) %>%
+                summarise(CTR = sum(Unique_Clicks) / sum(Reach)) %>%
+                filter(CTR > 0) %>%
+                arrange(desc(CTR))
+            df$country <- factor(df$country, levels = df$country)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = country, fill = country, y = CTR)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = percent)
+            }
+        } else {
+            df <- filtered_ga_fb() %>%
+                group_by(country) %>%
+                summarise(Purchases = sum(Purchases)) %>%
+                filter(Purchases > 0) %>%
+                arrange(desc(Purchases))
+            df$country <- factor(df$country, levels = df$country)
+            df %>%
+                ggplot(aes(x = country, fill = country, y = Purchases)) +
+                geom_bar(stat = "identity") +
+                theme_bw(base_size = 14) +
+                theme(axis.title.x = element_blank(),
+                      legend.position = "none") +
+                scale_y_continuous(labels = short_number)
+        }
     })
     
     output$conv_region_comp <- renderPlot({
-        df <- filtered_ga_fb() %>%
-            group_by(region) %>%
-            summarise(Purchases = sum(Purchases)) %>%
-            filter(Purchases > 0) %>%
-            arrange(desc(Purchases))
-        df$region <- factor(df$region, levels = df$region)
-        df %>%
-            ggplot(aes(x = region, y = Purchases)) +
-            geom_bar(stat = "identity") +
-            theme_bw(base_size = 14) +
-            theme(axis.title.x = element_blank())
+        if(input$conv_prospecting == "Prospecting"){
+            df <- filtered_ga_fb() %>%
+                group_by(region) %>%
+                summarise(CTR = sum(Unique_Clicks) / sum(Reach)) %>%
+                filter(CTR > 0) %>%
+                arrange(desc(CTR))
+            df$region <- factor(df$region, levels = df$region)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = region, fill = region, y = CTR)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = percent)
+            }
+        } else {
+            df <- filtered_ga_fb() %>%
+                group_by(region) %>%
+                summarise(Purchases = sum(Purchases)) %>%
+                filter(Purchases > 0) %>%
+                arrange(desc(Purchases))
+            df$region <- factor(df$region, levels = df$region)
+            df %>%
+                ggplot(aes(x = region, fill = region, y = Purchases)) +
+                geom_bar(stat = "identity") +
+                theme_bw(base_size = 14) +
+                theme(axis.title.x = element_blank(),
+                      legend.position = "none") +
+                scale_y_continuous(labels = short_number)
+        }
     })
     
     output$conv_age_comp <- renderPlot({
-        df <- filtered_ga_fb() %>%
-            group_by(age) %>%
-            summarise(Purchases = sum(Purchases)) %>%
-            filter(Purchases > 0) %>%
-            arrange(desc(Purchases))
-        df$age <- factor(df$age, levels = df$age)
-        df %>%
-            ggplot(aes(x = age, y = Purchases)) +
-            geom_bar(stat = "identity") +
-            theme_bw(base_size = 14) +
-            theme(axis.title.x = element_blank())
+        if(input$conv_prospecting == "Prospecting"){
+            df <- filtered_ga_fb() %>%
+                group_by(age) %>%
+                summarise(CTR = sum(Unique_Clicks) / sum(Reach)) %>%
+                filter(CTR > 0) %>%
+                arrange(desc(CTR))
+            df$age <- factor(df$age, levels = df$age)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = age, fill = age, y = CTR)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = percent)
+            }
+        } else {
+            df <- filtered_ga_fb() %>%
+                group_by(age) %>%
+                summarise(Purchases = sum(Purchases)) %>%
+                filter(Purchases > 0) %>%
+                arrange(desc(Purchases))
+            df$age <- factor(df$age, levels = df$age)
+            df %>%
+                ggplot(aes(x = age, fill = age, y = Purchases)) +
+                geom_bar(stat = "identity") +
+                theme_bw(base_size = 14) +
+                theme(axis.title.x = element_blank(),
+                      legend.position = "none") +
+                scale_y_continuous(labels = short_number)
+        }
     })
     
     output$conv_device_type_comp <- renderPlot({
-        df <- filtered_ga_fb() %>%
-            group_by(device_type) %>%
-            summarise(Purchases = sum(Purchases)) %>%
-            filter(Purchases > 0) %>%
-            arrange(desc(Purchases))
-        df$device_type <- factor(df$device_type, levels = df$device_type)
-        df %>%
-            ggplot(aes(x = device_type, y = Purchases)) +
-            geom_bar(stat = "identity") +
-            theme_bw(base_size = 14) +
-            theme(axis.title.x = element_blank())
+        if(input$conv_prospecting == "Prospecting"){
+            df <- filtered_ga_fb() %>%
+                group_by(device_type) %>%
+                summarise(CTR = sum(Unique_Clicks) / sum(Reach)) %>%
+                filter(CTR > 0) %>%
+                arrange(desc(CTR))
+            df$device_type <- factor(df$device_type, levels = df$device_type)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = device_type, fill = device_type, y = CTR)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = percent)
+            }
+        } else {
+            df <- filtered_ga_fb() %>%
+                group_by(device_type) %>%
+                summarise(Purchases = sum(Purchases)) %>%
+                filter(Purchases > 0) %>%
+                arrange(desc(Purchases))
+            df$device_type <- factor(df$device_type, levels = df$device_type)
+            df %>%
+                ggplot(aes(x = device_type, fill = device_type, y = Purchases)) +
+                geom_bar(stat = "identity") +
+                theme_bw(base_size = 14) +
+                theme(axis.title.x = element_blank(),
+                      legend.position = "none") +
+                scale_y_continuous(labels = short_number)
+        }
     })
     
     output$conv_creative_type_comp <- renderPlot({
-        df <- filtered_ga_fb() %>%
-            group_by(creative_type) %>%
-            summarise(Purchases = sum(Purchases)) %>%
-            filter(Purchases > 0) %>%
-            arrange(desc(Purchases))
-        df$creative_type <- factor(df$creative_type, levels = df$creative_type)
-        df %>%
-            ggplot(aes(x = creative_type, y = Purchases)) +
-            geom_bar(stat = "identity") +
-            theme_bw(base_size = 14) +
-            theme(axis.title.x = element_blank())
+        if(input$conv_prospecting == "Prospecting"){
+            df <- filtered_ga_fb() %>%
+                group_by(creative_type) %>%
+                summarise(CTR = sum(Unique_Clicks) / sum(Reach)) %>%
+                filter(CTR > 0) %>%
+                arrange(desc(CTR))
+            df$creative_type <- factor(df$creative_type, levels = df$creative_type)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = creative_type, fill = creative_type, y = CTR)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = percent)
+            }
+        } else {
+            df <- filtered_ga_fb() %>%
+                group_by(creative_type) %>%
+                summarise(Purchases = sum(Purchases)) %>%
+                filter(Purchases > 0) %>%
+                arrange(desc(Purchases))
+            df$creative_type <- factor(df$creative_type, levels = df$creative_type)
+            df %>%
+                ggplot(aes(x = creative_type, fill = creative_type, y = Purchases)) +
+                geom_bar(stat = "identity") +
+                theme_bw(base_size = 14) +
+                theme(axis.title.x = element_blank(),
+                      legend.position = "none") +
+                scale_y_continuous(labels = short_number)
+        }
     })
     
     output$conv_creative_strategy_comp <- renderPlot({
-        df <- filtered_ga_fb() %>%
-            group_by(creative_strategy) %>%
-            summarise(Purchases = sum(Purchases)) %>%
-            filter(Purchases > 0) %>%
-            arrange(desc(Purchases))
-        df$creative_strategy <- factor(df$creative_strategy, levels = df$creative_strategy)
-        df %>%
-            ggplot(aes(x = creative_strategy, y = Purchases)) +
-            geom_bar(stat = "identity") +
-            theme_bw(base_size = 14) +
-            theme(axis.title.x = element_blank())
+        if(input$conv_prospecting == "Prospecting"){
+            df <- filtered_ga_fb() %>%
+                group_by(creative_strategy) %>%
+                summarise(CTR = sum(Unique_Clicks) / sum(Reach)) %>%
+                filter(CTR > 0) %>%
+                arrange(desc(CTR))
+            df$creative_strategy <- factor(df$creative_strategy, levels = df$creative_strategy)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = creative_strategy, fill = creative_strategy, y = CTR)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = percent)
+            }
+        } else {
+            df <- filtered_ga_fb() %>%
+                group_by(creative_strategy) %>%
+                summarise(Purchases = sum(Purchases)) %>%
+                filter(Purchases > 0) %>%
+                arrange(desc(Purchases))
+            df$creative_strategy <- factor(df$creative_strategy, levels = df$creative_strategy)
+            df %>%
+                ggplot(aes(x = creative_strategy, fill = creative_strategy, y = Purchases)) +
+                geom_bar(stat = "identity") +
+                theme_bw(base_size = 14) +
+                theme(axis.title.x = element_blank(),
+                      legend.position = "none") +
+                scale_y_continuous(labels = short_number)
+        }
     })
     
     output$conv_theme_comp <- renderPlot({
-        df <- filtered_ga_fb() %>%
-            group_by(theme) %>%
-            summarise(Purchases = sum(Purchases)) %>%
-            filter(Purchases > 0) %>%
-            arrange(desc(Purchases))
-        df$theme <- factor(df$theme, levels = df$theme)
-        df %>%
-            ggplot(aes(x = theme, y = Purchases)) +
-            geom_bar(stat = "identity") +
-            theme_bw(base_size = 14) +
-            theme(axis.title.x = element_blank())
+        if(input$conv_prospecting == "Prospecting"){
+            df <- filtered_ga_fb() %>%
+                group_by(theme) %>%
+                summarise(CTR = sum(Unique_Clicks) / sum(Reach)) %>%
+                filter(CTR > 0) %>%
+                arrange(desc(CTR))
+            df$theme <- factor(df$theme, levels = df$theme)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = theme, fill = theme, y = CTR)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = percent)
+            }
+        } else {
+            df <- filtered_ga_fb() %>%
+                group_by(theme) %>%
+                summarise(Purchases = sum(Purchases)) %>%
+                filter(Purchases > 0) %>%
+                arrange(desc(Purchases))
+            df$theme <- factor(df$theme, levels = df$theme)
+            df %>%
+                ggplot(aes(x = theme, fill = theme, y = Purchases)) +
+                geom_bar(stat = "identity") +
+                theme_bw(base_size = 14) +
+                theme(axis.title.x = element_blank(),
+                      legend.position = "none") +
+                scale_y_continuous(labels = short_number)
+        }
     })
     
     output$conv_ad_format_comp <- renderPlot({
-        df <- filtered_ga_fb() %>%
-            group_by(ad_format) %>%
-            summarise(Purchases = sum(Purchases)) %>%
-            filter(Purchases > 0) %>%
-            arrange(desc(Purchases))
-        df$ad_format <- factor(df$ad_format, levels = df$ad_format)
-        df %>%
-            ggplot(aes(x = ad_format, y = Purchases)) +
-            geom_bar(stat = "identity") +
-            theme_bw(base_size = 14) +
-            theme(axis.title.x = element_blank())
+        if(input$conv_prospecting == "Prospecting"){
+            df <- filtered_ga_fb() %>%
+                group_by(ad_format) %>%
+                summarise(CTR = sum(Unique_Clicks) / sum(Reach)) %>%
+                filter(CTR > 0) %>%
+                arrange(desc(CTR))
+            df$ad_format <- factor(df$ad_format, levels = df$ad_format)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = ad_format, fill = ad_format, y = CTR)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = percent)
+            }
+        } else {
+            df <- filtered_ga_fb() %>%
+                group_by(ad_format) %>%
+                summarise(Purchases = sum(Purchases)) %>%
+                filter(Purchases > 0) %>%
+                arrange(desc(Purchases))
+            df$ad_format <- factor(df$ad_format, levels = df$ad_format)
+            df %>%
+                ggplot(aes(x = ad_format, fill = ad_format, y = Purchases)) +
+                geom_bar(stat = "identity") +
+                theme_bw(base_size = 14) +
+                theme(axis.title.x = element_blank(),
+                      legend.position = "none") +
+                scale_y_continuous(labels = short_number)
+        }
     })
     
     output$conv_pic_source_comp <- renderPlot({
-        df <- filtered_ga_fb() %>%
-            group_by(pic_source) %>%
-            summarise(Purchases = sum(Purchases)) %>%
-            filter(Purchases > 0) %>%
-            arrange(desc(Purchases))
-        df$pic_source <- factor(df$pic_source, levels = df$pic_source)
-        df %>%
-            ggplot(aes(x = pic_source, y = Purchases)) +
-            geom_bar(stat = "identity") +
-            theme_bw(base_size = 14) +
-            theme(axis.title.x = element_blank())
+        if(input$conv_prospecting == "Prospecting"){
+            df <- filtered_ga_fb() %>%
+                group_by(ad_format) %>%
+                summarise(CTR = sum(Unique_Clicks) / sum(Reach)) %>%
+                filter(CTR > 0) %>%
+                arrange(desc(CTR))
+            df$ad_format <- factor(df$ad_format, levels = df$ad_format)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = ad_format, fill = ad_format, y = CTR)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = percent)
+            }
+        } else {
+            df <- filtered_ga_fb() %>%
+                group_by(ad_format) %>%
+                summarise(Purchases = sum(Purchases)) %>%
+                filter(Purchases > 0) %>%
+                arrange(desc(Purchases))
+            df$ad_format <- factor(df$ad_format, levels = df$ad_format)
+            df %>%
+                ggplot(aes(x = ad_format, fill = ad_format, y = Purchases)) +
+                geom_bar(stat = "identity") +
+                theme_bw(base_size = 14) +
+                theme(axis.title.x = element_blank(),
+                      legend.position = "none") +
+                scale_y_continuous(labels = short_number)
+        }
     })
     
     output$conv_copy_type_comp <- renderPlot({
-        df <- filtered_ga_fb() %>%
-            group_by(copy_type) %>%
-            summarise(Purchases = sum(Purchases)) %>%
-            filter(Purchases > 0) %>%
-            arrange(desc(Purchases))
-        df$copy_type <- factor(df$copy_type, levels = df$copy_type)
-        df %>%
-            ggplot(aes(x = copy_type, y = Purchases)) +
-            geom_bar(stat = "identity") +
-            theme_bw(base_size = 14) +
-            theme(axis.title.x = element_blank())
+        if(input$conv_prospecting == "Prospecting"){
+            df <- filtered_ga_fb() %>%
+                group_by(ad_format) %>%
+                summarise(CTR = sum(Unique_Clicks) / sum(Reach)) %>%
+                filter(CTR > 0) %>%
+                arrange(desc(CTR))
+            df$ad_format <- factor(df$ad_format, levels = df$ad_format)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = ad_format, fill = ad_format, y = CTR)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = percent)
+            }
+        } else {
+            df <- filtered_ga_fb() %>%
+                group_by(ad_format) %>%
+                summarise(Purchases = sum(Purchases)) %>%
+                filter(Purchases > 0) %>%
+                arrange(desc(Purchases))
+            df$ad_format <- factor(df$ad_format, levels = df$ad_format)
+            df %>%
+                ggplot(aes(x = ad_format, fill = ad_format, y = Purchases)) +
+                geom_bar(stat = "identity") +
+                theme_bw(base_size = 14) +
+                theme(axis.title.x = element_blank(),
+                      legend.position = "none") +
+                scale_y_continuous(labels = short_number)
+        }
     })
     
     output$conv_landing_page_comp <- renderPlot({
-        df <- filtered_ga_fb() %>%
-            group_by(landing_page) %>%
-            summarise(Purchases = sum(Purchases)) %>%
-            filter(Purchases > 0) %>%
-            arrange(desc(Purchases))
-        df$landing_page <- factor(df$landing_page, levels = df$landing_page)
-        df %>%
-            ggplot(aes(x = landing_page, y = Purchases)) +
-            geom_bar(stat = "identity") +
-            theme_bw(base_size = 14) +
-            theme(axis.title.x = element_blank())
+        if(input$conv_prospecting == "Prospecting"){
+            df <- filtered_ga_fb() %>%
+                group_by(landing_page) %>%
+                summarise(CTR = sum(Unique_Clicks) / sum(Reach)) %>%
+                filter(CTR > 0) %>%
+                arrange(desc(CTR))
+            df$landing_page <- factor(df$landing_page, levels = df$landing_page)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = landing_page, fill = landing_page, y = CTR)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = percent)
+            }
+        } else {
+            df <- filtered_ga_fb() %>%
+                group_by(landing_page) %>%
+                summarise(Purchases = sum(Purchases)) %>%
+                filter(Purchases > 0) %>%
+                arrange(desc(Purchases))
+            df$landing_page <- factor(df$landing_page, levels = df$landing_page)
+            df %>%
+                ggplot(aes(x = landing_page, fill = landing_page, y = Purchases)) +
+                geom_bar(stat = "identity") +
+                theme_bw(base_size = 14) +
+                theme(axis.title.x = element_blank(),
+                      legend.position = "none") +
+                scale_y_continuous(labels = short_number)
+        }
     })
     
     output$conv_product_category_comp <- renderPlot({
-        df <- filtered_ga_fb() %>%
-            group_by(product_category) %>%
-            summarise(Purchases = sum(Purchases)) %>%
-            filter(Purchases > 0) %>%
-            arrange(desc(Purchases))
-        df$product_category <- factor(df$product_category, levels = df$product_category)
-        df %>%
-            ggplot(aes(x = product_category, y = Purchases)) +
-            geom_bar(stat = "identity") +
-            theme_bw(base_size = 14) +
-            theme(axis.title.x = element_blank())
+        if(input$conv_prospecting == "Prospecting"){
+            df <- filtered_ga_fb() %>%
+                group_by(product_category) %>%
+                summarise(CTR = sum(Unique_Clicks) / sum(Reach)) %>%
+                filter(CTR > 0) %>%
+                arrange(desc(CTR))
+            df$product_category <- factor(df$product_category, levels = df$product_category)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = product_category, fill = product_category, y = CTR)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = percent)
+            }
+        } else {
+            df <- filtered_ga_fb() %>%
+                group_by(product_category) %>%
+                summarise(Purchases = sum(Purchases)) %>%
+                filter(Purchases > 0) %>%
+                arrange(desc(Purchases))
+            df$product_category <- factor(df$product_category, levels = df$product_category)
+            df %>%
+                ggplot(aes(x = product_category, fill = product_category, y = Purchases)) +
+                geom_bar(stat = "identity") +
+                theme_bw(base_size = 14) +
+                theme(axis.title.x = element_blank(),
+                      legend.position = "none") +
+                scale_y_continuous(labels = short_number)
+        }
     })
     # ---- Trends ----
     conv_trends_data <- reactive({
@@ -1146,13 +1454,74 @@ shinyServer(function(input, output) {
             conv_kpi_summarise()
     })
     
-    output$conv_trends <- renderPlot({
+    output$conv_acquisition <- renderPlot({
         conv_trends_data() %>%
             ggplot(aes(x = Date)) +
             geom_line(aes(y = CAC, color = "CAC"), group = 1) +
             geom_line(aes(y = CPAC, color = "CPAC"), group = 1) + 
             theme_minimal(base_size = 16) +
             scale_y_continuous(labels = short_dollar) +
+            theme(axis.title.y = element_blank(),
+                  legend.title = element_blank())
+    })
+    
+    output$conv_cpc <- renderPlot({
+        conv_trends_data() %>%
+            ggplot(aes(x = Date)) +
+            geom_line(aes(y = CPC, color = "CPC"), group = 1) +
+            theme_minimal(base_size = 16) +
+            scale_y_continuous(labels = dollar) +
+            theme(axis.title.y = element_blank(),
+                  legend.title = element_blank())
+    })
+    
+    output$conv_ctr <- renderPlot({
+        conv_trends_data() %>%
+            ggplot(aes(x = Date)) +
+            geom_line(aes(y = CTR, color = "CTR"), group = 1) +
+            theme_minimal(base_size = 16) +
+            scale_y_continuous(labels = percent) +
+            theme(axis.title.y = element_blank(),
+                  legend.title = element_blank())
+    })
+    
+    output$conv_reach <- renderPlot({
+        conv_trends_data() %>%
+            ggplot(aes(x = Date)) +
+            geom_line(aes(y = Reach, color = "Reach"), group = 1) +
+            theme_minimal(base_size = 16) +
+            scale_y_continuous(labels = short_number) +
+            theme(axis.title.y = element_blank(),
+                  legend.title = element_blank())
+    })
+    
+    output$conv_sessions <- renderPlot({
+        conv_trends_data() %>%
+            ggplot(aes(x = Date)) +
+            geom_line(aes(y = Sessions, color = "Sessions"), group = 1) +
+            theme_minimal(base_size = 16) +
+            scale_y_continuous(labels = short_number) +
+            theme(axis.title.y = element_blank(),
+                  legend.title = element_blank())
+    })
+    
+    output$conv_clicks <- renderPlot({
+        conv_trends_data() %>%
+            rename(Clicks = Unique_Clicks) %>%
+            ggplot(aes(x = Date)) +
+            geom_line(aes(y = Clicks, color = "Clicks"), group = 1) +
+            theme_minimal(base_size = 16) +
+            scale_y_continuous(labels = short_number) +
+            theme(axis.title.y = element_blank(),
+                  legend.title = element_blank())
+    })
+    
+    output$conv_purchases <- renderPlot({
+        conv_trends_data() %>%
+            ggplot(aes(x = Date)) +
+            geom_line(aes(y = Purchases, color = "Purchases"), group = 1) +
+            theme_minimal(base_size = 16) +
+            scale_y_continuous(labels = short_number) +
             theme(axis.title.y = element_blank(),
                   legend.title = element_blank())
     })
