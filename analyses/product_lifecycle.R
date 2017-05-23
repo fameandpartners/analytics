@@ -1,39 +1,26 @@
 source("~/code/analytics/etl/full_global.R")
 setwd("~/data")
 
-# ---- YoY Daily Sales ----
-products_sold %>%
-    filter(order_date < today() - 1) %>%
-    group_by(order_year = year(order_date) %>% as.character(), 
-             order_month_day = paste(formatC(month(order_date), flag = "0", width = 2),
-                                     formatC(day(order_date), flag = "0", width = 2),
-                                     sep = "-")) %>%
-    summarise(Units = n()) %>%
-    ggplot(aes(x = order_month_day)) +
-    geom_line(aes(y = Units, color = order_year), group = 4) +
-    theme(axis.ticks.x = element_blank(),
-          axis.text.x = element_blank(),
-          axis.title.x = element_blank())
-
 # ---- YoY Weekly Sales ----
-products_sold %>%
-    filter(order_date <= today() - 5) %>%
+weekly_sales <- products_sold %>%
+    filter(order_date <= as.Date("2017-05-20") & payment_state == "paid") %>%
     group_by(order_year = year(order_date) %>% as.character(), 
              order_week = week(order_date)) %>%
-    summarise(Units = n()) %>%
+    summarise(Units = sum(quantity),
+              `Net Sales` = sum(sales_usd))
+weekly_sales %>%
     ggplot(aes(x = order_week)) +
     geom_line(aes(y = Units, color = order_year), group = 4) +
+    geom_point(aes(y = Units, color = order_year)) +
+    scale_x_continuous(limits = c(1, 52), labels = short_number) +
+    xlab("Order Week")
+weekly_sales %>%
+    ggplot(aes(x = order_week)) +
+    geom_line(aes(y = `Net Sales`, color = order_year), group = 4) +
+    geom_point(aes(y = `Net Sales`, color = order_year)) +
     scale_x_continuous(limits = c(1, 52), labels = short_number) +
     xlab("Order Week")
 
-# ---- YoY Monthly Sales ----
-products_sold %>%
-    group_by(order_year = year(order_date) %>% as.character(), 
-             order_month = month(order_date)) %>%
-    summarise(Units = sum(quantity)) %>%
-    ggplot(aes(x = order_month, y = Units, fill = order_year)) +
-    geom_bar(position = "dodge", stat = "identity") +
-    scale_x_continuous(limits = c(0, 12), breaks = seq(1, 12))
 
 # ---- YoY Cumulative Sales ----
 products_sold %>%
@@ -46,36 +33,7 @@ products_sold %>%
     scale_x_continuous(limits = c(1, 52)) +
     scale_y_continuous(labels = short_number, breaks = seq(1, 20000, 5000))
 
-# ---- Seasonality Deep Dive ----
-daily_sales <- products_sold %>%
-    filter(order_date < today() - 30) %>%
-    group_by(order_year = year(order_date) %>% as.character(),
-             order_quarter = quarter(order_date) %>% as.character(),
-             order_month = formatC(month(order_date), width = 2, flag = "0"),
-             order_date) %>%
-    summarise(units_ordered = sum(quantity) - sum(return_requested)) %>%
-    group_by(order_year, order_quarter) %>%
-    mutate(week_in_quarter = dense_rank(order_date))
-monthly_dists <- 1:12 %>%
-    as.list() %>%
-    lapply(function(i){
-        df <- daily_sales %>%
-            filter(order_month == formatC(month(i), width = 2, flag = "0"))
-        
-        ggplot(df, aes(x = order_year, y = units_ordered)) +
-            geom_boxplot() +
-            ggtitle(month(paste0("2017-",i,"-01") %>% as.Date, 
-                          label = TRUE, abbr = FALSE)) +
-            theme(plot.title = element_text(hjust = 0.5),
-                  legend.position = "none",
-                  axis.title.x = element_blank(),
-                  axis.title.y = element_blank()) +
-            scale_y_continuous(limits = quantile(df$units_ordered, c(0.05,0.95)))
-    })
-library(gridExtra)
-do.call("grid.arrange", c(monthly_dists, ncol=3))
-
-# Seasonality by Style
+# ---- Summary Statistics for Product Quarterly Performance ----
 product_rankings_per_quarter <- products_sold %>%
     filter(order_date < today() - 30) %>%
     group_by(style_number, 
