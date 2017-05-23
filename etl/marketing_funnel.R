@@ -71,6 +71,7 @@ fb <- lapply(
               Unique_Link_Clicks = sum(coalesce(`Unique Link Clicks`, 0)),
               Adds_to_Cart = sum(coalesce(`Website Adds to Cart`, 0)),
               Conversions = sum(coalesce(`Website Conversions`, 0)),
+              Leads = sum(coalesce(`Website Leads`, 0)),
               Purchases  = sum(coalesce(`Website Purchases`, 0)),
               Post_Shares = sum(coalesce(`Post Shares`, 0)),
               Post_Comments = sum(coalesce(`Post Comments`, 0)),
