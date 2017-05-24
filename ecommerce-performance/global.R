@@ -137,7 +137,7 @@ ga_fb <- read_csv("static-data/ga_fb.csv",
 cohort_assigments <- all_touches %>%
     transmute(email, assigned_cohort = cohort) %>%
     unique()
-
+# ---- CONNECT TO REPLICA ----
 # set db connection
 source("fp_init.R")
 
@@ -196,12 +196,35 @@ customizations <- tbl(fp_con, sql(paste(
         "MAX(CASE WHEN lip.customization_value_ids SIMILAR TO '%([1-9])%'",
             "THEN 1 ELSE 0 END) customized,",
         "STRING_AGG(DISTINCT lip.size, ', ') lip_size,",
+        "STRING_AGG(DISTINCT lip.customization_value_ids, '/n') customisation_value_ids,",
         "INITCAP(STRING_AGG(DISTINCT lip.color, ', ')) color,",
         "INITCAP(STRING_AGG(DISTINCT lip.height, ', ')) lip_height",
     "FROM line_item_personalizations lip",
     "WHERE lip.line_item_id IN (",
     paste(ordered_units$line_item_id, collapse = ","), ")",
     "GROUP BY line_item_id"))) %>%
+    collect()
+
+line_item_customizations <- customizations %>%
+    filter(str_detect(customisation_value_ids, "[0-9]")) %>% 
+    mutate(parsed_ids = 
+               str_replace_all(customisation_value_ids, "\n|'| |---", "") %>% 
+               substr(2, 20)) %>% 
+    select(line_item_id, parsed_ids) %>%
+    separate(parsed_ids, sep = "-", paste0("id",seq(1,5)), 
+             extra = "warn", fill = "right") %>% 
+    gather(which_cust_id, customization_value_id_char, -line_item_id, na.rm = TRUE) %>%
+    transmute(line_item_id,
+              customization_value_id = as.integer(customization_value_id_char))
+
+customization_values <- tbl(fp_con, sql(paste(
+    "SELECT id, presentation, price",
+    "FROM customisation_values",
+    "WHERE id IN (",
+    line_item_customizations$customization_value_id %>%
+        unique() %>%
+        paste(collapse = ","),
+    ")"))) %>%
     collect()
 
 # ---- PRODUCTS ----
@@ -275,7 +298,8 @@ correct_shipments <- read_csv(
     col_types = cols(LINE = col_number(),
                      `SENT DATE` = col_date(format = ""))) %>%
     rename(line_item_id = LINE,
-           correct_ship_date = `SENT DATE`)
+           correct_ship_date = `SENT DATE`) %>%
+    filter(!is.na(line_item_id))
 correct_shipments$line_item_id <- as.integer(correct_shipments$line_item_id)
 
 # ---- RETURNS ----
