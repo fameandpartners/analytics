@@ -12,15 +12,17 @@ weekly_sales %>%
     ggplot(aes(x = order_week)) +
     geom_line(aes(y = Units, color = order_year), group = 4) +
     geom_point(aes(y = Units, color = order_year)) +
-    scale_x_continuous(limits = c(1, 52), labels = short_number) +
+    scale_x_continuous(limits = c(1, 52)) +
+    scale_y_continuous(labels = short_number) +
     xlab("Order Week")
+
 weekly_sales %>%
     ggplot(aes(x = order_week)) +
     geom_line(aes(y = `Net Sales`, color = order_year), group = 4) +
     geom_point(aes(y = `Net Sales`, color = order_year)) +
-    scale_x_continuous(limits = c(1, 52), labels = short_number) +
+    scale_x_continuous(limits = c(1, 52)) +
+    scale_y_continuous(labels = short_dollar) +
     xlab("Order Week")
-
 
 # ---- YoY Cumulative Sales ----
 products_sold %>%
@@ -34,19 +36,35 @@ products_sold %>%
     scale_y_continuous(labels = short_number, breaks = seq(1, 20000, 5000))
 
 # ---- Summary Statistics for Product Quarterly Performance ----
+product_first_sale_dates <- products_sold %>%
+    group_by(product_id) %>%
+    summarise(first_sale_date = min(order_date))
+
+quarter_dates <- data_frame(
+    date_value = seq(as.Date("2016-01-01"), as.Date("2017-12-31"), 1)) %>%
+    group_by(year_quarter_value = paste(year(date_value), quarter(date_value))) %>%
+    summarise(start_date = min(date_value))
+
 product_rankings_per_quarter <- products_sold %>%
-    filter(order_date < today() - 30) %>%
+    filter(order_date < today() - 30 & order_date >= as.Date("2016-01-01")) %>%
+    inner_join(product_first_sale_dates, by = "product_id") %>%
     group_by(style_number, 
              order_year_quarter = paste(year(order_date), quarter(order_date))) %>%
+    inner_join(quarter_dates, by = c("order_year_quarter" = "year_quarter_value")) %>%
+    filter(first_sale_date <= start_date) %>%
     summarise(units_ordered = sum(quantity),
               return_request_units = sum(return_requested),
               net_return_request_units = units_ordered - return_request_units) %>%
     group_by(order_year_quarter) %>%
     arrange(desc(net_return_request_units)) %>%
-    mutate(quarterly_ranking = dense_rank(-net_return_request_units),
+    mutate(return_request_rate = return_request_units / units_ordered,
+           quarterly_ranking = dense_rank(-net_return_request_units),
            performance_percentile = ntile(-net_return_request_units, 1000) / 1000,
            performance_decile = ntile(-net_return_request_units, 10) %>% formatC(flag = "0", width = 2),
-           performance_quintile = ntile(-net_return_request_units, 5))
+           performance_quintile = ntile(-net_return_request_units, 5)) %>%
+    group_by(style_number) %>%
+    arrange(style_number, order_year_quarter) %>%
+    mutate(prior_quarter_net_units = lag(net_return_request_units))
 
 quarterly_summaries <- product_rankings_per_quarter %>%
     group_by(order_year_quarter, performance_decile) %>%
@@ -85,9 +103,6 @@ style_lifecycle <- product_rankings_per_quarter %>%
               total_net_units = sum(net_return_request_units),
               mean_net_units = mean(net_return_request_units),
               sd_net_units = sd(net_return_request_units),
-              best_ranking = min(quarterly_ranking),
-              worst_ranking = max(quarterly_ranking),
-              best_percentile = min(performance_percentile),
-              worst_percentile = max(performance_percentile),
-              first_quarter = min(order_year_quarter),
-              last_quarter = max(order_year_quarter))
+              q_25 = quantile(net_return_request_units, 0.25)[[1]],
+              q_75 = quantile(net_return_request_units, 0.75)[[1]],
+              iqr = q_75 - q_25)
