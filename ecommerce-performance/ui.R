@@ -197,7 +197,8 @@ shinyUI(fluidPage(
                     selectInput("utm_campaign",
                                 "Campaign",
                                 choices = sort(unique(all_touches$utm_campaign)),
-                                multiple = TRUE)
+                                multiple = TRUE),
+                    textInput("utm_campaign_search", "Campaign Search")
                 ),
                 column(
                     8,

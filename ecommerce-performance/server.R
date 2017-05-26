@@ -493,12 +493,16 @@ shinyServer(function(input, output) {
     })
     
     filtered_touches <- reactive({
-        all_touches %>%
+        temp_df <- all_touches %>%
             filter(between(as.Date(added_to_cart_at), input$conversion_dates[1], input$conversion_dates[2])) %>%
             filter(cohort %in% cohort_filter()) %>%
             filter(utm_source %in% utm_source_filter()) %>%
             filter(utm_medium %in% utm_medium_filter()) %>%
             filter(utm_campaign %in% utm_campaign_filter())
+        if(nchar(input$utm_campaign_search) > 0){
+            temp_df %>%
+                filter(str_detect(utm_campaign, input$utm_campaign_search))
+        } else { temp_df }
     })
     
     # ---- Monthly Carts, Orders and Conversion Rates ----
@@ -518,29 +522,32 @@ shinyServer(function(input, output) {
         
         df$vjust <- rep(c(2, -2), length.out = nrow(df))
         
-        df %>%
-            ggplot(aes(x = cart_year_month, y = `Cart to Purchase`)) +
-            geom_line(group = 1) +
-            geom_point() +
-            geom_text(aes(label = paste0(round(`Cart to Purchase` * 100), "%"), vjust = vjust), size = 5) +
-            scale_y_continuous(labels = percent, 
-                               limits = c(min(df$`Cart to Purchase`)*(1 - 0.5),
-                                          max(df$`Cart to Purchase`)*(1 + 0.5))) +
-            theme_minimal(base_size = 14) +
-            theme(axis.text.x = element_blank(),
-                  axis.title.x = element_blank())
+        if(nrow(df) > 0){
+            ggplot(df, aes(x = cart_year_month, y = `Cart to Purchase`)) +
+                geom_line(group = 1) +
+                geom_point() +
+                geom_text(aes(label = paste0(round(`Cart to Purchase` * 100), "%"), vjust = vjust), size = 5) +
+                scale_y_continuous(labels = percent, 
+                                   limits = c(min(df$`Cart to Purchase`)*(1 - 0.5),
+                                              max(df$`Cart to Purchase`)*(1 + 0.5))) +
+                theme_minimal(base_size = 14) +
+                theme(axis.text.x = element_blank(),
+                      axis.title.x = element_blank())
+        }
     })
     
     output$carts_orders <- renderPlot({
-        carts_orders_data() %>% 
-            ggplot(aes(x = cart_year_month, y = Orders, fill = step)) + 
-            geom_bar(stat = "identity", position = "dodge") + 
-            theme_minimal(base_size = 14) +
-            scale_y_continuous(labels = short_number) +
-            theme(axis.title.x = element_blank(),
-                  legend.position = "bottom",
-                  legend.title = element_blank()) +
-            scale_fill_brewer(palette = "Set1")
+        df <- carts_orders_data()
+        if(nrow(df) > 0){
+            ggplot(df, aes(x = cart_year_month, y = Orders, fill = step)) + 
+                geom_bar(stat = "identity", position = "dodge") + 
+                theme_minimal(base_size = 14) +
+                scale_y_continuous(labels = short_number) +
+                theme(axis.title.x = element_blank(),
+                      legend.position = "bottom",
+                      legend.title = element_blank()) +
+                scale_fill_brewer(palette = "Set1")
+        }
     })
     
     # ---- Revenue by UTM Source ----
@@ -560,13 +567,14 @@ shinyServer(function(input, output) {
             levels = (top10 %>% arrange(`Revenue (USD)`))$Source
         )
         
-        top10 %>%
-            ggplot(aes(x = Source, y = `Revenue (USD)`)) +
-            geom_bar(stat = "identity") +
-            geom_text(aes(label = short_dollar(`Revenue (USD)`)), hjust = -0.05, size = 4) +
-            scale_y_continuous(labels = short_dollar, limits = c(0, max(top10$`Revenue (USD)`)*1.25)) +
-            coord_flip() +
-            theme_bw(base_size = 14)
+        if(nrow(top10) > 0){
+            ggplot(top10, aes(x = Source, y = `Revenue (USD)`)) +
+                geom_bar(stat = "identity") +
+                geom_text(aes(label = short_dollar(`Revenue (USD)`)), hjust = -0.05, size = 4) +
+                scale_y_continuous(labels = short_dollar, limits = c(0, max(top10$`Revenue (USD)`)*1.25)) +
+                coord_flip() +
+                theme_bw(base_size = 14)
+        }
     })
     
     # ---- Cohort Conversion Funnels ----
@@ -579,16 +587,18 @@ shinyServer(function(input, output) {
             arrange(cohort, step) %>%
             mutate(order_conversion = orders / max(orders))
         
-        ggplot(cohort_conversions, 
-               aes(x = step, y = order_conversion)) +
-            geom_bar(stat = "identity") +
-            geom_text(aes(label = percent(order_conversion)), vjust = -0.75) +
-            geom_text(aes(label = prettyNum(orders, big.mark = ",")), vjust = 1.6, color = "white") +
-            scale_y_continuous(labels = percent) +
-            facet_grid(.~ cohort) +
-            theme_bw(base_size = 14) +
-            theme(axis.title.x = element_blank()) +
-            ylab("Orders")
+        if(nrow(cohort_conversions) > 0){
+            ggplot(cohort_conversions, 
+                   aes(x = step, y = order_conversion)) +
+                geom_bar(stat = "identity") +
+                geom_text(aes(label = percent(order_conversion)), vjust = -0.75) +
+                geom_text(aes(label = prettyNum(orders, big.mark = ",")), vjust = 1.6, color = "white") +
+                scale_y_continuous(labels = percent) +
+                facet_grid(.~ cohort) +
+                theme_bw(base_size = 14) +
+                theme(axis.title.x = element_blank()) +
+                ylab("Orders")
+        }
     })
     
     # ---- UTM Source Conversions ----
@@ -615,17 +625,21 @@ shinyServer(function(input, output) {
             levels = top5_m$utm_source
         )
         
-        ggplot(utm_source_conversions %>%
-                   filter(utm_source %in% top5_m$utm_source), 
-               aes(x = step, y = order_conversion)) +
-            geom_bar(stat = "identity") +
-            geom_text(aes(label = percent(order_conversion)), vjust = -1) +
-            geom_text(aes(label = prettyNum(orders, big.mark = ",")), 
-                      vjust = 1.6, color = "white") +
-            scale_y_continuous(labels = percent) +
-            facet_grid(utm_source ~.) +
-            theme_bw(base_size = 16) +
-            theme(axis.title = element_blank())
+        df <- utm_source_conversions %>%
+            filter(utm_source %in% top5_m$utm_source)
+        
+        if(nrow(df) > 0){
+            ggplot(df, 
+                   aes(x = step, y = order_conversion)) +
+                geom_bar(stat = "identity") +
+                geom_text(aes(label = percent(order_conversion)), vjust = -1) +
+                geom_text(aes(label = prettyNum(orders, big.mark = ",")), 
+                          vjust = 1.6, color = "white") +
+                scale_y_continuous(labels = percent) +
+                facet_grid(utm_source ~.) +
+                theme_bw(base_size = 16) +
+                theme(axis.title = element_blank())
+        }
     })
     
     # ---- UTM Medium Conversions ----
@@ -652,17 +666,20 @@ shinyServer(function(input, output) {
             levels = top5_m$utm_medium
         )
         
-        ggplot(utm_med_conversions %>%
-                   filter(utm_medium %in% top5_m$utm_medium), 
-               aes(x = step, y = order_conversion)) +
-            geom_bar(stat = "identity") +
-            geom_text(aes(label = percent(order_conversion)), vjust = -1) +
-            geom_text(aes(label = prettyNum(orders, big.mark = ",")), 
-                      vjust = 1.6, color = "white") +
-            scale_y_continuous(labels = percent) +
-            facet_grid(utm_medium ~.) +
-            theme_bw(base_size = 16) +
-            theme(axis.title = element_blank())
+        df <- utm_med_conversions %>%
+            filter(utm_medium %in% top5_m$utm_medium)
+        if(nrow(df) > 0){
+            ggplot(df, aes(x = step, y = order_conversion)) +
+                geom_bar(stat = "identity") +
+                geom_text(aes(label = percent(order_conversion)), vjust = -1) +
+                geom_text(aes(label = prettyNum(orders, big.mark = ",")), 
+                          vjust = 1.6, color = "white") +
+                scale_y_continuous(labels = percent) +
+                facet_grid(utm_medium ~.) +
+                theme_bw(base_size = 16) +
+                theme(axis.title = element_blank())
+        }
+        
     })
     
     # ---- UTM Campaign Conversions ----
@@ -694,16 +711,18 @@ shinyServer(function(input, output) {
     })
     
     output$camp_conv <- renderPlot({
-        ggplot(utm_camp_conversions(), 
-               aes(x = step, y = order_conversion)) +
-            geom_bar(stat = "identity") +
-            geom_text(aes(label = percent(order_conversion)), vjust = -1) +
-            geom_text(aes(label = prettyNum(orders, big.mark = ",")), 
-                      vjust = 1.6, color = "white") +
-            scale_y_continuous(labels = percent) +
-            facet_grid(utm_campaign ~.) +
-            theme_bw(base_size = 16) +
-            theme(axis.title = element_blank())
+        df <- utm_camp_conversions()
+        if(nrow(df) > 0){
+            ggplot(df, aes(x = step, y = order_conversion)) +
+                geom_bar(stat = "identity") +
+                geom_text(aes(label = percent(order_conversion)), vjust = -1) +
+                geom_text(aes(label = prettyNum(orders, big.mark = ",")), 
+                          vjust = 1.6, color = "white") +
+                scale_y_continuous(labels = percent) +
+                facet_grid(utm_campaign ~.) +
+                theme_bw(base_size = 16) +
+                theme(axis.title = element_blank())
+        }
     })
     
     output$camp_conv_down <- downloadHandler(
@@ -723,15 +742,17 @@ shinyServer(function(input, output) {
     })
     
     output$monthly_cohorts <- renderPlot({
-        cohort_dist_data() %>% 
-            ggplot(aes(x = order_year_month, y = Orders, fill = cohort)) + 
-            geom_bar(stat = "identity", position = "fill", color = "black", size = 0.2) + 
-            theme_bw(base_size = 14) +
-            theme(axis.title.x = element_blank(),
-                  legend.title = element_blank(),
-                  legend.position = "bottom") +
-            scale_fill_brewer(palette = "Set3") + 
-            scale_y_continuous(labels = percent)
+        df <- cohort_dist_data()
+        if(nrow(df) > 0){
+            ggplot(df, aes(x = order_year_month, y = Orders, fill = cohort)) + 
+                geom_bar(stat = "identity", position = "fill", color = "black", size = 0.2) + 
+                theme_bw(base_size = 14) +
+                theme(axis.title.x = element_blank(),
+                      legend.title = element_blank(),
+                      legend.position = "bottom") +
+                scale_fill_brewer(palette = "Set3") + 
+                scale_y_continuous(labels = percent)
+        }
     })
     
     output$monthly_cohorts_down <- downloadHandler(
