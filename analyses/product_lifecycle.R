@@ -106,3 +106,31 @@ style_lifecycle <- product_rankings_per_quarter %>%
               q_25 = quantile(net_return_request_units, 0.25)[[1]],
               q_75 = quantile(net_return_request_units, 0.75)[[1]],
               iqr = q_75 - q_25)
+
+
+# Any products that have sold less than 10 net return units in 365 days
+# are UNPROFITABLE so they MUST BE CULLED
+# NO MERCY!!
+
+first_cull <- products_sold %>%
+    filter(order_date < today() - 30 & order_date >= as.Date("2016-01-01")) %>%
+    inner_join(product_first_sale_dates, by = "product_id") %>%
+    filter(first_sale_date < (today() - 395) & order_date < (today() - 395) & product_live == "Yes") %>%
+    group_by(style_number) %>%
+    summarise(units_ordered = sum(quantity),
+              return_request_units = sum(return_requested),
+              net_return_request_units = units_ordered - return_request_units,
+              last_sale_date = max(order_date)) %>%
+    filter(net_return_request_units < 10)
+
+ongoing_cull <- products_sold %>%
+    filter(order_date < today() - 30 & order_date >= as.Date("2016-01-01")) %>%
+    inner_join(product_first_sale_dates, by = "product_id") %>%
+    filter(first_sale_date < (today() - 120) & order_date < (today() - 120) & product_live == "Yes") %>%
+    group_by(style_number) %>%
+    summarise(units_ordered = sum(quantity),
+              return_request_units = sum(return_requested),
+              net_return_request_units = units_ordered - return_request_units,
+              last_sale_date = max(order_date)) %>%
+    filter(net_return_request_units < 3) %>%
+    anti_join(first_cull, by = "style_number")
