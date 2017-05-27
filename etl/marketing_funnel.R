@@ -5,8 +5,8 @@ library(tidyr)
 
 # ---- GOOGLE ANALYTICS ----
 ga <- lapply(
-    paste0("~/data/marketing/google_analytics/",
-           list.files(path = "~/data/marketing/google_analytics", pattern="*.csv")),
+    paste0("/Users/Peter 1/Dropbox (Team Fame)/csv_data/marketing/google_analytics/",
+           list.files(path = "/Users/Peter 1/Dropbox (Team Fame)/csv_data/marketing/google_analytics", pattern="*.csv")),
     read_csv,
     skip = 6,
     col_types = cols(
@@ -36,6 +36,7 @@ ga <- lapply(
               Transactions = sum(coalesce(Transactions, 0)),
               Revenue = sum(coalesce(Revenue, 0)),
               Session_Duration_min = sum(coalesce(Session_Duration_min, 0))) %>%
+    ungroup() %>%
     mutate(`% New Sessions` = coalesce(100 * (New_Sessions / Sessions), 0),
            Bounce_Rate = coalesce(100 * (Bounces / Sessions), 0),
            Avg_Session_Duration_min = coalesce(Session_Duration_min / Sessions, 0),
@@ -45,8 +46,8 @@ ga <- lapply(
 
 # ---- FACEBOOK ----
 fb <- lapply(
-    paste0("~/data/marketing/facebook/",
-           list.files(path = "~/data/marketing/facebook", pattern="*.csv")),
+    paste0("/Users/Peter 1/Dropbox (Team Fame)/csv_data/marketing/facebook/",
+           list.files(path = "/Users/Peter 1/Dropbox (Team Fame)/csv_data/marketing/facebook", pattern="*.csv")),
     read_csv, 
     col_types = cols(
         .default = col_number(),
@@ -78,8 +79,8 @@ fb <- lapply(
               Post_Reactions = sum(coalesce(`Post Reactions`, 0))) %>%
     ungroup() %>%
     mutate(Frequency = Impressions / Reach,
-           Unique_CTR = coalesce(Unique_Clicks / Reach, 0) * 100,
-           Unique_CPC = coalesce(Amount_Spent_AUD / Unique_Clicks, 0) * 100,
+           Unique_CTR = coalesce(Unique_Clicks / Reach, 0),
+           Unique_CPC = coalesce(Amount_Spent_AUD / Unique_Clicks, 0),
            fb_id = row_number()) %>%
     replace(. == Inf, 0)
 
@@ -103,8 +104,13 @@ upper_products_campaigns <- ga_fb %>%
     unique() 
 
 # ---- WRITE DATA TO static-data ----
+clean <- function(df){
+    df %>%
+        format(scientific = FALSE) %>%
+        as_data_frame()
+}
 path_to_static <- "~/code/analytics/ecommerce-performance/static-data/"
-write_csv(fb, paste0(path_to_static, "fb.csv"), na = "")
-write_csv(ga, paste0(path_to_static, "ga.csv"), na = "")
-write_csv(ga_fb, paste0(path_to_static, "ga_fb.csv"), na = "")
-write_csv(upper_products_campaigns, paste0(path_to_static, "upper_products_campaigns.csv"), na = "")
+write_csv(clean(fb), paste0(path_to_static, "fb.csv"), na = "")
+write_csv(clean(ga), paste0(path_to_static, "ga.csv"), na = "")
+write_csv(clean(ga_fb), paste0(path_to_static, "ga_fb.csv"), na = "")
+write_csv(clean(upper_products_campaigns), paste0(path_to_static, "upper_products_campaigns.csv"), na = "")
