@@ -294,7 +294,7 @@ li_shipments <- shipment_data %>%
 
 # ---- SHIP DATE CORRECTIONS ----
 correct_shipments <- read_csv(
-    "static-data/Correct Ship Dates 2017-05-11.csv",
+    "static-data/Correct Ship Dates.csv",
     col_types = cols(LINE = col_number(),
                      `SENT DATE` = col_date(format = ""))) %>%
     rename(line_item_id = LINE,
