@@ -5,8 +5,8 @@ library(tidyr)
 
 # ---- GOOGLE ANALYTICS ----
 ga <- lapply(
-    paste0("/Users/Peter 1/Dropbox (Team Fame)/csv_data/marketing/google_analytics/",
-           list.files(path = "/Users/Peter 1/Dropbox (Team Fame)/csv_data/marketing/google_analytics", pattern="*.csv")),
+    paste0("/Users/Peter 1/Dropbox (Team Fame)/data/marketing/google_analytics/",
+           list.files(path = "/Users/Peter 1/Dropbox (Team Fame)/data/marketing/google_analytics", pattern="*.csv")),
     read_csv,
     skip = 6,
     col_types = cols(
@@ -46,8 +46,8 @@ ga <- lapply(
 
 # ---- FACEBOOK ----
 fb <- lapply(
-    paste0("/Users/Peter 1/Dropbox (Team Fame)/csv_data/marketing/facebook/",
-           list.files(path = "/Users/Peter 1/Dropbox (Team Fame)/csv_data/marketing/facebook", pattern="*.csv")),
+    paste0("/Users/Peter 1/Dropbox (Team Fame)/data/marketing/facebook/",
+           list.files(path = "/Users/Peter 1/Dropbox (Team Fame)/data/marketing/facebook", pattern="*.csv")),
     read_csv, 
     col_types = cols(
         .default = col_number(),
