@@ -88,10 +88,14 @@ fb <- lapply(
 ga_fb <- fb %>% 
     inner_join(ga, by = c("utm_campaign","Date","Platform")) %>%
     separate(utm_campaign, into = c('cohort','country','region','age','target',
-                                    'device_type','creative_type','creative_strategy','theme','ad_format',
-                                    'pic_source','copy_type','landing_page','product_category','products'), 
+                                    'device_type','creative_type',
+                                    'creative_strategy','theme','ad_format',
+                                    'pic_source','copy_type','landing_page',
+                                    'product_category','products'), 
              sep = "_", extra = "merge", remove = FALSE) %>%
-    mutate(creative = paste(creative_type, creative_strategy, theme, ad_format, pic_source, copy_type),
+    mutate(creative = paste(creative_type, creative_strategy, 
+                            theme, ad_format, pic_source, copy_type,
+                            landing_page, products),
            prospecting = !str_detect(cohort, "-RE"))
 
 # ---- PULL UTM CAMPAIGN TO PRODUCT NAME LOOKUP ----
