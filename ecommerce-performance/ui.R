@@ -272,20 +272,139 @@ shinyUI(fluidPage(
                              downloadButton("conv_creative_summary_down")),
                     fluidRow(h3c("Comparisons"),
                              tabsetPanel(
-                                 tabPanel("Cohort", plotOutput("conv_cohort_comp")),
-                                 tabPanel("Target", plotOutput("conv_target_comp")),
-                                 tabPanel("Country", plotOutput("conv_country_comp")),
-                                 #tabPanel("Region", plotOutput("conv_region_comp")),
-                                 tabPanel("Age", plotOutput("conv_age_comp")),
-                                 tabPanel("Device Type", plotOutput("conv_device_type_comp")),
-                                 tabPanel("Creative Type", plotOutput("conv_creative_type_comp")),
-                                 tabPanel("Creative Strategy", plotOutput("conv_creative_strategy_comp")),
-                                 tabPanel("Theme", plotOutput("conv_theme_comp")),
-                                 tabPanel("Ad Format", plotOutput("conv_ad_format_comp")),
-                                 #tabPanel("Pic Source", plotOutput("conv_pic_source_comp")),
-                                 tabPanel("Copy Type", plotOutput("conv_copy_type_comp")),
-                                 tabPanel("Landing Page", plotOutput("conv_landing_page_comp")),
-                                 tabPanel("Product Category", plotOutput("conv_product_category_comp"))
+                                 tabPanel("Cohort", 
+                                          column( 
+                                              2,
+                                              selectInput("conv_cohort_metric",
+                                                          label = "", 
+                                                          choices = comp_choices)
+                                              ),
+                                          column(
+                                              10,
+                                              plotOutput("conv_cohort_comp"))
+                                          ),
+                                 tabPanel("Target", 
+                                          column(
+                                              2,
+                                              selectInput("conv_target_metric",
+                                                          label = "", 
+                                                          choices = comp_choices)
+                                          ),
+                                          column(
+                                              10,
+                                              plotOutput("conv_target_comp")
+                                          )),
+                                 tabPanel("Country", 
+                                          column(
+                                              2,
+                                              selectInput("conv_country_metric",
+                                                          label = "", 
+                                                          choices = comp_choices)
+                                          ),
+                                          column(
+                                              10,
+                                              plotOutput("conv_country_comp")
+                                          )),
+                                 tabPanel("Age", 
+                                          column(
+                                              2,
+                                              selectInput("conv_age_metric",
+                                                          label = "", 
+                                                          choices = comp_choices)
+                                          ),
+                                          column(
+                                              10,
+                                              plotOutput("conv_age_comp")
+                                          )),
+                                 tabPanel("Device Type", 
+                                          column(
+                                              2,
+                                              selectInput("conv_device_type_metric",
+                                                          label = "", 
+                                                          choices = comp_choices)
+                                          ),
+                                          column(
+                                              10,
+                                              plotOutput("conv_device_type_comp")
+                                          )),
+                                 tabPanel("Creative Type",
+                                          column(
+                                              2,
+                                              selectInput("conv_creative_type_metric",
+                                                          label = "", 
+                                                          choices = comp_choices)
+                                          ),
+                                          column(
+                                              10,
+                                              plotOutput("conv_creative_type_comp")
+                                          )
+                                          ),
+                                 tabPanel("Creative Strategy", 
+                                          column(
+                                              2,
+                                              selectInput("conv_creative_strategy_metric",
+                                                          label = "", 
+                                                          choices = comp_choices)
+                                          ),
+                                          column(
+                                              10,
+                                              plotOutput("conv_creative_strategy_comp")
+                                          )),
+                                 tabPanel("Theme", 
+                                          column(
+                                              2,
+                                              selectInput("conv_theme_metric",
+                                                          label = "", 
+                                                          choices = comp_choices)
+                                          ),
+                                          column(
+                                              10,
+                                              plotOutput("conv_theme_comp")
+                                          )),
+                                 tabPanel("Ad Format", 
+                                          column(
+                                              2,
+                                              selectInput("conv_ad_format_metric",
+                                                          label = "", 
+                                                          choices = comp_choices)
+                                          ),
+                                          column(
+                                              10,
+                                              plotOutput("conv_ad_format_comp")
+                                          )),
+                                 tabPanel("Copy Type", 
+                                          column(
+                                              2,
+                                              selectInput("conv_copy_type_metric",
+                                                          label = "", 
+                                                          choices = comp_choices)
+                                          ),
+                                          column(
+                                              10,
+                                              plotOutput("conv_copy_type_comp")
+                                          )),
+                                 tabPanel("Landing Page",
+                                          column(
+                                              2,
+                                              selectInput("conv_landing_page_metric",
+                                                          label = "", 
+                                                          choices = comp_choices)
+                                          ),
+                                          column(
+                                              10,
+                                              plotOutput("conv_landing_page_comp")
+                                          )),
+                                 tabPanel("Product Category", 
+                                          column(
+                                              2,
+                                              selectInput("conv_product_category_metric",
+                                                          label = "", 
+                                                          choices = comp_choices)
+                                          ),
+                                          column(
+                                              10,
+                                              plotOutput("conv_product_category_comp")
+                                          ))
                              )
                     )
                 )
