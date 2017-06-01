@@ -8,7 +8,8 @@ fb <- read_csv("~/code/analytics/ecommerce-performance/static-data/fb.csv",
                    .default = col_number(),
                    Date = col_date(format = ""),
                    Platform = col_character(),
-                   utm_campaign = col_character()))
+                   utm_campaign = col_character())) %>%
+    filter(!str_detect(tolower(utm_campaign), "dance"))
 
 p1 <- fb %>% 
     filter(Date < today() - 24) %>%
@@ -87,3 +88,13 @@ fb %>%
               Purchases = sum(Purchases),
               `Conversion Rate` = sum(Purchases) / sum(Unique_Clicks)) %>%
     write_csv("~/data/monthly_conversions_yoy.csv")
+
+fb %>%
+    filter(Date < today() - 24) %>%
+    group_by(ad_year = year(Date) %>% as.character(), 
+             ad_month = month(Date)) %>%
+    summarise(Comments = sum(Post_Comments),
+              Reactions = sum(Post_Reactions),
+              Shares = sum(Post_Shares),
+              Reach = sum(Reach)) %>%
+    write_csv("~/data/Facebook Monthly Engagement.csv")
