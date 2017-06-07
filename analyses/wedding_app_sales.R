@@ -148,3 +148,4 @@ sales_cadence %>%
     xlab("Days from Signup to Purchase") + 
     scale_x_continuous(breaks = seq(0, 100, 5)) +
     theme_minimal()
+
