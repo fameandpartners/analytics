@@ -84,7 +84,11 @@ all_touches <- read_csv("~/code/analytics/ecommerce-performance/static-data/all_
                             cohort = readr::col_factor(levels = c("Prom", "Bridal", "Contemporary", "Not Assigned", ordered = TRUE))
                         )) %>%
     rename(sales_usd = revenue_usd)
-
+# ---- COHORTS ----
+cohort_assigments <- all_touches %>%
+    transmute(email, assigned_cohort = cohort) %>%
+    unique()
+cohort_assigments$assigned_cohort <- as.character(cohort_assigments$assigned_cohort)
 # factory manufacturing cost data
 # still missing some costs
 factory_costs <- read_csv("~/code/analytics/ecommerce-performance/static-data/eCommerce Factory Cost.csv",
@@ -178,12 +182,11 @@ products <- tbl(fp_con, sql(paste(
     "p.available_on",
     "FROM spree_products p",
     "LEFT JOIN (",
-    "SELECT product_id, STRING_AGG(DISTINCT UPPER(style_number), ',') style",
-    "FROM global_skus",
+    "SELECT product_id, STRING_AGG(DISTINCT UPPER(sku), ',') style",
+    "FROM spree_variants",
+    "WHERE is_master",
     "GROUP BY product_id",
-    ") g ON g.product_id = p.id",
-    "WHERE p.id IN (", 
-    paste(unique(ordered_units$product_id), collapse = ","), ")"))) %>%
+    ") g ON g.product_id = p.id"))) %>%
     collect()
 
 # ---- ADDRESSES ----
@@ -323,6 +326,8 @@ products_sold <- ordered_units %>%
                   summarise(length = paste0(taxon_name[1] %>% str_trim() %>% substr(1, 1) %>% toupper(), 
                                             taxon_name[1] %>% str_trim() %>% substr(2, 10))),
               by = "product_id") %>%
+    left_join(cohort_assigments, by = "email") %>%
+    left_join(correct_shipments, by = "line_item_id") %>%
     group_by(order_id) %>%
     mutate(payments = coalesce(order_payments / n(), 0),
            item_total_usd = item_total * conversion_rate,
@@ -331,7 +336,7 @@ products_sold <- ordered_units %>%
            taxes_usd = gross_revenue_usd * (o_taxes / item_total),
            other_adjustments_usd = gross_revenue_usd * (o_other_adjustments / item_total)) %>%
     ungroup() %>%
-    mutate(ship_date = coalesce(li_ship_date, o_ship_date),
+    mutate(ship_date = coalesce(correct_ship_date, li_ship_date, o_ship_date),
            refund_amount_usd = (refund_amount / 100) * ifelse(currency == "AUD", aud_to_usd, 1),
            price_usd = price * ifelse(currency == "AUD", aud_to_usd, 1),
            height = paste0(substr(lip_height, 1, 1) %>% toupper(), substr(lip_height, 2, 250)),
@@ -354,13 +359,13 @@ products_sold <- ordered_units %>%
            estimated_ship_date = ifelse(is.na(ship_date), order_date + 10, ship_date) %>% as.Date(origin = "1970-01-01"),
            ship_year_month = year_month(estimated_ship_date),
            order_year_month = year_month(order_date),
-           payment_processing_cost = sales_usd * 0.029 * payments,
+           payment_processing_cost = (sales_usd * 0.029) + 0.3,
            physically_customized = ifelse(is.na(customized), 0, customized)) %>%
     left_join(collections %>%
                   group_by(product_id) %>%
                   summarise(collection_na = paste(unique(collection_na), collapse = ", ")),
               by = "product_id") %>%
-    mutate(collection = ifelse(is.na(collection_na), "2014-2015 -  Old", collection_na)) %>%
+    mutate(collection = ifelse(is.na(collection_na), "2014-2015 - Old", collection_na)) %>%
     select(-collection_na) %>%
     separate(size, c("us_size_str","au_size_str"), sep = "/", remove = FALSE) %>%
     mutate(us_size = as.integer(str_replace_all(us_size_str, "US", ""))) %>%
