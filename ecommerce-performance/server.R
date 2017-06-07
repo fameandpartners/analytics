@@ -922,11 +922,13 @@ shinyServer(function(input, output) {
                       Post_Reactions = sum(coalesce(Post_Reactions, 0)),
                       Bounces = sum(coalesce(Bounces, 0)),
                       Sessions = sum(coalesce(Sessions, 0)),
-                      Session_Duration = sum(coalesce(Session_Duration_min, 0))) %>%
+                      Session_Duration = sum(coalesce(Session_Duration_min, 0)),
+                      Leads = sum(Leads)) %>%
             mutate(CTR = coalesce(Unique_Clicks / Reach, 0),
                    CPC = coalesce(`Spend (USD)` / Unique_Clicks, 0),
                    CAC = `Spend (USD)` / Purchases,
-                   CPAC = coalesce(`Spend (USD)` / Adds_to_Cart),
+                   CPAC = `Spend (USD)` / Adds_to_Cart,
+                   CPL = `Spend (USD)` / Leads,
                    `Avg. Session Duration` = coalesce(Session_Duration / Sessions, 0),
                    `Bounce Rate` = coalesce((Bounces / Sessions), 0)) %>%
             replace(. == Inf, 0)
@@ -941,6 +943,7 @@ shinyServer(function(input, output) {
                       CTR = percent(CTR), 
                       CPC = dollar(CPC), 
                       CPAC = dollar(CPAC),
+                      CPL = dollar(CPL),
                       `T.O.S.` = paste(round(`Avg. Session Duration`, 2), "min"),
                       Sessions = short_number(Sessions),
                       `Total Carts` = short_number(Adds_to_Cart),
@@ -957,6 +960,7 @@ shinyServer(function(input, output) {
                       CTR, 
                       CPC = ifelse(CPC == 0, NA, CPC), 
                       CPAC = ifelse(CPAC == 0, NA, CPAC), 
+                      CPL = ifelse(CPL == 0, NA, CPL),
                       `T.O.S.` = `Avg. Session Duration`, 
                       Sessions,
                       `Total Carts` = Adds_to_Cart,
@@ -972,7 +976,7 @@ shinyServer(function(input, output) {
             datatable(class = "hover row-border", style = "bootstrap", escape = FALSE,
                       options = list(lengthMenu = c(10, 25, 50), pageLength = 10)) %>%
             formatPercentage(c("CTR","Bounce Rate"), digits = 1) %>%
-            formatCurrency(c("Spend (USD)", "CAC", "CPC", "CPAC")) %>%
+            formatCurrency(c("Spend (USD)", "CAC", "CPC", "CPAC", "CPL")) %>%
             formatCurrency(c("T.O.S."), before = FALSE, currency = " min") %>%
             formatCurrency(c("Sessions","Total Carts"), currency = "", digits = 0) %>%
             formatStyle(
@@ -1061,6 +1065,20 @@ shinyServer(function(input, output) {
             if(nrow(df) > 0){
                 df %>%
                     ggplot(aes(x = cohort, fill = cohort, y = CPAC)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = dollar)
+            }
+        } else if(input$conv_cohort_metric == "CPL"){
+            df <- cohort_summary %>%
+                filter(CPL > 0) %>%
+                arrange(desc(CPL))
+            df$cohort <- factor(df$cohort, levels = df$cohort)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = cohort, fill = cohort, y = CPL)) +
                     geom_bar(stat = "identity") +
                     theme_bw(base_size = 14) +
                     theme(axis.title.x = element_blank(),
@@ -1202,6 +1220,20 @@ shinyServer(function(input, output) {
                           legend.position = "none") +
                     scale_y_continuous(labels = dollar)
             }
+        } else if(input$conv_target_metric == "CPL"){
+            df <- target_summary %>%
+                filter(CPL > 0) %>%
+                arrange(desc(CPL))
+            df$target <- factor(df$target, levels = df$target)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = target, fill = target, y = CPL)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = dollar)
+            }
         } else if(input$conv_target_metric == "T.O.S."){
             df <- target_summary %>%
                 rename(`T.O.S.` = `Avg. Session Duration`) %>%
@@ -1331,6 +1363,20 @@ shinyServer(function(input, output) {
             if(nrow(df) > 0){
                 df %>%
                     ggplot(aes(x = country, fill = country, y = CPAC)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = dollar)
+            }
+        } else if(input$conv_country_metric == "CPL"){
+            df <- country_summary %>%
+                filter(CPL > 0) %>%
+                arrange(desc(CPL))
+            df$country <- factor(df$country, levels = df$country)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = country, fill = country, y = CPL)) +
                     geom_bar(stat = "identity") +
                     theme_bw(base_size = 14) +
                     theme(axis.title.x = element_blank(),
@@ -1472,6 +1518,20 @@ shinyServer(function(input, output) {
                           legend.position = "none") +
                     scale_y_continuous(labels = dollar)
             }
+        } else if(input$conv_age_metric == "CPL"){
+            df <- age_summary %>%
+                filter(CPL > 0) %>%
+                arrange(desc(CPL))
+            df$age <- factor(df$age, levels = df$age)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = age, fill = age, y = CPL)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = dollar)
+            }
         } else if(input$conv_age_metric == "T.O.S."){
             df <- age_summary %>%
                 rename(`T.O.S.` = `Avg. Session Duration`) %>%
@@ -1601,6 +1661,20 @@ shinyServer(function(input, output) {
             if(nrow(df) > 0){
                 df %>%
                     ggplot(aes(x = device_type, fill = device_type, y = CPAC)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = dollar)
+            }
+        } else if(input$conv_device_type_metric == "CPL"){
+            df <- device_type_summary %>%
+                filter(CPL > 0) %>%
+                arrange(desc(CPL))
+            df$device_type <- factor(df$device_type, levels = df$device_type)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = device_type, fill = device_type, y = CPL)) +
                     geom_bar(stat = "identity") +
                     theme_bw(base_size = 14) +
                     theme(axis.title.x = element_blank(),
@@ -1742,6 +1816,20 @@ shinyServer(function(input, output) {
                           legend.position = "none") +
                     scale_y_continuous(labels = dollar)
             }
+        } else if(input$conv_creative_type_metric == "CPL"){
+            df <- creative_type_summary %>%
+                filter(CPL > 0) %>%
+                arrange(desc(CPL))
+            df$creative_type <- factor(df$creative_type, levels = df$creative_type)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = creative_type, fill = creative_type, y = CPL)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = dollar)
+            }
         } else if(input$conv_creative_type_metric == "T.O.S."){
             df <- creative_type_summary %>%
                 rename(`T.O.S.` = `Avg. Session Duration`) %>%
@@ -1877,6 +1965,20 @@ shinyServer(function(input, output) {
                           legend.position = "none") +
                     scale_y_continuous(labels = dollar)
             }
+        } else if(input$conv_creative_strategy_metric == "CPL"){
+            df <- creative_strategy_summary %>%
+                filter(CPL > 0) %>%
+                arrange(desc(CPL))
+            df$creative_strategy <- factor(df$creative_strategy, levels = df$creative_strategy)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = creative_strategy, fill = creative_strategy, y = CPL)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = dollar)
+            }
         } else if(input$conv_creative_strategy_metric == "T.O.S."){
             df <- creative_strategy_summary %>%
                 rename(`T.O.S.` = `Avg. Session Duration`) %>%
@@ -1997,6 +2099,20 @@ shinyServer(function(input, output) {
                     theme(axis.title.x = element_blank(),
                           legend.position = "none") +
                     scale_y_continuous(labels = percent)
+            }
+        } else if(input$conv_theme_metric == "CPL"){
+            df <- theme_summary %>%
+                filter(CPL > 0) %>%
+                arrange(desc(CPL))
+            df$theme <- factor(df$theme, levels = df$theme)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = theme, fill = theme, y = CPL)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = dollar)
             }
         } else if(input$conv_theme_metric == "CPAC"){
             df <- theme_summary %>%
@@ -2147,6 +2263,20 @@ shinyServer(function(input, output) {
                           legend.position = "none") +
                     scale_y_continuous(labels = dollar)
             }
+        } else if(input$conv_ad_format_metric == "CPL"){
+            df <- ad_format_summary %>%
+                filter(CPL > 0) %>%
+                arrange(desc(CPL))
+            df$ad_format <- factor(df$ad_format, levels = df$ad_format)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = ad_format, fill = ad_format, y = CPL)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = dollar)
+            }
         } else if(input$conv_ad_format_metric == "T.O.S."){
             df <- ad_format_summary %>%
                 rename(`T.O.S.` = `Avg. Session Duration`) %>%
@@ -2276,6 +2406,20 @@ shinyServer(function(input, output) {
             if(nrow(df) > 0){
                 df %>%
                     ggplot(aes(x = copy_type, fill = copy_type, y = CPAC)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = dollar)
+            }
+        } else if(input$conv_copy_type_metric == "CPL"){
+            df <- copy_type_summary %>%
+                filter(CPL > 0) %>%
+                arrange(desc(CPL))
+            df$copy_type <- factor(df$copy_type, levels = df$copy_type)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = copy_type, fill = copy_type, y = CPL)) +
                     geom_bar(stat = "identity") +
                     theme_bw(base_size = 14) +
                     theme(axis.title.x = element_blank(),
@@ -2417,6 +2561,20 @@ shinyServer(function(input, output) {
                           legend.position = "none") +
                     scale_y_continuous(labels = dollar)
             }
+        } else if(input$conv_landing_page_metric == "CPL"){
+            df <- landing_page_summary %>%
+                filter(CPL > 0) %>%
+                arrange(desc(CPL))
+            df$landing_page <- factor(df$landing_page, levels = df$landing_page)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = landing_page, fill = landing_page, y = CPL)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = dollar)
+            }
         } else if(input$conv_landing_page_metric == "T.O.S."){
             df <- landing_page_summary %>%
                 rename(`T.O.S.` = `Avg. Session Duration`) %>%
@@ -2546,6 +2704,20 @@ shinyServer(function(input, output) {
             if(nrow(df) > 0){
                 df %>%
                     ggplot(aes(x = product_category, fill = product_category, y = CPAC)) +
+                    geom_bar(stat = "identity") +
+                    theme_bw(base_size = 14) +
+                    theme(axis.title.x = element_blank(),
+                          legend.position = "none") +
+                    scale_y_continuous(labels = dollar)
+            }
+        } else if(input$conv_product_category_metric == "CPL"){
+            df <- product_category_summary %>%
+                filter(CPL > 0) %>%
+                arrange(desc(CPL))
+            df$product_category <- factor(df$product_category, levels = df$product_category)
+            if(nrow(df) > 0){
+                df %>%
+                    ggplot(aes(x = product_category, fill = product_category, y = CPL)) +
                     geom_bar(stat = "identity") +
                     theme_bw(base_size = 14) +
                     theme(axis.title.x = element_blank(),
@@ -2734,6 +2906,7 @@ shinyServer(function(input, output) {
                 geom_bar(aes(y = budget_2017), stat = "identity", alpha = 0, color = "black", size = 0.35) +
                 geom_label(aes(label = percent(percent_of_budget), y = actuals_2017), vjust = -0.15, size = 6) + 
                 scale_y_continuous(labels = label_func, limits = c(0, max_lim * 1.1)) +
+                scale_x_continuous(breaks = 1:month(today())) +
                 theme_minimal(base_size = 16) +
                 xlab("Month") +
                 ylab(ylabel)

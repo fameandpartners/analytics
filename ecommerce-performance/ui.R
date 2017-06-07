@@ -337,8 +337,7 @@ shinyUI(fluidPage(
                                           column(
                                               10,
                                               plotOutput("conv_creative_type_comp")
-                                          )
-                                          ),
+                                          )),
                                  tabPanel("Creative Strategy", 
                                           column(
                                               2,
