@@ -36,11 +36,39 @@ time_to_repeat <- purchase_dates %>%
 
 time_to_repeat$first_to_second %>% quantile(seq(0, 1, 0.1))
 
-time_to_repeat %>%
-    ggplot(aes(first_to_second)) +
-    geom_histogram(binwidth = 15) +
-    scale_x_continuous(breaks = seq(0, 600, 30),
-                       limits = c(0, 600)) +
-    xlab("Days from First to Second Purchase") +
+purchase_nums %>%
+    group_by(Repeated = ifelse(purchase_num > 1, "Repeat", "New"), 
+             Cohort = coalesce(assigned_cohort, "Not Assigned")) %>%
+    filter(Cohort != "Not Assigned") %>%
+    summarise(Customers = n_distinct(email)) %>%
+    spread(Repeated, Customers) %>%
+    mutate(`Likelihood to Repeat` = Repeat / New,
+           `Percent of Repeat Customers` = Repeat / sum(Repeat))
+
+purchase_sizes <- purchase_nums %>%
+    filter(purchase_num <= 5 & !is.na(us_size)) %>%
+    select(email, purchase_num, us_size) %>%
+    group_by(email, purchase_num) %>%
+    filter(n_distinct(us_size) == 1) %>%
+    group_by(email) %>%
+    unique() %>%
+    arrange(email, purchase_num) %>%
+    spread(purchase_num, us_size) %>%
+    filter(!is.na(`1`) & !is.na(`2`)) %>%
+    ungroup() %>%
+    mutate(first_and_second_size_match = `1` == `2`,
+           size_abs_delta = abs(`1` - `2`),
+           size_delta = `2` - `1`)
+
+purchase_sizes %>% count(first_and_second_size_match)
+
+purchase_sizes %>% count(size_abs_delta) %>% mutate(n / sum(n))
+
+purchase_sizes %>% count(size_delta) %>% mutate(n / sum(n)) %>%
+    filter(n > 10) %>%
+    ggplot(aes(x = size_delta, y = n)) +
+    geom_bar(stat = "identity") +
+    scale_x_continuous(breaks = seq(-6,6,2)) +
+    xlab("Difference in Size from 1st to 2nd Purchase") +
     ylab("Customers") +
     theme_minimal()
