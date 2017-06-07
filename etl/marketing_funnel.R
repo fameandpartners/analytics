@@ -3,10 +3,14 @@ library(dplyr)
 library(stringr)
 library(tidyr)
 
+path_to_marketing_dropbox <- "/Users/Peter 1/Dropbox (Team Fame)/data/marketing/"
+
 # ---- GOOGLE ANALYTICS ----
 ga <- lapply(
-    paste0("/Users/Peter 1/Dropbox (Team Fame)/data/marketing/google_analytics/",
-           list.files(path = "/Users/Peter 1/Dropbox (Team Fame)/data/marketing/google_analytics", pattern="*.csv")),
+    paste0(path_to_marketing_dropbox, "google_analytics/",
+           list.files(path = paste0(path_to_marketing_dropbox, 
+                                    "google_analytics"), 
+                      pattern="*.csv")),
     read_csv,
     skip = 6,
     col_types = cols(
@@ -46,8 +50,9 @@ ga <- lapply(
 
 # ---- FACEBOOK ----
 fb <- lapply(
-    paste0("/Users/Peter 1/Dropbox (Team Fame)/data/marketing/facebook/",
-           list.files(path = "/Users/Peter 1/Dropbox (Team Fame)/data/marketing/facebook", pattern="*.csv")),
+    paste0(path_to_marketing_dropbox, "facebook/",
+           list.files(path = paste0(path_to_marketing_dropbox, "facebook"), 
+                      pattern="*.csv")),
     read_csv, 
     col_types = cols(
         .default = col_number(),
@@ -84,24 +89,48 @@ fb <- lapply(
            fb_id = row_number()) %>%
     replace(. == Inf, 0)
 
+# ---- MAILCHIMP ----
+mc_csv <- read_csv(paste0(path_to_marketing_dropbox, 
+                      "mailchimp/subscribed_members_export_ed02d85ed6.csv"),
+               col_types = cols(.default = col_character())) %>%
+    rename(utm_camp_low = utm_campaign) %>%
+    mutate(Date = CONFIRM_TIME %>% 
+               substr(1, 10) %>%
+               as.Date(),
+           Platform = ifelse(str_detect(utm_source, "fbps|[f|F]acebook"), "Facebook",
+                      ifelse(str_detect(utm_source, "igps|[i|I]nstagram"), "Instagram", 
+                             "Other")),
+           utm_campaign = toupper(utm_camp_low))
+
+mc <- mc_csv %>%
+    filter(!is.na(utm_campaign) & !is.na(utm_source)) %>%
+    group_by(Date, Platform, utm_campaign) %>%
+    summarise(leads_na = n()) %>%
+    ungroup()
+
 # ---- MERGE GA & FB ----
 ga_fb <- fb %>% 
     inner_join(ga, by = c("utm_campaign","Date","Platform")) %>%
+    left_join(mc, by = c("utm_campaign","Date","Platform")) %>%
     separate(utm_campaign, into = c('cohort','country','region','age','target',
                                     'device_type','creative_type',
                                     'creative_strategy','theme','ad_format',
                                     'pic_source','copy_type','landing_page',
                                     'product_category','products'), 
              sep = "_", extra = "merge", remove = FALSE) %>%
+    select(-Leads) %>%
     mutate(creative = paste(creative_type, creative_strategy, 
                             theme, ad_format, pic_source, copy_type,
                             landing_page, products),
-           prospecting = !str_detect(cohort, "-RE"))
+           prospecting = !str_detect(cohort, "-RE"),
+           Leads = coalesce(leads_na, as.integer(0))) %>%
+    select(-leads_na)
 
 # ---- PULL UTM CAMPAIGN TO PRODUCT NAME LOOKUP ----
 upper_products_campaigns <- ga_fb %>% 
     select(utm_campaign, products) %>%
-    separate(products, sep = "-", into = paste0("A", 1:7)) %>%
+    separate(products, sep = "-", into = paste0("A", 1:7),
+             extra = "drop", fill = "left") %>%
     gather(AX, product, -utm_campaign) %>%
     filter(!is.na(product) & product != "NA") %>%
     select(-AX) %>%
