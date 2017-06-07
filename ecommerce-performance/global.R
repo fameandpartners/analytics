@@ -138,8 +138,8 @@ cohort_assigments <- all_touches %>%
     transmute(email, assigned_cohort = cohort) %>%
     unique()
 
-comp_choices <- c("Spend (USD)","Purchases","CAC","CTR","CPAC","T.O.S.",
-                  "Sessions","Total Carts","Bounce Rate")
+comp_choices <- c("Spend (USD)","Purchases","CAC","CTR","CPAC","CPL",
+                  "T.O.S.","Sessions","Total Carts","Bounce Rate")
 
 # ---- CONNECT TO REPLICA ----
 # set db connection
