@@ -939,8 +939,9 @@ shinyServer(function(input, output) {
             conv_kpi_summarise() %>% 
             transmute(`Spend (USD)` = dollar(`Spend (USD)`), 
                       Purchases = Purchases %>% round() %>% as.integer(), 
+                      Leads = Leads %>% round() %>% as.integer(),
                       CAC = dollar(CAC), 
-                      CTR = percent(CTR), 
+                      CTR = paste0(round(CTR * 100, 2), "%"), 
                       CPC = dollar(CPC), 
                       CPAC = dollar(CPAC),
                       CPL = dollar(CPL),
@@ -955,7 +956,10 @@ shinyServer(function(input, output) {
             group_by(Creative = creative) %>% 
             conv_kpi_summarise() %>%
             arrange(desc(`Spend (USD)`)) %>%
-            transmute(Creative, `Spend (USD)`, Purchases, 
+            transmute(Creative, 
+                      `Spend (USD)`, 
+                      Purchases, 
+                      Leads,
                       CAC = ifelse(CAC == 0, NA, CAC), 
                       CTR, 
                       CPC = ifelse(CPC == 0, NA, CPC), 
