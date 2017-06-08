@@ -25,7 +25,7 @@ traffic <- paste0(
             Page = col_character())) %>%
     bind_rows() %>%
     mutate(product_id = Page %>%
-               str_extract_all("dress\\-(.*)-[0-9]+") %>%
+               str_extract_all("dress\\-(.*)\\-[0-9]+") %>%
                str_extract_all("[0-9]+") %>%
                lapply(real_head) %>%
                as.integer()) %>%
