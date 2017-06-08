@@ -3,6 +3,14 @@
 # NO MERCY!!
 source("~/code/analytics/etl/full_global.R")
 
+real_head <- function(x){
+    if(length(x) > 0){
+        x[[1]]
+    } else {
+        NA
+    }
+}
+
 path_to_culling_dropbox <- "/Users/Peter 1/Dropbox (Team Fame)/data/culling/"
 
 active_products <- products %>% 
