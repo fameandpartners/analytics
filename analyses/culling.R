@@ -87,7 +87,7 @@ ongoing_cull <- products_sold %>%
 
 write_csv(first_cull, paste0(path_to_culling_dropbox, 
                              "styles/First Cull 2017-06-07.csv"))
-write_csv(products_sold %>%
+write_csv(dress_images %>%
               select(product_id, 
                      attachment_width, 
                      attachment_height, 
@@ -97,8 +97,8 @@ write_csv(products_sold %>%
           paste0(path_to_culling_dropbox, 
                  "styles/First Cull Images 2017-06-07.csv"))
 write_csv(ongoing_cull, paste0(path_to_culling_dropbox, 
-                               "styles/Ongoing Cull 2017-06-07.csv"))
-write_csv(products_sold %>%
+                               "styles/Endangered 2017-06-07.csv"))
+write_csv(dress_images %>%
               select(product_id, 
                      attachment_width, 
                      attachment_height, 
@@ -106,4 +106,4 @@ write_csv(products_sold %>%
               unique() %>%
               semi_join(ongoing_cull, by = "product_id"),
           paste0(path_to_culling_dropbox, 
-                 "styles/Ongoing Cull Images 2017-06-07.csv"))
+                 "styles/Endangered Images 2017-06-07.csv"))
