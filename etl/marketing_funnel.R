@@ -121,7 +121,7 @@ ga_fb <- fb %>%
     select(-Leads) %>%
     mutate(creative = paste(creative_type, creative_strategy, 
                             theme, ad_format, pic_source, copy_type,
-                            landing_page, products),
+                            landing_page, product_category, products),
            prospecting = !str_detect(cohort, "-RE"),
            Leads = coalesce(leads_na, as.integer(0))) %>%
     select(-leads_na)
