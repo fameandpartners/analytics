@@ -179,8 +179,7 @@ ordered_units <- tbl(fp_con, sql(paste(
     "LEFT JOIN global_skus g",
         "ON g.sku = v.sku",
     "WHERE completed_at IS NOT NULL",
-        "AND completed_at >= '2015-12-21 06:43:34'",
-        "AND total > 0"))) %>%
+        "AND completed_at >= '2015-12-21 06:43:34'"))) %>%
     collect() %>%
     group_by(order_id) %>%
     mutate(gross_extra_attributed = (item_total - sum(price)) / n(),
@@ -246,9 +245,7 @@ products <- tbl(fp_con, sql(paste(
         "FROM spree_variants",
         "WHERE is_master",
         "GROUP BY product_id",
-    ") g ON g.product_id = p.id",
-    "WHERE p.id IN (", 
-    paste(unique(ordered_units$product_id), collapse = ","), ")"))) %>%
+    ") g ON g.product_id = p.id"))) %>%
     collect()
 
 # ---- ADDRESSES ----
@@ -361,6 +358,7 @@ dress_images <- tbl(fp_con, sql(paste(
     "WHERE a.attachment_width < 2000",
         "AND a.viewable_type = 'ProductColorValue'",
         "AND a.attachment_updated_at >= '2015-01-01'",
+        "AND a.attachment_file_name ilike '%front-crop%'",
         "AND p.id IN (", paste(ordered_units$product_id %>% 
                                    unique(), collapse = ","), ")"))) %>%
     collect() %>%
@@ -414,7 +412,9 @@ products_sold <- ordered_units %>%
            height = paste0(substr(lip_height, 1, 1) %>% toupper(), substr(lip_height, 2, 250)),
            size = coalesce(g_size, lip_size),
            return_order_id = ifelse(!is.na(acceptance_status), order_id, NA),
-           product_live = ifelse(!hidden & (is.na(deleted_at) | deleted_at > today()) & (available_on <= today()),
+           product_live = ifelse(!hidden 
+                                 & (is.na(deleted_at) | deleted_at > today()) 
+                                 & (available_on <= today()),
                                  "Yes", "No"),
            is_shipped = !is.na(ship_date),
            return_requested = !is.na(return_order_id),
