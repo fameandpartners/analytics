@@ -24,9 +24,21 @@ shinyServer(function(input, output) {
     })
     
     assigned_cohort_filter <- reactive({
-        if(length(input$assigned_cohort)){
+        if(length(input$assigned_cohort) > 0){
             input$assigned_cohort
         } else { unique(products_sold$assigned_cohort) }
+    })
+    
+    ship_country_filter <- reactive({
+        if(length(input$country) > 0){
+            input$country
+        } else { unique(products_sold$ship_country) }
+    })
+    
+    ship_city_filter <- reactive({
+        if(length(input$city) > 0){
+            input$city
+        } else { unique(products_sold$ship_city) }
     })
     
     filtered_sales <- reactive({
@@ -37,7 +49,9 @@ shinyServer(function(input, output) {
             filter(between(us_size, input$us_size[1], input$us_size[2])) %>%
             filter(order_status %in% order_status_filter()) %>%
             filter(product_id %in% taxon_filter()) %>%
-            filter(assigned_cohort %in% assigned_cohort_filter())
+            filter(assigned_cohort %in% assigned_cohort_filter()) %>%
+            filter(ship_country %in% ship_country_filter()) %>%
+            filter(ship_city %in% ship_city_filter())
         return(sales)
     })
     
@@ -420,11 +434,14 @@ shinyServer(function(input, output) {
     })
     output$monthly_return_rates <- renderPlot({
          return_rates_data() %>% 
-            ggplot(aes(x = ship_year_month)) +
-            geom_line(aes(y = `Return Rate`, color = "Return Rate"), group = 1) +
-            geom_line(aes(y = `Refund Request Rate`, color = "Refund Request Rate"), group = 1) +
-            scale_y_continuous(labels = percent, limits = c(0, max(return_rates_data()$`Refund Request Rate`)*1.1)) +
-            theme_bw(base_size = 14) +
+            ggplot(aes(x = ship_year_month), size = 2) +
+            geom_path(aes(y = `Return Rate`, color = "Return Rate"), group = 1) +
+            geom_point(aes(y = `Return Rate`, color = "Return Rate")) +
+            geom_path(aes(y = `Refund Request Rate`, color = "Refund Request Rate"), group = 1) +
+            geom_point(aes(y = `Refund Request Rate`, color = "Refund Request Rate")) +
+            scale_y_continuous(labels = percent, 
+                               limits = c(0, max(return_rates_data()$`Refund Request Rate`)*1.1)) +
+            theme_bw(base_size = 16) +
             theme(legend.title = element_blank(),
                   axis.title.x = element_blank(),
                   axis.text.x = element_text(hjust = 1, angle = 35)) +
