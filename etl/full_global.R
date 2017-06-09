@@ -234,6 +234,16 @@ li_shipments <- shipment_data %>%
     group_by(line_item_id) %>%
     summarise(o_ship_date = max(shipped_at) %>% as.Date)
 
+# ---- SHIP DATE CORRECTIONS ----
+correct_shipments <- read_csv(
+    "~/code/analytics/ecommerce-performance/static-data/Correct Ship Dates.csv",
+    col_types = cols(LINE = col_number(),
+                     `SENT DATE` = col_date(format = ""))) %>%
+    rename(line_item_id = LINE,
+           correct_ship_date = `SENT DATE`) %>%
+    filter(!is.na(line_item_id))
+correct_shipments$line_item_id <- as.integer(correct_shipments$line_item_id)
+
 # ---- RETURNS ----
 returns <- tbl(fp_con, "item_returns") %>%
     select(requested_at, refunded_at, line_item_id, refund_amount, 
