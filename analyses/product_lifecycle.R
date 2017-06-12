@@ -30,6 +30,31 @@ weekly_sales %>%
     scale_y_continuous(labels = short_dollar) +
     xlab("Order Week")
 
+# ---- YoY Weekly Shipments ----
+weekly_shipments <- products_sold %>%
+    filter(ship_date <= as.Date("2017-06-10") 
+           & payment_state == "paid"
+           & year(ship_date) != 2015) %>%
+    group_by(ship_year = year(ship_date) %>% as.character(), 
+             ship_week = week(ship_date)) %>%
+    summarise(Units = sum(quantity),
+              `Gross Revenue` = sum(gross_revenue_usd))
+weekly_shipments %>%
+    ggplot(aes(x = ship_week)) +
+    geom_path(aes(y = Units, color = ship_year), group = 4) +
+    geom_point(aes(y = Units, color = ship_year)) +
+    scale_x_continuous(limits = c(1, 52)) +
+    scale_y_continuous(labels = short_number) +
+    xlab("Ship Week")
+
+weekly_shipments %>%
+    ggplot(aes(x = ship_week)) +
+    geom_path(aes(y = `Gross Revenue`, color = ship_year), group = 4) +
+    geom_point(aes(y = `Gross Revenue`, color = ship_year)) +
+    scale_x_continuous(limits = c(1, 52)) +
+    scale_y_continuous(labels = short_dollar) +
+    xlab("Ship Week")
+
 # ---- YoY Cumulative Sales ----
 products_sold %>%
     group_by(order_year = year(order_date) %>% as.character(), 
