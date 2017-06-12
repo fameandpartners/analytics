@@ -337,7 +337,7 @@ products_sold <- ordered_units %>%
                                             taxon_name[1] %>% str_trim() %>% substr(2, 10))),
               by = "product_id") %>%
     left_join(cohort_assigments, by = "email") %>%
-    #left_join(correct_shipments, by = "line_item_id") %>%
+    left_join(correct_shipments, by = "line_item_id") %>%
     group_by(order_id) %>%
     mutate(payments = coalesce(order_payments / n(), 0),
            item_total_usd = item_total * conversion_rate,
@@ -346,8 +346,7 @@ products_sold <- ordered_units %>%
            taxes_usd = gross_revenue_usd * (o_taxes / item_total),
            other_adjustments_usd = gross_revenue_usd * (o_other_adjustments / item_total)) %>%
     ungroup() %>%
-    mutate(ship_date = coalesce(#correct_ship_date, 
-                                li_ship_date, o_ship_date),
+    mutate(ship_date = coalesce(correct_ship_date, li_ship_date, o_ship_date),
            refund_amount_usd = (refund_amount / 100) * ifelse(currency == "AUD", aud_to_usd, 1),
            price_usd = price * ifelse(currency == "AUD", aud_to_usd, 1),
            height = paste0(substr(lip_height, 1, 1) %>% toupper(), substr(lip_height, 2, 250)),
