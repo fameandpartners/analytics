@@ -38,6 +38,18 @@ shinyUI(fluidPage(
                         choices = products_sold$assigned_cohort %>% unique() %>% sort(),
                         multiple = TRUE
                     ),
+                    selectInput(
+                        "country",
+                        "Country",
+                        choices = products_sold$ship_country %>% unique() %>% sort(),
+                        multiple = TRUE
+                    ),
+                    selectInput(
+                        "city",
+                        "City",
+                        choices = products_sold$ship_city %>% unique() %>% sort(),
+                        multiple = TRUE
+                    ),
                     sliderInput(
                         "us_size",
                         "Size (US):",
@@ -79,6 +91,19 @@ shinyUI(fluidPage(
                     6,
                     h3c("Top Colors"),
                     plotOutput("top_colors")
+                )
+            ),
+            
+            fluidRow(
+                column(
+                    6,
+                    h3c("Sales by Country"),
+                    plotOutput("sales_by_country")
+                ),
+                column(
+                    6,
+                    h3c("Top Cities"),
+                    plotOutput("top_cities")
                 )
             ),
             
@@ -528,24 +553,20 @@ shinyUI(fluidPage(
                         tabPanel(
                             "Returns",
                             h3c("Returns"),
-                            p("These estimates are not accurate until 30 Days after month end.", align = "center") %>% em(),
                             plotOutput("returns", height = "300px"),
                             downloadButton("returns_down"),
                             hr(),
                             h3c("Return Rate"),
-                            p("These estimates are not accurate until 30 Days after month end.", align = "center") %>% em(),
                             plotOutput("return_rate", height = "300px"),
                             downloadButton("return_rate_down"),
                             hr(),
                             h3c("Returns per Unit"),
-                            p("These estimates are not accurate until 30 Days after month end.", align = "center") %>% em(),
                             plotOutput("returns_per_unit", height = "300px"),
                             downloadButton("returns_per_unit_down")
                         ),
                         tabPanel(
                             "Margin",
                             h3c("Gross Margin"),
-                            p("These estimates are not accurate until 30 Days after month end.", align = "center") %>% em(),
                             plotOutput("gross_margin", height = "300px"),
                             downloadButton("gross_margin_down")
                         )
