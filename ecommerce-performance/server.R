@@ -186,43 +186,59 @@ shinyServer(function(input, output) {
             theme(axis.title.y = element_blank())
     })
 
-    # ---- Download All Data ----
-    output$download_all <- downloadHandler(
-        filename = function() { paste("eCommerce Performance Details ", today(), ".csv", sep='') },
-        content = function(file) {
-            write_csv(selected_sales() %>%
-                          select(
-                              line_item_id,
-                              order_id,
-                              order_number,
-                              order_state,
-                              quantity,
-                              price,
-                              sales_usd,
-                              currency,
-                              ship_city,
-                              ship_state,
-                              ship_country,
-                              order_date,
-                              ship_date,
-                              email,
-                              user_id,
-                              customer_name,
-                              product_id,
-                              style_name,
-                              style_number,
-                              order_status,
-                              return_requested,
-                              return_reason,
-                              reason_sub_category,
-                              color,
-                              size,
-                              collection
-                          ), 
-                      file, na = "")
-        }
-    )
-    
+    # ---- Countries ----
+    output$sales_by_country <- renderPlot({
+        all_countries <- selected_sales() %>%
+            group_by(ship_country) %>%
+            summarise(`Net Sales` = sum(sales_usd)) %>%
+            arrange(desc(`Net Sales`))
+        
+        top_5 <- all_countries$ship_country[1:5]
+        
+        df <- all_countries %>%
+            mutate(Country = ifelse(ship_country %in% top_5, 
+                                    ship_country, "Other"))
+        df$Country <- factor(
+            df$Country,
+            levels = c(top_5, "Other")
+        )
+        
+        df %>%
+            ggplot(aes(x = "", y = `Net Sales`, fill = Country)) +
+            geom_bar(stat = "identity", position = "fill") +
+            coord_polar("y") +
+            scale_fill_brewer(palette = "Set3") +
+            theme_minimal(base_size = 14) +
+            theme(axis.title = element_blank(),
+                  axis.ticks = element_blank(),
+                  axis.text = element_blank())
+        
+        
+    })
+    # ---- Top 10 Cities ----
+    output$top_cities <- renderPlot({
+        cities_ranked <- selected_sales() %>%
+            group_by(Country = ship_country, 
+                     City = ship_city) %>%
+            summarise(`Net Sales` = sum(sales_usd)) %>%
+            ungroup() %>%
+            top_n(10, `Net Sales`) %>%
+            arrange(`Net Sales`)
+        
+        cities_ranked$City <- factor(
+            cities_ranked$City,
+            levels = cities_ranked$City
+        )
+        
+        cities_ranked %>%
+            ggplot(aes(x = City, y = `Net Sales`, fill = Country)) +
+            geom_bar(stat = "identity") +
+            scale_fill_brewer(palette = "Set2") +
+            scale_y_continuous(labels = short_dollar) +
+            coord_flip() +
+            theme_bw(base_size = 14) +
+            theme(axis.title.y = element_blank())
+    })
     # ---- Weekly Customization Rates ----
     output$cust_rates <- renderPlot({
         selected_sales() %>%
@@ -273,7 +289,44 @@ shinyServer(function(input, output) {
         }
     })
     
- # ---- Returns Tab ----
+    # ---- Download All Data ----
+    output$download_all <- downloadHandler(
+        filename = function() { paste("eCommerce Performance Details ", today(), ".csv", sep='') },
+        content = function(file) {
+            write_csv(selected_sales() %>%
+                          select(
+                              line_item_id,
+                              order_id,
+                              order_number,
+                              order_state,
+                              quantity,
+                              price,
+                              sales_usd,
+                              currency,
+                              ship_city,
+                              ship_state,
+                              ship_country,
+                              order_date,
+                              ship_date,
+                              email,
+                              user_id,
+                              customer_name,
+                              product_id,
+                              style_name,
+                              style_number,
+                              order_status,
+                              return_requested,
+                              return_reason,
+                              reason_sub_category,
+                              color,
+                              size,
+                              collection
+                          ), 
+                      file, na = "")
+        }
+    )
+    
+# ---- Returns Tab ----
     return_collections_filter <- reactive({
         if(length(input$collections_r) > 0) {
             input$collections_r
@@ -341,7 +394,7 @@ shinyServer(function(input, output) {
         content = function(file) { write_csv(return_reasons_data(), file, na = "") }
     )
     
-    # --- Secondary Return Reasons ----
+    # ---- Secondary Return Reasons ----
     sec_return_reasons_data <- reactive({
         filtered_returns() %>%
             group_by(reason_sub_category) %>%

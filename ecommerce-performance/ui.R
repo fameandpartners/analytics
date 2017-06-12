@@ -95,6 +95,19 @@ shinyUI(fluidPage(
             ),
             
             fluidRow(
+                column(
+                    6,
+                    h3c("Sales by Country"),
+                    plotOutput("sales_by_country")
+                ),
+                column(
+                    6,
+                    h3c("Top Cities"),
+                    plotOutput("top_cities")
+                )
+            ),
+            
+            fluidRow(
                 h3c("Weekly Customization Rates"),
                 plotOutput("cust_rates")
             ),
