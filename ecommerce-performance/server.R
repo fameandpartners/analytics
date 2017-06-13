@@ -186,7 +186,7 @@ shinyServer(function(input, output) {
             theme(axis.title.y = element_blank())
     })
 
-    # ---- Countries ----
+    # ---- Sales by Country ----
     output$sales_by_country <- renderPlot({
         all_countries <- selected_sales() %>%
             group_by(ship_country) %>%
@@ -197,7 +197,10 @@ shinyServer(function(input, output) {
         
         df <- all_countries %>%
             mutate(Country = ifelse(ship_country %in% top_5, 
-                                    ship_country, "Other"))
+                                    ship_country, "Other")) %>%
+            group_by(Country) %>%
+            summarise(`Net Sales` = sum(`Net Sales`))
+        
         df$Country <- factor(
             df$Country,
             levels = c(top_5, "Other")
@@ -205,13 +208,15 @@ shinyServer(function(input, output) {
         
         df %>%
             ggplot(aes(x = "", y = `Net Sales`, fill = Country)) +
-            geom_bar(stat = "identity", position = "fill") +
+            geom_bar(stat = "identity", position = "fill", 
+                     color = "black", size = 0.2) +
             coord_polar("y") +
             scale_fill_brewer(palette = "Set3") +
             theme_minimal(base_size = 14) +
             theme(axis.title = element_blank(),
                   axis.ticks = element_blank(),
-                  axis.text = element_blank())
+                  axis.text = element_blank(),
+                  legend.title = element_blank())
         
         
     })
