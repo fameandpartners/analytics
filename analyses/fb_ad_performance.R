@@ -2,6 +2,7 @@ library(dplyr)
 library(readr)
 library(ggplot2)
 library(lubridate)
+library(stringr)
 
 fb <- read_csv("~/code/analytics/ecommerce-performance/static-data/fb.csv",
                col_types = cols(
@@ -44,13 +45,15 @@ grid.arrange(p1, p2)
 p3 <- fb %>%
     filter(Date < today() - 24) %>%
     group_by(ad_year = year(Date) %>% as.character(), 
-             ad_month = month(Date)) %>%
-    summarise(sample_size = n(),
+             ad_week = week(Date)) %>%
+    summarise(clicks = sum(Unique_Clicks),
+              reach = sum(Reach), 
               CTR = sum(Unique_Clicks) / sum(Reach)) %>%
-    ggplot(aes(x = ad_month, y = CTR, color = ad_year)) +
+    ggplot(aes(x = ad_week, y = CTR, color = ad_year)) +
     geom_path() + geom_point() +
-    scale_x_continuous(breaks = seq(1, 12, 1), limits = c(1, 12)) +
-    scale_y_continuous(labels = scales::percent, limits = c(0, 0.04)) +
+    scale_y_continuous(breaks = 0:2 / 100,
+                       labels = scales::percent, 
+                       limits = c(0, 0.025)) +
     theme(legend.title = element_blank(),
           axis.title.x = element_blank(),
           plot.title = element_text(hjust = 0.5)) +
@@ -59,15 +62,17 @@ p3 <- fb %>%
 p4 <- fb %>%
     filter(Date < today() - 24) %>%
     group_by(ad_year = year(Date) %>% as.character(), 
-             ad_month = month(Date)) %>%
+             ad_week = week(Date)) %>%
     summarise(sample_size = n(),
               `Conversion Rate` = sum(Purchases) / sum(Unique_Clicks)) %>%
-    ggplot(aes(x = ad_month, y = `Conversion Rate`, color = ad_year)) +
+    ggplot(aes(x = ad_week, y = `Conversion Rate`, color = ad_year)) +
     geom_path() + geom_point() +
-    scale_x_continuous(breaks = seq(1, 12, 1), limits = c(1, 12)) +
-    scale_y_continuous(labels = scales::percent, limits = c(0, 0.04)) +
+    scale_y_continuous(breaks = 0:2 / 100,
+                       labels = scales::percent, 
+                       limits = c(0, 0.025)) +
     theme(legend.title = element_blank()) +
-    xlab("Month")
+    xlab("Month") +
+    ylab("Conversion Rate (purchases / clicks)")
 
 grid.arrange(p3, p4)
 
