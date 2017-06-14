@@ -1,3 +1,4 @@
+setwd("~/code/analytics/ecommerce-performance")
 library(readr)
 library(RPostgreSQL)
 library(dplyr)
@@ -33,7 +34,7 @@ short_dollar <- function(number){
 }
 
 short_number <- function(number){
-    ifelse(number < 1000, number,
+    ifelse(number < 1000, round(number) %>% as.integer(),
            ifelse(number < 1000000, paste0(round(number / 1000, 1), "K"),
                   ifelse(number < 1000000000, paste0((round(number / 1000000, 1)), "M"),
                          paste0(round(number / 1000000000, 1), "B"))))
@@ -59,18 +60,33 @@ sql_convert_to_LA_time <- function(utc_time){
     paste0("(", utc_time, " at time zone 'UTC') at time zone 'America/Los_Angeles'")
 }
 
-# ---- DATA ----
-
 # query conversion rates
-aud_to_usd <- 0.77  # query_aud_to_usd()
+aud_to_usd <- 0.74  # query_aud_to_usd()
 
-# read collections data
-collections <- read_csv("~/code/analytics/ecommerce-performance/static-data/collections_2.csv",
+# ---- COLLECTIONS ----
+collections <- read_csv("static-data/collections_2.csv",
                         col_types = "iccccc") %>%
     transmute(product_id = `Product ID`,
               collection_na = Collection)
 
-all_touches <- read_csv("~/code/analytics/ecommerce-performance/static-data/all_touches.csv",
+# ---- MANUFACTURING COSTS ----
+factory_costs <- read_csv("static-data/eCommerce Factory Cost.csv",
+                          col_types = cols(
+                              StyleNumber = col_character(),
+                              `Unit Price` = col_double())) %>%
+    transmute(style_number = toupper(StyleNumber), manufacturing_cost = `Unit Price`)
+
+# ---- SHIPPING COSTS ----
+shipping_costs <- read_csv("static-data/avg_shipping_costs.csv",
+                           col_types = cols(
+                               YearNum = col_integer(),
+                               MonthNum = col_integer(),
+                               USD = col_double())) %>%
+    rename(ship_year = YearNum, ship_month = MonthNum, avg_order_shipping_cost = USD) %>%
+    mutate(ship_year_month = year_month(as.Date(paste(ship_year, ship_month, 1, sep = "-"))))
+
+# ---- TOUCH POINTS ----
+all_touches <- read_csv("static-data/all_touches.csv",
                         col_types = cols(
                             .default = col_character(),
                             order_id = col_integer(),
@@ -84,29 +100,51 @@ all_touches <- read_csv("~/code/analytics/ecommerce-performance/static-data/all_
                             cohort = readr::col_factor(levels = c("Prom", "Bridal", "Contemporary", "Not Assigned", ordered = TRUE))
                         )) %>%
     rename(sales_usd = revenue_usd)
+# ---- GA & FB ----
+col_args <- function(){
+    cols(.default = col_number(),
+         utm_campaign = col_character(),
+         Platform = col_character(),
+         Date = col_date(format = ""))
+}
+fb <- read_csv("static-data/fb.csv", col_types = col_args())
+ga <- read_csv("static-data/ga.csv", col_types = col_args())
+ga_fb <- read_csv("static-data/ga_fb.csv",
+                  col_types = cols(
+                      .default = col_number(),
+                      utm_campaign = col_character(),
+                      cohort = col_character(),
+                      country = col_character(),
+                      region = col_character(),
+                      age = col_character(),
+                      target = col_character(),
+                      device_type = col_character(),
+                      creative_type = col_character(),
+                      creative_strategy = col_character(),
+                      theme = col_character(),
+                      ad_format = col_character(),
+                      pic_source = col_character(),
+                      copy_type = col_character(),
+                      landing_page = col_character(),
+                      product_category = col_character(),
+                      products = col_character(),
+                      creative = col_character(),
+                      Platform = col_character(),
+                      prospecting = col_logical(),
+                      Date = col_date(format = ""))) %>%
+    mutate(Amount_Spent_USD = Amount_Spent_AUD * aud_to_usd)
+
 # ---- COHORTS ----
 cohort_assigments <- all_touches %>%
     transmute(email, assigned_cohort = cohort) %>%
     unique()
-cohort_assigments$assigned_cohort <- as.character(cohort_assigments$assigned_cohort)
-# factory manufacturing cost data
-# still missing some costs
-factory_costs <- read_csv("~/code/analytics/ecommerce-performance/static-data/eCommerce Factory Cost.csv",
-                          col_types = cols(
-                              StyleNumber = col_character(),
-                              `Unit Price` = col_double())) %>%
-    transmute(style_number = toupper(StyleNumber), manufacturing_cost = `Unit Price`)
 
-shipping_costs <- read_csv("~/code/analytics/ecommerce-performance/static-data/avg_shipping_costs.csv",
-                           col_types = cols(
-                               YearNum = col_integer(),
-                               MonthNum = col_integer(),
-                               USD = col_double())) %>%
-    rename(ship_year = YearNum, ship_month = MonthNum, avg_order_shipping_cost = USD) %>%
-    mutate(ship_year_month = year_month(as.Date(paste(ship_year, ship_month, 1, sep = "-"))))
+comp_choices <- c("Spend (USD)","Purchases","CAC","CTR","CPAC","CPL",
+                  "T.O.S.","Sessions","Total Carts","Bounce Rate")
 
+# ---- CONNECT TO REPLICA ----
 # set db connection
-source("~/code/analytics/ecommerce-performance/fp_init.R")
+source("fp_init.R")
 
 # ---- SALES ----
 ordered_units <- tbl(fp_con, sql(paste(
@@ -142,8 +180,7 @@ ordered_units <- tbl(fp_con, sql(paste(
     "LEFT JOIN global_skus g",
     "ON g.sku = v.sku",
     "WHERE completed_at IS NOT NULL",
-    "AND completed_at >= '2015-01-01'",
-    "AND total > 0"))) %>%
+    "AND completed_at >= '2013-12-25 00:54:42'"))) %>%
     collect() %>%
     group_by(order_id) %>%
     mutate(gross_extra_attributed = (item_total - sum(price)) / n(),
@@ -153,22 +190,45 @@ ordered_units <- tbl(fp_con, sql(paste(
            gross_revenue_usd = (price + gross_extra_attributed) * conversion_rate,
            adjustments_total_percentage = o_adjustments / item_total,
            adjustments_usd = gross_revenue_usd * adjustments_total_percentage,
-           order_date = as.Date(completed_timestamp)) %>%
+           order_date = as_date(completed_timestamp)) %>%
     ungroup()
 
-# ---- CUSTOMIZATIONS ----
+# ---- CUSTOMIZATIONS + HEIGHTS ----
 customizations <- tbl(fp_con, sql(paste(
     "SELECT",
     "lip.line_item_id,",
     "MAX(CASE WHEN lip.customization_value_ids SIMILAR TO '%([1-9])%'",
     "THEN 1 ELSE 0 END) customized,",
     "STRING_AGG(DISTINCT lip.size, ', ') lip_size,",
+    "STRING_AGG(DISTINCT lip.customization_value_ids, '/n') customisation_value_ids,",
     "INITCAP(STRING_AGG(DISTINCT lip.color, ', ')) color,",
     "INITCAP(STRING_AGG(DISTINCT lip.height, ', ')) lip_height",
     "FROM line_item_personalizations lip",
     "WHERE lip.line_item_id IN (",
     paste(ordered_units$line_item_id, collapse = ","), ")",
     "GROUP BY line_item_id"))) %>%
+    collect()
+
+line_item_customizations <- customizations %>%
+    filter(str_detect(customisation_value_ids, "[0-9]")) %>% 
+    mutate(parsed_ids = 
+               str_replace_all(customisation_value_ids, "\n|'| |---", "") %>% 
+               substr(2, 20)) %>% 
+    select(line_item_id, parsed_ids) %>%
+    separate(parsed_ids, sep = "-", paste0("id",seq(1,5)), 
+             extra = "warn", fill = "right") %>% 
+    gather(which_cust_id, customization_value_id_char, -line_item_id, na.rm = TRUE) %>%
+    transmute(line_item_id,
+              customization_value_id = as.integer(customization_value_id_char))
+
+customization_values <- tbl(fp_con, sql(paste(
+    "SELECT id, presentation, price",
+    "FROM customisation_values",
+    "WHERE id IN (",
+    line_item_customizations$customization_value_id %>%
+        unique() %>%
+        paste(collapse = ","),
+    ")"))) %>%
     collect()
 
 # ---- PRODUCTS ----
@@ -194,12 +254,12 @@ addresses <- tbl(fp_con, sql(paste(
     "SELECT",
     "sa.id ship_address_id,",
     "INITCAP(sa.city) ship_city,",
-    "INITCAP(ss.name) ship_state,",
+    "INITCAP(COALESCE(ss.name, sa.state_name)) ship_state,",
     "INITCAP(sc.name) ship_country",
     "FROM spree_addresses sa",
-    "INNER JOIN spree_states ss",
+    "LEFT JOIN spree_states ss",
     "ON ss.id = sa.state_id",
-    "INNER JOIN spree_countries sc",
+    "LEFT JOIN spree_countries sc",
     "ON sc.id = sa.country_id",
     "WHERE sa.id IN (",
     (ordered_units %>%
@@ -236,7 +296,7 @@ li_shipments <- shipment_data %>%
 
 # ---- SHIP DATE CORRECTIONS ----
 correct_shipments <- read_csv(
-    "~/code/analytics/ecommerce-performance/static-data/Correct Ship Dates.csv",
+    "static-data/Correct Ship Dates.csv",
     col_types = cols(LINE = col_number(),
                      `SENT DATE` = col_date(format = ""))) %>%
     rename(line_item_id = LINE,
@@ -246,7 +306,7 @@ correct_shipments$line_item_id <- as.integer(correct_shipments$line_item_id)
 
 # ---- RETURNS ----
 returns <- tbl(fp_con, "item_returns") %>%
-    select(requested_at, refunded_at, line_item_id, refund_amount, 
+    select(requested_at, refunded_at, line_item_id, refund_amount,
            reason_category, reason_sub_category, acceptance_status) %>%
     filter(line_item_id %in% ordered_units$line_item_id) %>%
     collect()
@@ -299,6 +359,7 @@ dress_images <- tbl(fp_con, sql(paste(
     "WHERE a.attachment_width < 2000",
     "AND a.viewable_type = 'ProductColorValue'",
     "AND a.attachment_updated_at >= '2015-01-01'",
+    "AND a.attachment_file_name ilike '%front-crop%'",
     "AND p.id IN (", paste(ordered_units$product_id %>% 
                                unique(), collapse = ","), ")"))) %>%
     collect() %>%
@@ -352,7 +413,9 @@ products_sold <- ordered_units %>%
            height = paste0(substr(lip_height, 1, 1) %>% toupper(), substr(lip_height, 2, 250)),
            size = coalesce(g_size, lip_size),
            return_order_id = ifelse(!is.na(acceptance_status), order_id, NA),
-           product_live = ifelse(!hidden & (is.na(deleted_at) | deleted_at > today()) & (available_on <= today()),
+           product_live = ifelse(!hidden 
+                                 & (is.na(deleted_at) | deleted_at > today()) 
+                                 & (available_on <= today()),
                                  "Yes", "No"),
            is_shipped = !is.na(ship_date),
            return_requested = !is.na(return_order_id),
@@ -409,5 +472,6 @@ products_sold$size <- factor(
 
 products_sold$height <- factor(
     products_sold$height,
-    levels = c(c("Petite", "Standard", "Tall"))
+    levels = c("Petite", "Standard", "Tall", paste0("Length", 1:6))
 )
+setwd("~/data")
