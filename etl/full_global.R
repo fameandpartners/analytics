@@ -335,15 +335,15 @@ adjustments <- tbl(fp_con, sql(paste(
     select(-originator_type) %>%
     spread(adjustment_type, adjustments, fill = 0)
 
+unique_products <- unique(ordered_units$product_id[!is.na(ordered_units$product_id)])
+
 # ---- PRODUCT TAXONS ----
 product_taxons <- tbl(fp_con, sql(paste(
     "SELECT pt.product_id, t.name taxon_name",
     "FROM spree_products_taxons pt",
     "JOIN spree_taxons t on t.id = pt.taxon_id",
     "WHERE pt.product_id IN (",
-    ordered_units$product_id %>%
-        unique() %>%
-        paste(collapse = ","),
+    paste(unique_products, collapse = ","),
     ")"))) %>%
     collect()
 
@@ -360,8 +360,7 @@ dress_images <- tbl(fp_con, sql(paste(
     "AND a.viewable_type = 'ProductColorValue'",
     "AND a.attachment_updated_at >= '2015-01-01'",
     "AND a.attachment_file_name ilike '%front-crop%'",
-    "AND p.id IN (", paste(ordered_units$product_id %>% 
-                               unique(), collapse = ","), ")"))) %>%
+    "AND p.id IN (", paste(unique_products, collapse = ","), ")"))) %>%
     collect() %>%
     filter(!duplicated(product_id)) %>%
     mutate(
