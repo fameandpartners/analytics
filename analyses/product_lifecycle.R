@@ -9,14 +9,16 @@ traffic <- read_csv("~/data/product traffic data.csv") %>%
 
 # ---- YoY Weekly Sales ----
 weekly_sales <- products_sold %>%
-    filter(order_date <= as.Date("2017-06-10") & payment_state == "paid") %>%
+    filter(order_date >= as.Date("2015-01-01")
+           & order_date <= as.Date("2017-06-10") 
+           & payment_state == "paid") %>%
     group_by(order_year = year(order_date) %>% as.character(), 
              order_week = week(order_date)) %>%
     summarise(Units = sum(quantity),
               `Net Sales` = sum(sales_usd))
 weekly_sales %>%
     ggplot(aes(x = order_week)) +
-    geom_line(aes(y = Units, color = order_year), group = 4) +
+    geom_path(aes(y = Units, color = order_year), group = 4) +
     geom_point(aes(y = Units, color = order_year)) +
     scale_x_continuous(limits = c(1, 52)) +
     scale_y_continuous(labels = short_number) +
@@ -24,7 +26,7 @@ weekly_sales %>%
 
 weekly_sales %>%
     ggplot(aes(x = order_week)) +
-    geom_line(aes(y = `Net Sales`, color = order_year), group = 4) +
+    geom_path(aes(y = `Net Sales`, color = order_year), group = 4) +
     geom_point(aes(y = `Net Sales`, color = order_year)) +
     scale_x_continuous(limits = c(1, 52)) +
     scale_y_continuous(labels = short_dollar) +
