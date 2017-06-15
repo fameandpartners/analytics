@@ -574,9 +574,19 @@ shinyUI(fluidPage(
                 )
             ),
             fluidRow(
-                em("Line Item Details"),
-                br(),
-                downloadButton("download_finances")
+                hr(),
+                column(
+                    2,
+                    em("Line Item Details"),
+                    br(),
+                    downloadButton("download_finances_line_items")
+                ),
+                column(
+                    2, 
+                    em("Monthly Summary"), 
+                    br(),
+                    downloadButton("download_finances_summary")
+                )
             )
         )
     ),
