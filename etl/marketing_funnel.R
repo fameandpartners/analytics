@@ -87,7 +87,9 @@ fb <- lapply(
            Unique_CTR = coalesce(Unique_Clicks / Reach, 0),
            Unique_CPC = coalesce(Amount_Spent_AUD / Unique_Clicks, 0),
            fb_id = row_number()) %>%
-    replace(. == Inf, 0)
+    replace(. == Inf, 0) %>%
+    select(Date, Platform, utm_campaign, Reach, Impressions, Amount_Spent_AUD,
+           Unique_Clicks, Purchases, Adds_to_Cart)
 
 # ---- MAILCHIMP ----
 mc_csv <- read_csv(paste0(path_to_marketing_dropbox, 
@@ -118,7 +120,6 @@ ga_fb <- fb %>%
                                     'pic_source','copy_type','landing_page',
                                     'product_category','products'), 
              sep = "_", extra = "merge", remove = FALSE) %>%
-    select(-Leads) %>%
     mutate(creative = paste(creative_type, creative_strategy, 
                             theme, ad_format, pic_source, copy_type,
                             landing_page, product_category, products),
