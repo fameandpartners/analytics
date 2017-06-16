@@ -1,12 +1,13 @@
 SELECT 
     date_start::DATE ad_date, 
     ads.name ad_name,
-    sum(insights.reach) reach, 
-    sum(replace(insights.social_impressions::TEXT, '"', '')::INT) impressions,
-    sum(insights.spend) amount_spent_aud,
-    sum(insights.clicks) clicks,
-    sum(conversions.purchases) purchases,
-    sum(conversions.adds_to_cart) adds_to_cart
+    (adsets.targeting -> 'publisher_platforms')::TEXT platforms,
+    insights.reach reach, 
+    replace(insights.social_impressions::TEXT, '"', '')::INT impressions,
+    insights.spend amount_spent_aud,
+    insights.clicks clicks,
+    conversions.purchases purchases,
+    conversions.adds_to_cart adds_to_cart
 FROM facebook_ad_insights insights 
 INNER JOIN facebook_ads ads
     ON ads.id = insights.facebook_ad_id
@@ -30,8 +31,8 @@ INNER JOIN (
     )
     GROUP BY fb1.ad_insight_id
 ) conversions ON conversions.ad_insight_id = insights.id
-WHERE ads.name like '%\_%'
-GROUP BY ad_date, ad_name 
-ORDER BY ad_date, ad_name;
+INNER JOIN facebook_adsets adsets
+    ON adsets.id = ads.facebook_adset_id::INT
+WHERE ads.name like '%\_%';
 
-select targeting -> 'publisher_platforms' platform from facebook_adsets;
+SELECT image_url FROM facebook_ad_creatives;
