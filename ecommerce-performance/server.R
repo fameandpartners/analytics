@@ -868,7 +868,7 @@ shinyServer(function(input, output) {
         
     })
     
-# ---- FB & GA Tab ----
+# ---- ODG Tab ----
     # ---- Filter Functions ----
     conv_platform_filter <- reactive({
         if(length(input$conv_platform) > 0){
@@ -962,23 +962,23 @@ shinyServer(function(input, output) {
     
     filtered_ga_fb <- reactive({
         ga_fb %>%
-            filter(ifelse(input$conv_prospecting == "Prospecting", T, F) == prospecting) %>%
-            filter(between(Date, input$conv_dates[1], input$conv_dates[2])) %>%
-            filter(cohort %in% conv_cohort_filter()) %>%
-            filter(target %in% target_filter()) %>%
-            filter(country %in% country_filter()) %>%
-            filter(region %in% region_filter()) %>%
-            filter(age %in% age_filter()) %>%
-            filter(device_type %in% device_type_filter()) %>%
-            filter(creative_type %in% creative_type_filter()) %>%
-            filter(creative_strategy %in% creative_strategy_filter()) %>%
-            filter(theme %in% theme_filter()) %>%
-            filter(ad_format %in% ad_format_filter()) %>%
-            filter(pic_source %in% pic_source_filter()) %>%
-            filter(copy_type %in% copy_type_filter()) %>%
-            filter(landing_page %in% landing_page_filter()) %>%
-            filter(product_category %in% product_category_filter()) %>%
-            filter(Platform %in% conv_platform_filter())
+            # filter(ifelse(input$conv_prospecting == "Prospecting", T, F) == prospecting) %>%
+            filter(between(Date, input$conv_dates[1], input$conv_dates[2]))# %>%
+            # filter(cohort %in% conv_cohort_filter()) %>%
+            # filter(target %in% target_filter()) %>%
+            # filter(country %in% country_filter()) %>%
+            # filter(region %in% region_filter()) %>%
+            # filter(age %in% age_filter()) %>%
+            # filter(device_type %in% device_type_filter()) %>%
+            # filter(creative_type %in% creative_type_filter()) %>%
+            # filter(creative_strategy %in% creative_strategy_filter()) %>%
+            # filter(theme %in% theme_filter()) %>%
+            # filter(ad_format %in% ad_format_filter()) %>%
+            # filter(pic_source %in% pic_source_filter()) %>%
+            # filter(copy_type %in% copy_type_filter()) %>%
+            # filter(landing_page %in% landing_page_filter()) %>%
+            # filter(product_category %in% product_category_filter()) %>%
+            # filter(Platform %in% conv_platform_filter())
     })
     
     # ---- Summary Tables ----

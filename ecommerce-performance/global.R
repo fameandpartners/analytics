@@ -99,6 +99,10 @@ all_touches <- read_csv("static-data/all_touches.csv",
                             cohort = readr::col_factor(levels = c("Prom", "Bridal", "Contemporary", "Not Assigned", ordered = TRUE))
                         )) %>%
     rename(sales_usd = revenue_usd)
+# ---- CONNECT TO REPLICA ----
+# set db connection
+source("fp_init.R")
+
 # ---- GA & FB ----
 col_args <- function(){
     cols(.default = col_number(),
@@ -115,9 +119,9 @@ fb_new <- as_data_frame(dbGetQuery(fp_con2, readLines("facebook.sql"))) %>%
                       ifelse(str_detect(platforms, "instagram"), "Instagram", 
                              "ERROR"))))
 fb <- list(
-    fb_old,
+    fb_old %>% mutate(ad_images = NA),
     fb_new %>%
-        group_by(Date = ad_date, Platform, utm_campaign = ad_name) %>%
+        group_by(Date = ad_date, Platform, utm_campaign = ad_name, ad_images) %>%
         summarise(Reach = sum(reach), 
                   Impressions = sum(impressions),
                   Amount_Spent_AUD = sum(amount_spent_aud),
@@ -137,12 +141,14 @@ ga_fb <- fb %>%
                                     'pic_source','copy_type','landing_page',
                                     'product_category','products'), 
              sep = "_", extra = "merge", remove = FALSE) %>%
-    mutate(creative = paste(creative_type, creative_strategy, 
-                            theme, ad_format, pic_source, copy_type,
-                            landing_page, product_category, products),
+    mutate(creative = coalesce(ad_images,
+                               paste(creative_type, creative_strategy, 
+                                     theme, ad_format, pic_source, copy_type,
+                                     landing_page, product_category, products)),
            prospecting = !str_detect(cohort, "-RE"),
-           Leads = coalesce(as.integer(leads_na), as.integer(0))) %>%
-    select(-leads_na)
+           Leads = coalesce(as.integer(leads_na), as.integer(0)),
+           Amount_Spent_USD = Amount_Spent_AUD * aud_to_usd) %>%
+    select(-leads_na, -ad_images)
 
 
 
@@ -153,10 +159,6 @@ cohort_assigments <- all_touches %>%
 
 comp_choices <- c("Spend (USD)","Purchases","CAC","CTR","CPAC","CPL",
                   "T.O.S.","Sessions","Total Carts","Bounce Rate")
-
-# ---- CONNECT TO REPLICA ----
-# set db connection
-source("fp_init.R")
 
 # ---- SALES ----
 ordered_units <- tbl(fp_con, sql(paste(
