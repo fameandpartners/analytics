@@ -46,7 +46,8 @@ ga <- lapply(
            Avg_Session_Duration_min = coalesce(Session_Duration_min / Sessions, 0),
            CPC = coalesce(100 * (Cost / Clicks), 0),
            CTR = coalesce(Clicks / Page_Views, 0)) %>%
-    replace(. == Inf, 0)
+    replace(. == Inf, 0) %>%
+    filter(str_detect(utm_campaign, "_"))
 
 # ---- FACEBOOK ----
 fb <- lapply(
@@ -89,7 +90,8 @@ fb <- lapply(
            fb_id = row_number()) %>%
     replace(. == Inf, 0) %>%
     select(Date, Platform, utm_campaign, Reach, Impressions, Amount_Spent_AUD,
-           Unique_Clicks, Purchases, Adds_to_Cart)
+           Unique_Clicks, Purchases, Adds_to_Cart) %>%
+    filter(str_detect(utm_campaign, "_"))
 
 # ---- MAILCHIMP ----
 mc_csv <- read_csv(paste0(path_to_marketing_dropbox, 
@@ -108,7 +110,8 @@ mc <- mc_csv %>%
     filter(!is.na(utm_campaign) & !is.na(utm_source)) %>%
     group_by(Date, Platform, utm_campaign) %>%
     summarise(leads_na = n()) %>%
-    ungroup()
+    ungroup() %>%
+    filter(str_detect(utm_campaign, "_"))
 
 # ---- MERGE GA & FB ----
 ga_fb <- fb %>% 
@@ -146,5 +149,6 @@ clean <- function(df){
 path_to_static <- "~/code/analytics/ecommerce-performance/static-data/"
 write_csv(clean(fb), paste0(path_to_static, "fb.csv"), na = "")
 write_csv(clean(ga), paste0(path_to_static, "ga.csv"), na = "")
+write_csv(clean(mc), paste0(path_to_static, "mc.csv"), na = "")
 write_csv(clean(ga_fb), paste0(path_to_static, "ga_fb.csv"), na = "")
 write_csv(clean(upper_products_campaigns), paste0(path_to_static, "upper_products_campaigns.csv"), na = "")
