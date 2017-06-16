@@ -267,7 +267,7 @@ shinyUI(fluidPage(
             )
         ),
         tabPanel(
-            "FB & IG",
+            "ODG",
             sidebarLayout(
                 sidebarPanel(
                     width = 3,
