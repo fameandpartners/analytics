@@ -106,32 +106,45 @@ col_args <- function(){
          Platform = col_character(),
          Date = col_date(format = ""))
 }
-fb <- read_csv("static-data/fb.csv", col_types = col_args())
+fb_old <- read_csv("static-data/fb.csv", col_types = col_args()) %>%
+    filter(Date < as.Date("2017-05-12"))
+fb_new <- as_data_frame(dbGetQuery(fp_con2, readLines("facebook.sql"))) %>%
+    mutate(Platform = ifelse(str_detect(platforms, "facebook") 
+                             & str_detect(platforms, "instagram"), "Facebook and Instagram",
+                      ifelse(str_detect(platforms, "facebook"), "Facebook",
+                      ifelse(str_detect(platforms, "instagram"), "Instagram", 
+                             "ERROR"))))
+fb <- list(
+    fb_old,
+    fb_new %>%
+        group_by(Date = ad_date, Platform, utm_campaign = ad_name) %>%
+        summarise(Reach = sum(reach), 
+                  Impressions = sum(impressions),
+                  Amount_Spent_AUD = sum(amount_spent_aud),
+                  Unique_Clicks = sum(clicks),
+                  Purchases = sum(purchases),
+                  Adds_to_Cart = sum(adds_to_cart))) %>%
+    bind_rows()
+
 ga <- read_csv("static-data/ga.csv", col_types = col_args())
-ga_fb <- read_csv("static-data/ga_fb.csv",
-                  col_types = cols(
-                      .default = col_number(),
-                      utm_campaign = col_character(),
-                      cohort = col_character(),
-                      country = col_character(),
-                      region = col_character(),
-                      age = col_character(),
-                      target = col_character(),
-                      device_type = col_character(),
-                      creative_type = col_character(),
-                      creative_strategy = col_character(),
-                      theme = col_character(),
-                      ad_format = col_character(),
-                      pic_source = col_character(),
-                      copy_type = col_character(),
-                      landing_page = col_character(),
-                      product_category = col_character(),
-                      products = col_character(),
-                      creative = col_character(),
-                      Platform = col_character(),
-                      prospecting = col_logical(),
-                      Date = col_date(format = ""))) %>%
-    mutate(Amount_Spent_USD = Amount_Spent_AUD * aud_to_usd)
+mc <- read_csv("static-data/mc.csv", col_types = col_args())
+ga_fb <- fb %>% 
+    inner_join(ga, by = c("utm_campaign","Date","Platform")) %>%
+    left_join(mc, by = c("utm_campaign","Date","Platform")) %>%
+    separate(utm_campaign, into = c('cohort','country','region','age','target',
+                                    'device_type','creative_type',
+                                    'creative_strategy','theme','ad_format',
+                                    'pic_source','copy_type','landing_page',
+                                    'product_category','products'), 
+             sep = "_", extra = "merge", remove = FALSE) %>%
+    mutate(creative = paste(creative_type, creative_strategy, 
+                            theme, ad_format, pic_source, copy_type,
+                            landing_page, product_category, products),
+           prospecting = !str_detect(cohort, "-RE"),
+           Leads = coalesce(as.integer(leads_na), as.integer(0))) %>%
+    select(-leads_na)
+
+
 
 # ---- COHORTS ----
 cohort_assigments <- all_touches %>%
