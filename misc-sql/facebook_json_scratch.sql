@@ -1,7 +1,7 @@
 SELECT 
     date_start::DATE ad_date, 
     ads.name ad_name,
-    copy.url ad_copy,
+    copy.image_array ad_images,
     (adsets.targeting -> 'publisher_platforms')::TEXT platforms,
     insights.reach reach, 
     replace(insights.social_impressions::TEXT, '"', '')::INT impressions,
@@ -35,8 +35,9 @@ INNER JOIN (
 INNER JOIN facebook_adsets adsets
     ON adsets.id = ads.facebook_adset_id::INT
 INNER JOIN (
-    SELECT facebook_ad_id, MAX(image_url) url
+    SELECT facebook_ad_id, STRING_AGG('<img src=' || image_url || '>', '') image_array, COUNT(*)
     FROM facebook_ad_creatives
     GROUP BY facebook_ad_id
+    ORDER BY COUNT(*) DESC
 ) copy ON copy.facebook_ad_id = ads.id 
 WHERE ads.name like '%\_%';
