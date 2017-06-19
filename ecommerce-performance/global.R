@@ -99,6 +99,23 @@ all_touches <- read_csv("static-data/all_touches.csv",
                             cohort = readr::col_factor(levels = c("Prom", "Bridal", "Contemporary", "Not Assigned", ordered = TRUE))
                         )) %>%
     rename(sales_usd = revenue_usd)
+
+# ---- CONNECT TO REPLICA ----
+# set db connection
+source("fp_init.R")
+
+# ---- FB Ad Images ----
+fb_images <- tbl(fp_con, sql(paste(
+    "SELECT DISTINCT ads.name ad_name, copy.image_url ad_image",
+    "FROM facebook_ads ads",
+    "INNER JOIN facebook_ad_creatives copy",
+        "ON copy.facebook_ad_id = ads.id"))) %>%
+    collect() %>%
+    group_by(ad_name) %>%
+    filter(!duplicated(str_replace_all(ad_image, "\\?(.*)", ""))) %>%
+    summarise(ad_images = paste(paste0("<img height=200px width=350px src=", 
+                                       ad_image, ">"), collapse = ""))
+
 # ---- GA & FB ----
 col_args <- function(){
     cols(.default = col_number(),
@@ -131,7 +148,12 @@ ga_fb <- read_csv("static-data/ga_fb.csv",
                       Platform = col_character(),
                       prospecting = col_logical(),
                       Date = col_date(format = ""))) %>%
-    mutate(Amount_Spent_USD = Amount_Spent_AUD * aud_to_usd)
+    mutate(Amount_Spent_USD = Amount_Spent_AUD * aud_to_usd) %>%
+    left_join(fb_images %>%
+                  rename(utm_campaign = ad_name),
+              by = "utm_campaign") %>%
+    rename(creative_no_image = creative) %>%
+    mutate(creative = coalesce(ad_images, creative_no_image))
 
 # ---- COHORTS ----
 cohort_assigments <- all_touches %>%
@@ -140,10 +162,6 @@ cohort_assigments <- all_touches %>%
 
 comp_choices <- c("Spend (USD)","Purchases","CAC","CTR","CPAC","CPL",
                   "T.O.S.","Sessions","Total Carts","Bounce Rate")
-
-# ---- CONNECT TO REPLICA ----
-# set db connection
-source("fp_init.R")
 
 # ---- SALES ----
 ordered_units <- tbl(fp_con, sql(paste(
