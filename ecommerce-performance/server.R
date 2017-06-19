@@ -868,7 +868,7 @@ shinyServer(function(input, output) {
         
     })
     
-# ---- FB & GA Tab ----
+# ---- ODG Tab ----
     # ---- Filter Functions ----
     conv_platform_filter <- reactive({
         if(length(input$conv_platform) > 0){
