@@ -379,6 +379,13 @@ dress_images <- tbl(fp_con, sql(paste(
         )
     )
 
+# ---- Customer Acquisitions ----
+customer_aquisitions <- read_csv("static-data/customer_aquisitions.csv",
+                                 col_types = cols(
+                                     email = col_character(),
+                                     date = col_date(format = ""))) %>%
+    rename(customer_aquisition_date = date)
+
 # ---- MERGE + TRANSFORM QUERIES INTO MASTER SALES DF ----
 products_sold <- ordered_units %>%
     left_join(customizations, by = "line_item_id") %>%
@@ -398,6 +405,7 @@ products_sold <- ordered_units %>%
               by = "product_id") %>%
     left_join(cohort_assigments, by = "email") %>%
     left_join(correct_shipments, by = "line_item_id") %>%
+    left_join(customer_aquisitions, by = "email") %>%
     group_by(order_id) %>%
     mutate(payments = coalesce(order_payments / n(), 0),
            item_total_usd = item_total * conversion_rate,
@@ -432,7 +440,8 @@ products_sold <- ordered_units %>%
            ship_year_month = year_month(estimated_ship_date),
            order_year_month = year_month(order_date),
            payment_processing_cost = (sales_usd * 0.029) + 0.3,
-           physically_customized = ifelse(is.na(customized), 0, customized)) %>%
+           physically_customized = ifelse(is.na(customized), 0, customized),
+           repeat_purchase = coalesce(order_date > customer_aquisition_date, FALSE)) %>%
     left_join(collections %>%
                   group_by(product_id) %>%
                   summarise(collection_na = paste(unique(collection_na), collapse = ", ")),
