@@ -206,19 +206,19 @@ shinyServer(function(input, output) {
             levels = c(top_5, "Other")
         )
         
-        df %>%
-            ggplot(aes(x = "", y = `Net Sales`, fill = Country)) +
-            geom_bar(stat = "identity", position = "fill", 
-                     color = "black", size = 0.2) +
-            coord_polar("y") +
-            scale_fill_brewer(palette = "Set3") +
-            theme_minimal(base_size = 14) +
-            theme(axis.title = element_blank(),
-                  axis.ticks = element_blank(),
-                  axis.text = element_blank(),
-                  legend.title = element_blank())
-        
-        
+        if(nrow(df) > 0){
+            df %>%
+                ggplot(aes(x = "", y = `Net Sales`, fill = Country)) +
+                geom_bar(stat = "identity", position = "fill", 
+                         color = "black", size = 0.2) +
+                coord_polar("y") +
+                scale_fill_brewer(palette = "Set3") +
+                theme_minimal(base_size = 14) +
+                theme(axis.title = element_blank(),
+                      axis.ticks = element_blank(),
+                      axis.text = element_blank(),
+                      legend.title = element_blank())
+        }
     })
     # ---- Top 10 Cities ----
     output$top_cities <- renderPlot({
@@ -246,51 +246,55 @@ shinyServer(function(input, output) {
     })
     # ---- Weekly Customization Rates ----
     output$cust_rates <- renderPlot({
-        selected_sales() %>%
-            mutate(order_year_week = paste(year(order_date), 
-                                           formatC(week(order_date), width = 2, flag = "0"), 
-                                           sep = " W")) %>%
-            group_by(order_year_week) %>% 
-            summarise(`Week Ending` = as.character(max(order_date)),
-                      Units = sum(physically_customized * quantity) / sum(quantity)) %>% 
-            ggplot(aes(x = `Week Ending`, y = Units)) + 
-            geom_bar(stat = "identity") +
-            scale_y_continuous(labels = percent) +
-            theme_bw(base_size = 14) +
-            theme(legend.title = element_blank(),
-                  axis.text.x = element_text(hjust = 1, angle = 35))
+        if(nrow(selected_sales()) > 0){
+            selected_sales() %>%
+                mutate(order_year_week = paste(year(order_date), 
+                                               formatC(week(order_date), width = 2, flag = "0"), 
+                                               sep = " W")) %>%
+                group_by(order_year_week) %>% 
+                summarise(`Week Ending` = as.character(max(order_date)),
+                          Units = sum(physically_customized * quantity) / sum(quantity)) %>% 
+                ggplot(aes(x = `Week Ending`, y = Units)) + 
+                geom_bar(stat = "identity") +
+                scale_y_continuous(labels = percent) +
+                theme_bw(base_size = 14) +
+                theme(legend.title = element_blank(),
+                      axis.text.x = element_text(hjust = 1, angle = 35))
+        }
     })
     
     # ---- Size Distribution ----
     output$size_dist <- renderPlot({
-        old_heights <- selected_sales() %>%
-            filter(height %in% c("Petite", "Standard", "Tall"))
-        if(nrow(old_heights) > 1){
-            selected_sales() %>%
-                filter(height %in% c("Petite", "Standard", "Tall")) %>%
-                group_by(height, us_size) %>%
-                summarise(Units = sum(quantity)) %>%
-                arrange(desc(us_size)) %>%
-                ggplot(aes(x = us_size, y = Units)) +
-                geom_bar(stat = "identity") +
-                scale_x_continuous(breaks = seq(min(selected_sales()$us_size), 
-                                                max(selected_sales()$us_size), 2)) +
-                theme_bw(base_size = 14) +
-                #coord_flip() +
-                xlab("Size (US)") +
-                facet_grid(height ~ .)
-        } else {
-            selected_sales() %>%
-                group_by(us_size) %>%
-                summarise(Units = sum(quantity)) %>%
-                arrange(desc(us_size)) %>%
-                ggplot(aes(x = us_size, y = Units)) +
-                geom_bar(stat = "identity") +
-                scale_x_continuous(breaks = seq(min(selected_sales()$us_size), 
-                                                max(selected_sales()$us_size), 2)) +
-                theme_bw(base_size = 14) +
-                #coord_flip() +
-                xlab("Size (US)")
+        if(nrow(selected_sales()) > 0){
+            old_heights <- selected_sales() %>%
+                filter(height %in% c("Petite", "Standard", "Tall"))
+            if(nrow(old_heights) > 1){
+                selected_sales() %>%
+                    filter(height %in% c("Petite", "Standard", "Tall")) %>%
+                    group_by(height, us_size) %>%
+                    summarise(Units = sum(quantity)) %>%
+                    arrange(desc(us_size)) %>%
+                    ggplot(aes(x = us_size, y = Units)) +
+                    geom_bar(stat = "identity") +
+                    scale_x_continuous(breaks = seq(min(selected_sales()$us_size), 
+                                                    max(selected_sales()$us_size), 2)) +
+                    theme_bw(base_size = 14) +
+                    #coord_flip() +
+                    xlab("Size (US)") +
+                    facet_grid(height ~ .)
+            } else {
+                selected_sales() %>%
+                    group_by(us_size) %>%
+                    summarise(Units = sum(quantity)) %>%
+                    arrange(desc(us_size)) %>%
+                    ggplot(aes(x = us_size, y = Units)) +
+                    geom_bar(stat = "identity") +
+                    scale_x_continuous(breaks = seq(min(selected_sales()$us_size), 
+                                                    max(selected_sales()$us_size), 2)) +
+                    theme_bw(base_size = 14) +
+                    #coord_flip() +
+                    xlab("Size (US)")
+            }
         }
     })
     

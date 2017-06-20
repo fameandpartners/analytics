@@ -17,7 +17,7 @@ shinyUI(fluidPage(
                     selectInput(
                         "collections",
                         label = "Collection",
-                        choices = sort(unique(products_sold$collection)),
+                        choices = sort(unique(collections$collection_na)),
                         multiple = TRUE
                     ),
                     selectInput(
