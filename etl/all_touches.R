@@ -181,8 +181,8 @@ touches <- bind_rows(list(
                                  touch_type = "Mailchimp"), 
                    by = "email")))
 
-step_state_map <- data_frame(state = c("complete","cart","payment","address","canceled","resumed"),
-                             step = c("Purchase","Cart","Checkout","Checkout","Checkout","Checkout"))
+step_state_map <- data_frame(state = c("complete","cart","payment","address","canceled","resumed","awaiting_return"),
+                             step = c("Purchase","Cart","Checkout","Checkout","Checkout","Checkout","Purchase"))
 
 all_touches <-
     touches %>%
