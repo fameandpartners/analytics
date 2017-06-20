@@ -10,7 +10,7 @@ traffic <- read_csv("~/data/product traffic data.csv") %>%
 # ---- YoY Weekly Sales ----
 weekly_sales <- products_sold %>%
     filter(order_date >= as.Date("2015-01-01")
-           & order_date <= as.Date("2017-06-10") 
+           & order_date <= as.Date("2017-06-17") 
            & payment_state == "paid") %>%
     group_by(order_year = year(order_date) %>% as.character(), 
              order_week = week(order_date)) %>%
