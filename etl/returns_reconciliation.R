@@ -107,11 +107,11 @@ all_refund_transactions <- bind_rows(
                 `Purchase Amt` = col_number())) %>%
             separate(`Activity Date`, into = c("m","d","y"), 
                      sep = "/", remove = FALSE) %>%
-            mutate(real_m = ifelse(as.integer(m) >= 6, d, m),
-                   real_d = ifelse(as.integer(m) >= 6, m, d),
+            mutate(fixed_m = ifelse(as.integer(m) >= 6, d, m),
+                   fixed_d = ifelse(as.integer(m) >= 6, m, d),
                    clean_date = paste(ifelse(as.integer(y) == 17, 2017, y), 
-                                      formatC(as.integer(real_m), width = 2, flag = "0"), 
-                                      formatC(as.integer(real_d), width = 2, flag = "0"), 
+                                      formatC(as.integer(fixed_m), width = 2, flag = "0"), 
+                                      formatC(as.integer(fixed_d), width = 2, flag = "0"), 
                                       sep = "-")) %>%
             transmute(response_code = `Merchant Order Number`,
                       amount = `Purchase Amt`,
