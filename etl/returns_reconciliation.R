@@ -63,7 +63,8 @@ all_refund_transactions <- bind_rows(
             transmute(response_code = `Transaction ID`, 
                       amount = Gross,
                       date_char = Date,
-                      date = dmy(Date)),
+                      date = dmy(Date),
+                      currency = Currency),
         read_csv(
             "~/data/paypal_usd_jan_may_refunds.csv",
             col_types = cols(
@@ -75,7 +76,8 @@ all_refund_transactions <- bind_rows(
             transmute(response_code = `Transaction ID`, 
                       amount = Gross, 
                       date_char = Date,
-                      date = mdy(Date)),
+                      date = mdy(Date),
+                      currency = Currency),
         read_csv(
             "~/data/pin_jan_may_refunds.csv",
             col_types = cols(
@@ -86,7 +88,8 @@ all_refund_transactions <- bind_rows(
                       date_char = Date,
                       date = Date %>%
                           substr(1, 10) %>%
-                          dmy()),
+                          dmy(),
+                      currency = Currency),
         read_csv(
             "~/data/assembly_payments_jan_to_april_old_format.csv",
             col_types = cols(
@@ -95,16 +98,26 @@ all_refund_transactions <- bind_rows(
             transmute(response_code = `Merchant Order #`, 
                       amount = `Purchase Amt`,
                       date_char = `Batch Post Day`,
-                      date = mdy(`Batch Post Day`)),
+                      date = mdy(`Batch Post Day`),
+                      currency = `Purchase Currency`),
         read_csv(
             "~/data/assembly_payments_may_new_format.csv",
             col_types = cols(
                 .default = col_character(),
                 `Purchase Amt` = col_number())) %>%
+            separate(`Activity Date`, into = c("m","d","y"), 
+                     sep = "/", remove = FALSE) %>%
+            mutate(real_m = ifelse(as.integer(m) >= 6, d, m),
+                   real_d = ifelse(as.integer(m) >= 6, m, d),
+                   clean_date = paste(ifelse(as.integer(y) == 17, 2017, y), 
+                                      formatC(as.integer(real_m), width = 2, flag = "0"), 
+                                      formatC(as.integer(real_d), width = 2, flag = "0"), 
+                                      sep = "-")) %>%
             transmute(response_code = `Merchant Order Number`,
                       amount = `Purchase Amt`,
                       date_char = `Activity Date`,
-                      date = mdy(`Activity Date`))
+                      date = date(clean_date),
+                      currency = `Purchase Currency`)
     )
 )
 
@@ -136,7 +149,8 @@ missing_refunds <- all_refund_transactions %>%
 bind_rows(
     list(
         matched_refunds %>%
-            select(-date_char, -response_code_source),
+            select(-date_char, -response_code_source) %>%
+            mutate(match_status = "Found in Database"),
         missing_refunds %>%
             select(-date_char) %>%
             mutate(refund_requested = 0,
@@ -144,10 +158,9 @@ bind_rows(
                    last_ship_date = NA,
                    original_sales_amount = NA,
                    db_refund_amount = NA,
-                   estimated_ship_date = date - 35) 
+                   estimated_ship_date = date - 35,
+                   match_status = "Missing from Database") 
         # Median of 45 days from order to return and 10 days to ship 
     )
-) %>% write_csv("~/data/returns_reconciled_2017-06-21.csv")
-
-
+) %>% write_csv("~/data/returns_reconciled_2017-06-21.csv", na = "")
     
