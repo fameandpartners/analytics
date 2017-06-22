@@ -32,6 +32,22 @@ weekly_sales %>%
     scale_y_continuous(labels = short_dollar) +
     xlab("Order Week")
 
+# ---- YoY Percent Change ----
+weekly_sales %>%
+    select(-Units) %>%
+    group_by(order_week) %>%
+    spread(order_year, `Net Sales`) %>%
+    mutate(`2015 to 2016` = (`2016` - `2015`) / `2015`,
+           `2016 to 2017` = (`2017` - `2016`) / `2016`) %>%
+    select(order_week, `2015 to 2016`, `2016 to 2017`) %>%
+    gather(years_changed, percent_change, -order_week) %>%
+    #filter(years_changed %>% str_detect("2017")) %>%
+    ggplot(aes(x = order_week, y = percent_change, color = years_changed)) +
+    geom_path() + geom_point() +
+    scale_y_continuous(labels = percent) +
+    xlab("Order Week") + ylab("Percent Change") +
+    theme(legend.title = element_blank())
+
 # ---- YoY Weekly Shipments ----
 weekly_shipments <- products_sold %>%
     filter(ship_date <= as.Date("2017-06-10") 
