@@ -110,13 +110,14 @@ all_refund_transactions <- bind_rows(
 
 payment_lkp$response_code_source <- factor(
     payment_lkp$response_code_source,
-    levels = c("item_returns","refund_requests","spree_payments","spree_payments_paypal")
+    levels = c("item_returns","refund_requests",
+               "spree_payments","spree_payments_paypal")
 )
 
 matched_refunds <- all_refund_transactions %>%
     inner_join(payment_lkp, by = "response_code") %>%
     arrange(response_code_source) %>%
-    filter(!duplicated(paste(response_code, order_id))) %>%
+    filter(!duplicated(order_id)) %>%
     inner_join(products_sold %>%
                    group_by(order_id) %>%
                    summarise(refund_requested = max(return_requested),
@@ -124,11 +125,29 @@ matched_refunds <- all_refund_transactions %>%
                              last_order_date = max(order_date),
                              last_ship_date = max(ship_date),
                              original_sales_amount = sum(sales_usd),
-                             refund_amount = sum(refund_amount) / 100) %>%
+                             db_refund_amount = sum(refund_amount) / 100) %>%
                    mutate(estimated_ship_date = coalesce(last_ship_date, 
                                                          last_order_date + 10)), 
                by = "order_id")
 
 missing_refunds <- all_refund_transactions %>%
     anti_join(matched_refunds, by = "response_code")
+
+bind_rows(
+    list(
+        matched_refunds %>%
+            select(-date_char, -response_code_source),
+        missing_refunds %>%
+            select(-date_char) %>%
+            mutate(refund_requested = 0,
+                   refund_processed = 0,
+                   last_ship_date = NA,
+                   original_sales_amount = NA,
+                   db_refund_amount = NA,
+                   estimated_ship_date = date - 35) 
+        # Median of 45 days from order to return and 10 days to ship 
+    )
+) %>% write_csv("~/data/returns_reconciled_2017-06-21.csv")
+
+
     
