@@ -46,8 +46,7 @@ payment_lkp <-
         "WHERE p.order_id != 18804392"))) %>%
     collect() 
 
-setwd("~/code/analytics/ecommerce-performance/")
-source("~/code/analytics/ecommerce-performance/global.R")
+source("~/code/analytics/etl/full_global.R")
 setwd("~/data")
 
 all_refund_transactions <- bind_rows(
@@ -127,29 +126,45 @@ payment_lkp$response_code_source <- factor(
                "spree_payments","spree_payments_paypal")
 )
 
-matched_refunds <- all_refund_transactions %>%
+orders <- products_sold %>%
+    group_by(order_id) %>%
+    summarise(refund_requested = max(return_requested),
+              refund_processed = max(item_returned),
+              last_order_date = max(order_date),
+              last_ship_date = max(ship_date),
+              original_sales_amount = sum(sales_usd),
+              db_refund_amount = sum(refund_amount) / 100) %>%
+    mutate(estimated_ship_date = coalesce(last_ship_date, 
+                                          last_order_date + 10))
+match1 <- all_refund_transactions %>%
     inner_join(payment_lkp, by = "response_code") %>%
+    left_join(orders, by = "order_id")
+
+matched_refunds <- bind_rows(
+    list(
+        match1,
+        all_refund_transactions %>%
+            anti_join(match1, by = "response_code") %>%
+            rename(response_code_dirty = response_code) %>%
+            mutate(response_code = substr(response_code_dirty, 1, 24)) %>%
+            inner_join(payment_lkp, by = "response_code") %>%
+            left_join(orders, by = "order_id") %>%
+            select(-response_code) %>%
+            rename(response_code = response_code_dirty)
+    )
+) %>%
     arrange(response_code_source) %>%
-    filter(!duplicated(order_id)) %>%
-    inner_join(products_sold %>%
-                   group_by(order_id) %>%
-                   summarise(refund_requested = max(return_requested),
-                             refund_processed = max(item_returned),
-                             last_order_date = max(order_date),
-                             last_ship_date = max(ship_date),
-                             original_sales_amount = sum(sales_usd),
-                             db_refund_amount = sum(refund_amount) / 100) %>%
-                   mutate(estimated_ship_date = coalesce(last_ship_date, 
-                                                         last_order_date + 10)), 
-               by = "order_id")
+    filter(!duplicated(response_code))
 
 missing_refunds <- all_refund_transactions %>%
     anti_join(matched_refunds, by = "response_code")
 
+matched_refunds$response_code_source <- as.character(matched_refunds$response_code_source)
+
 bind_rows(
     list(
         matched_refunds %>%
-            select(-date_char, -response_code_source) %>%
+            select(-date_char) %>%
             mutate(match_status = "Found in Database"),
         missing_refunds %>%
             select(-date_char) %>%
@@ -159,6 +174,8 @@ bind_rows(
                    original_sales_amount = NA,
                    db_refund_amount = NA,
                    estimated_ship_date = date - 35,
+                   response_code_source = ifelse(nchar(response_code) == 17,
+                                                       "PayPal","PinAssembly"),
                    match_status = "Missing from Database") 
         # Median of 45 days from order to return and 10 days to ship 
     )
