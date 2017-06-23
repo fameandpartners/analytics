@@ -174,10 +174,10 @@ bind_rows(
                    original_sales_amount = NA,
                    db_refund_amount = NA,
                    estimated_ship_date = date - 35,
-                   response_code_source = ifelse(nchar(response_code) == 17,
-                                                       "PayPal","PinAssembly"),
                    match_status = "Missing from Database") 
         # Median of 45 days from order to return and 10 days to ship 
     )
-) %>% write_csv("~/data/returns_reconciled_2017-06-21.csv", na = "")
+) %>% mutate(payment_processor = ifelse(nchar(response_code) == 17,
+                                        "PayPal","Pin+Assembly")) %>%
+    write_csv("~/data/returns_reconciled_2017-06-21.csv", na = "")
     
