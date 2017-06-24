@@ -6,6 +6,9 @@ shinyUI(fluidPage(
         tabPanel(
             "Styles",
             fluidRow(
+                if(nrow(products_sold %>% count(line_item_id) %>% filter(n > 1)) > 0){
+                    h1("DUPLICATES DETECTED")
+                },
                 column(
                     4,
                     dateRangeInput(
