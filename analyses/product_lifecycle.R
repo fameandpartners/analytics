@@ -10,7 +10,7 @@ traffic <- read_csv("~/data/product traffic data.csv") %>%
 # ---- YoY Weekly Sales ----
 weekly_sales <- products_sold %>%
     filter(order_date >= as.Date("2015-01-01")
-           & order_date <= as.Date("2017-06-17") 
+           & order_date <= as.Date("2017-06-24") 
            & payment_state == "paid") %>%
     group_by(order_year = year(order_date) %>% as.character(), 
              order_week = week(order_date)) %>%
@@ -44,7 +44,7 @@ weekly_sales %>%
     #filter(years_changed %>% str_detect("2017")) %>%
     ggplot(aes(x = order_week, y = percent_change, color = years_changed)) +
     geom_path() + geom_point() +
-    scale_y_continuous(labels = percent) +
+    scale_y_continuous(labels = percent, limits = c(-0.3,3)) +
     xlab("Order Week") + ylab("Percent Change") +
     theme(legend.title = element_blank())
 
@@ -52,7 +52,7 @@ weekly_sales %>%
 weekly_shipments <- products_sold %>%
     filter(ship_date <= as.Date("2017-06-10") 
            & payment_state == "paid"
-           & year(ship_date) != 2015) %>%
+           & year(ship_date) > 2015) %>%
     group_by(ship_year = year(ship_date) %>% as.character(), 
              ship_week = week(ship_date)) %>%
     summarise(Units = sum(quantity),
