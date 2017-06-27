@@ -181,7 +181,7 @@ shinyServer(function(input, output) {
             rename(Color = color, Units = n) %>%
             ggplot(aes(x = Color, y = Units)) +
             geom_bar(stat = "identity") +
-            theme_bw(base_size = 14) +
+            theme_minimal(base_size = 14) +
             coord_flip() +
             theme(axis.title.y = element_blank())
     })
@@ -241,7 +241,61 @@ shinyServer(function(input, output) {
             scale_fill_brewer(palette = "Set2") +
             scale_y_continuous(labels = short_dollar) +
             coord_flip() +
-            theme_bw(base_size = 14) +
+            theme_minimal(base_size = 14) +
+            theme(axis.title.y = element_blank())
+    })
+    # ---- Top 10 Collections ----
+    top_collections_data <- reactive({
+        selected_sales() %>% 
+            separate(collection, sep = " - ", into = c("year", "collection_name")) %>% 
+            group_by(`Launch Year` = year, Collection = collection_name) %>% 
+            summarise(`Net Sales` = sum(sales_usd)) %>% 
+            arrange(desc(`Net Sales`))
+    })
+    
+    output$top_collections <- renderPlot({
+        top_10 <- top_collections_data() %>%
+            ungroup() %>%
+            top_n(10, `Net Sales`) %>%
+            arrange(`Net Sales`)
+        top_10$Collection <- factor(
+            top_10$Collection,
+            levels = top_10$Collection
+        )
+        top_10 %>%
+            ggplot(aes(x = Collection, y = `Net Sales`, fill = `Launch Year`)) +
+            geom_bar(stat = "identity", position = "dodge") +
+            scale_y_continuous(labels = short_dollar) +
+            coord_flip() +
+            theme_minimal(base_size = 14) +
+            scale_fill_brewer(palette = "Set2") +
+            theme(axis.title.y = element_blank())
+    })
+    # ---- Top 10 Customizations ----
+    top_customizations_data <- reactive({
+        selected_sales() %>%
+            inner_join(line_item_customizations, by = "line_item_id") %>%
+            inner_join(customization_values, by = "customization_value_id") %>%
+            group_by(Customization = presentation) %>%
+            summarise(Units = n_distinct(line_item_id)) %>%
+            arrange(desc(Units))
+    })
+    
+    output$top_customizations <- renderPlot({
+        top_10 <- top_customizations_data() %>%
+            ungroup() %>%
+            top_n(10, Units) %>%
+            arrange(Units)
+        top_10$Customization <- factor(
+            top_10$Customization,
+            levels = top_10$Customization
+        )
+        top_10 %>%
+            ggplot(aes(x = Customization, y = Units)) +
+            geom_bar(stat = "identity") +
+            scale_y_continuous(labels = short_number) +
+            coord_flip() +
+            theme_minimal(base_size = 14) +
             theme(axis.title.y = element_blank())
     })
     # ---- Weekly Customization Rates ----

@@ -111,6 +111,19 @@ shinyUI(fluidPage(
             ),
             
             fluidRow(
+                column(
+                    6,
+                    h3c("Top Collections"),
+                    plotOutput("top_collections")
+                ),
+                column(
+                    6,
+                    h3c("Top Customizations"),
+                    plotOutput("top_customizations")
+                )
+            ),
+            
+            fluidRow(
                 h3c("Weekly Customization Rates"),
                 plotOutput("cust_rates")
             ),
