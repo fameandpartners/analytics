@@ -397,7 +397,10 @@ products_sold <- ordered_units %>%
                                             taxon_name[1] %>% str_trim() %>% substr(2, 10))),
               by = "product_id") %>%
     left_join(cohort_assigments, by = "email") %>%
-    left_join(correct_shipments, by = "line_item_id") %>%
+    left_join(correct_shipments %>%
+                  group_by(line_item_id) %>%
+                  summarise(correct_ship_date = min(correct_ship_date)), 
+              by = "line_item_id") %>%
     group_by(order_id) %>%
     mutate(payments = coalesce(order_payments / n(), 0),
            item_total_usd = item_total * conversion_rate,
@@ -473,4 +476,5 @@ products_sold$height <- factor(
     products_sold$height,
     levels = c("Petite", "Standard", "Tall", paste0("Length", 1:6))
 )
+
 setwd("~/data")
