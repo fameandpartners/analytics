@@ -69,7 +69,7 @@ collections <- read_csv("static-data/collections_2.csv",
               collection_na = Collection)
 
 # ---- MANUFACTURING COSTS ----
-factory_costs <- read_csv("static-data/eCommerce Factory Cost.csv",
+factory_costs <- read_csv("static-data/factory_costs.csv",
                           col_types = cols(
                               StyleNumber = col_character(),
                               `Unit Price` = col_double())) %>%
