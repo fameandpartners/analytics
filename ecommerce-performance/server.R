@@ -67,6 +67,7 @@ shinyServer(function(input, output) {
                       Units = sum(quantity),
                       Sales = sum(sales_usd),
                       ASP = mean(sales_usd),
+                      Customers = n_distinct(email),
                       `Refund Request Rate` = sum(sales_usd * return_requested) / sum(sales_usd),
                       `Customization Rate` = sum(quantity * physically_customized) / sum(quantity),
                       Margin = (sum(net_sales) - sum(cogs)) / sum(net_sales)) %>%
@@ -79,10 +80,9 @@ shinyServer(function(input, output) {
             rename(`Style Number` = style_number) %>%
             datatable(class = "hover row-border", style = "bootstrap", escape = FALSE,
                       options = list(lengthMenu = c(5, 10, 50), pageLength = 5)) %>%
-            formatCurrency(c("Units"), digits = 0, currency = "") %>%
+            formatCurrency(c("Units","Customers"), digits = 0, currency = "") %>%
             formatCurrency(c("Sales","ASP")) %>%
             formatPercentage(c("Refund Request Rate",
-                               #"Return Rate", 
                                "Customization Rate",
                                "Margin"))
     })
@@ -118,7 +118,7 @@ shinyServer(function(input, output) {
     output$kpis <- renderTable({
         selected_sales() %>%
             filter(sales_usd > 0) %>%
-            group_by(order_id) %>%
+            group_by(email, order_id) %>%
             mutate(return_request_amount = sales_usd * return_requested,
                    net_revenue = gross_revenue_usd + adjustments_usd,
                    cogs = coalesce(manufacturing_cost, 70) + li_shipping_cost + payment_processing_cost) %>%
@@ -129,10 +129,12 @@ shinyServer(function(input, output) {
                       physically_customized = max(physically_customized),
                       net_revenue = sum(net_revenue),
                       cogs = sum(cogs)) %>%
+            ungroup() %>%
             summarise(`Total Units` = short_number(sum(quantity)),
                       `Total Sales` = short_dollar(sum(sales_usd)),
                       ASP = dollar(sum(sales_usd) / sum(quantity)),
                       `AOV` = short_dollar(mean(sales_usd)),
+                      Customers = short_number(n_distinct(email)),
                       `Refund Request Rate` = round(sum(refunds_requested_usd) / sum(sales_usd), 2) %>% percent(),
                       `Customization Rate` = round(sum(quantity * physically_customized) / sum(quantity), 2) %>% percent(),
                       `Margin` = ((sum(net_revenue) - sum(cogs)) / sum(net_revenue)) %>% percent())
