@@ -239,7 +239,7 @@ line_item_customizations <- customizations %>%
               customization_value_id = as.integer(customization_value_id_char))
 
 customization_values <- tbl(fp_con, sql(paste(
-    "SELECT id, presentation, price",
+    "SELECT id customization_value_id, presentation, price",
     "FROM customisation_values",
     "WHERE id IN (",
     line_item_customizations$customization_value_id %>%
