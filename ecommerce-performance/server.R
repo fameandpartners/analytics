@@ -1071,7 +1071,29 @@ shinyServer(function(input, output) {
     
     output$conv_creative_summary_down <- downloadHandler(
             filename = function() {paste0("FB & IG Creative ", today(), ".csv")},
-            content = function(file) {write_csv(creative_summary_data(), file, na = "")}
+            content = function(file) {
+                write_csv(filtered_ga_fb() %>% 
+                              group_by(Creative = creative,
+                                       `Creative String` = creative_no_image) %>% 
+                              conv_kpi_summarise() %>%
+                              ungroup() %>%
+                              arrange(desc(`Spend (USD)`)) %>%
+                              transmute(Creative, 
+                                        `Creative String`,
+                                        `Spend (USD)`, 
+                                        Purchases, 
+                                        Leads,
+                                        CAC = ifelse(CAC == 0, NA, CAC), 
+                                        CTR, 
+                                        CPC = ifelse(CPC == 0, NA, CPC), 
+                                        CPAC = ifelse(CPAC == 0, NA, CPAC), 
+                                        CPL = ifelse(CPL == 0, NA, CPL),
+                                        `T.O.S.` = `Avg. Session Duration`, 
+                                        Sessions,
+                                        `Total Carts` = Adds_to_Cart,
+                                        `Bounce Rate`), 
+                          file, na = "")
+            }
         )
     
     # ---- Comparisons ----
