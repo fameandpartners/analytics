@@ -5,6 +5,14 @@ library(tidyr)
 
 path_to_marketing_dropbox <- "/Users/Peter 1/Dropbox (Team Fame)/data/marketing/"
 
+ga_fixes <- read_csv(paste0(path_to_marketing_dropbox, 
+                "misc/UTM Corrections - Sheet1.csv"),
+         col_types = cols(.default = col_character())) %>%
+    rename(Campaign = `UTM Was`,
+           correct_campaign = `UTM Should Be`) %>%
+    select(Campaign, correct_campaign) %>%
+    unique()
+
 # ---- GOOGLE ANALYTICS ----
 ga <- lapply(
     paste0(path_to_marketing_dropbox, "google_analytics/",
@@ -22,6 +30,9 @@ ga <- lapply(
         `Avg. Session Duration` = col_character(),
         Date = col_date(format = "%Y%m%d"))) %>%
     bind_rows() %>%
+    left_join(ga_fixes, by = "Campaign") %>%
+    rename(ga_campaign = Campaign) %>%
+    mutate(Campaign = coalesce(correct_campaign, ga_campaign)) %>%
     separate(`Session Duration`, into = c("SDH","SDM","SDS"), sep = ":") %>%
     mutate(utm_campaign = Campaign,
            New_Sessions = `% New Sessions` * Sessions,
