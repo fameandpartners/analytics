@@ -471,7 +471,9 @@ products_sold <- ordered_units %>%
     # Filter out mysterious Manual order that's not right
     filter(order_id != 32162864) %>%
     # Filter PR orders
+    filter(email != "abbyv@fameandpartners.com") %>%
     filter(adjustments_total_percentage > -0.7) %>%
+    filter(payments != 0) %>%
     left_join(shipping_costs, by = c("ship_year_month")) %>%
     group_by(order_id) %>%
     mutate(li_shipping_cost = coalesce(avg_order_shipping_cost / n(),
