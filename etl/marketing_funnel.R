@@ -148,6 +148,14 @@ upper_products_campaigns <- ga_fb %>%
     select(-AX) %>%
     unique() 
 
+# ---- Missing from GA ----
+missing <- fb %>% 
+    filter(utm_campaign %>% str_detect("_(.*)_")) %>%
+    anti_join(ga, by = "utm_campaign") %>%
+    group_by(`Ad Name` = utm_campaign) %>%
+    summarise(Clicks = sum(Unique_Clicks),
+              Purchases = sum(Purchases))
+
 # ---- WRITE DATA TO static-data ----
 clean <- function(df){
     df %>%
@@ -159,3 +167,4 @@ write_csv(clean(fb), paste0(path_to_static, "fb.csv"), na = "")
 write_csv(clean(ga), paste0(path_to_static, "ga.csv"), na = "")
 write_csv(clean(ga_fb), paste0(path_to_static, "ga_fb.csv"), na = "")
 write_csv(clean(upper_products_campaigns), paste0(path_to_static, "upper_products_campaigns.csv"), na = "")
+write_csv(clean(missing), paste0(path_to_marketing_dropbox, "misc/missing_ads.csv"))
