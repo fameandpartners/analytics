@@ -73,7 +73,8 @@ factory_costs <- read_csv("static-data/factory_costs.csv",
                           col_types = cols(
                               StyleNumber = col_character(),
                               `Unit Price` = col_double())) %>%
-    transmute(style_number = toupper(StyleNumber), manufacturing_cost = `Unit Price`)
+    group_by(style_number = toupper(StyleNumber)) %>%
+    summarise(manufacturing_cost = min(`Unit Price`))
 
 # ---- SHIPPING COSTS ----
 shipping_costs <- read_csv("static-data/avg_shipping_costs.csv",
