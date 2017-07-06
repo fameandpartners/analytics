@@ -6,6 +6,20 @@ bridesmaid_sales <- products_sold %>%
                                "2017 - PRE-MADE BRIDESMAID")
            & order_status %in% c("Shipped","Refund Requested","Returned"))
 
+products_sold %>%
+    filter(order_status %in% c("Shipped","Refund Requested","Returned")
+           & collection == "2016 - Bridesmaid"
+           & year(order_date) == 2016) %>%
+    group_by(order_year = year(order_date), order_week = month(order_date)) %>%
+    summarise(Units = sum(quantity)) %>%
+    summarise(mean(Units))
+
+products_sold %>%
+    filter(order_status %in% c("Shipped","Refund Requested","Returned")
+           & collection == "2016 - Bridesmaid") %>%
+    group_by(order_year = year(order_date), order_week = month(order_date)) %>%
+    summarise(Units = sum(quantity))
+
 sales_comparisons <- bridesmaid_sales %>%
     group_by(collection, 
              style = substr(style_number, 1, 6),
@@ -86,3 +100,79 @@ bridesmaid_sales %>%
                   (sum(gross_revenue_usd) + 
                        sum(adjustments_usd) - 
                        sum(coalesce(refund_amount_usd, 0))))
+
+twilio <- read_csv("~/data/messages_data.csv",
+                   col_types = cols(
+                       .default = col_character(),
+                       date_created = col_datetime(format = ""),
+                       user_id = col_integer()
+                   )) %>%
+    filter(!(author %in% c("Gustavo Robles","K F","Gage Shannon","jojo mojo")))
+
+twilio %>%
+    filter(!is.na(user_id) 
+           & message_type == "simple" 
+           & user_id != 55748
+           & author != "BridalBot") %>%
+    group_by(channel_sid) %>%
+    summarise(messages = n(),
+              users = n_distinct(user_id)) %>%
+    group_by(users_on_board = ifelse(users < 3, users, "3+")) %>%
+    summarise(boards = n(),
+              avg_messages_per_board = round(mean(messages))) %>%
+    mutate(percent_of_total_boards = percent(boards / sum(boards)))
+
+# fandp_web_production=> select count(distinct user_id) from wedding_atelier_users_event_roles;
+# count
+# -------
+#     7952
+# (1 row)
+
+# Percent of signups that engaged with the app's chat interface
+engaged <- (twilio %>% filter(
+        !is.na(user_id) 
+        & user_id != 55748 
+        & message_type == "simple"))$user_id %>% 
+    n_distinct()
+engaged / 7952
+
+# Odds that the stylist will reply ever
+channels %>%
+    filter(at_stylist == 1) %>%
+    count(with_stylist) %>%
+    mutate(odds = n / sum(n))
+
+# Given that you're a wedding app customer what are the odds that you used
+# our messaging interface
+send_messages <- twilio %>%
+    filter(!is.na(user_id) & message_type == "simple") %>%
+    select(user_id) %>%
+    unique()
+
+products_sold %>%
+    filter(collection == "2017 - Bridesmaids 4.2" 
+           & !str_detect(email, "fameandpartners")) %>%
+    select(user_id) %>%
+    unique() %>%
+    mutate(used_chat = user_id %in% send_messages$user_id) %>%
+    count(used_chat) %>%
+    mutate(odds = n / sum(n))
+
+# Messages deep dives
+three_user_channels <- (channels %>% filter(users >= 3) %>% select(channel_sid))$channel_sid
+message_lists <- three_user_channels %>%
+    as.list() %>%
+    lapply(function(x){
+        channel_messages <- twilio %>% 
+            filter(channel_sid == x) %>% 
+            arrange(date_created)
+        channel_messages$sid %>%
+            as.list() %>%
+            lapply(function(y){
+                message <- twilio %>% filter(sid == y)
+                return(list("channel" = message$channel_sid,
+                            list("author" = message$author,
+                                 "message" = message$content,
+                                 "time" = message$date_created)))
+            })
+    })
