@@ -6,19 +6,19 @@ bridesmaid_sales <- products_sold %>%
                                "2017 - PRE-MADE BRIDESMAID")
            & order_status %in% c("Shipped","Refund Requested","Returned"))
 
-products_sold %>%
-    filter(order_status %in% c("Shipped","Refund Requested","Returned")
-           & collection == "2016 - Bridesmaid"
-           & year(order_date) == 2016) %>%
-    group_by(order_year = year(order_date), order_week = month(order_date)) %>%
+bridesmaid_sales %>%
+    group_by(collection, year(order_date), week(order_date)) %>%
     summarise(Units = sum(quantity)) %>%
     summarise(mean(Units))
 
 products_sold %>%
     filter(order_status %in% c("Shipped","Refund Requested","Returned")
-           & collection == "2016 - Bridesmaid") %>%
-    group_by(order_year = year(order_date), order_week = month(order_date)) %>%
-    summarise(Units = sum(quantity))
+           & collection == "2016 - Bridesmaid"
+           & order_status %in% c("Shipped","Refund Requested","Returned")
+           & year(order_date) == 2016) %>%
+    group_by(order_year = year(order_date), order_week = week(order_date)) %>%
+    summarise(Units = sum(quantity)) %>%
+    summarise(mean(Units))
 
 sales_comparisons <- bridesmaid_sales %>%
     group_by(collection, 
