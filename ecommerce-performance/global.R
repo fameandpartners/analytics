@@ -397,6 +397,14 @@ dress_images <- tbl(fp_con, sql(paste(
         )
     )
 
+# ---- SLOW AND FAST MAKING ----
+slow_fast_items <- tbl(fp_con, sql(paste(
+    "SELECT limo.line_item_id, pmo.option_type making_option",
+    "FROM line_item_making_options limo",
+    "INNER JOIN product_making_options pmo",
+        "ON pmo.id = limo.making_option_id"))) %>%
+    collect()
+
 # ---- MERGE + TRANSFORM QUERIES INTO MASTER SALES DF ----
 products_sold <- ordered_units %>%
     left_join(customizations, by = "line_item_id") %>%
@@ -419,6 +427,7 @@ products_sold <- ordered_units %>%
                   group_by(line_item_id) %>%
                   summarise(correct_ship_date = min(correct_ship_date)), 
               by = "line_item_id") %>%
+    left_join(slow_fast_items, by = "line_item_id") %>%
     group_by(order_id) %>%
     mutate(payments = coalesce(order_payments / n(), 0),
            item_total_usd = item_total * conversion_rate,
