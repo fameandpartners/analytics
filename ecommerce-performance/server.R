@@ -282,8 +282,13 @@ shinyServer(function(input, output) {
     top_customizations_data <- reactive({
         selected_sales() %>%
             inner_join(line_item_customizations, by = "line_item_id") %>%
-            inner_join(customization_values, by = "customization_value_id") %>%
-            group_by(Customization = presentation) %>%
+            inner_join(customization_values %>%
+                           rename(customization_price = price), 
+                       by = "customization_value_id") %>%
+            group_by(Customization = presentation, 
+                     `Price Bucket` = ifelse(customization_price > 0
+                                             | is.na(customization_price),
+                                             "Paid", "Free")) %>%
             summarise(Units = n_distinct(line_item_id)) %>%
             arrange(desc(Units))
     })
@@ -295,12 +300,13 @@ shinyServer(function(input, output) {
             arrange(Units)
         top_10$Customization <- factor(
             top_10$Customization,
-            levels = top_10$Customization
+            levels = unique(top_10$Customization)
         )
         top_10 %>%
-            ggplot(aes(x = Customization, y = Units)) +
+            ggplot(aes(x = Customization, y = Units, fill = `Price Bucket`)) +
             geom_bar(stat = "identity") +
             scale_y_continuous(labels = short_number) +
+            scale_fill_brewer(palette = "Set2") +
             coord_flip() +
             theme_minimal(base_size = 14) +
             theme(axis.title.y = element_blank())
