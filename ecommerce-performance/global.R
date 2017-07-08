@@ -101,6 +101,12 @@ all_touches <- read_csv("static-data/all_touches.csv",
                         )) %>%
     rename(sales_usd = revenue_usd)
 
+# ---- CUSTOMER ACQUISITIONS ----
+customer_aquisitions <- read_csv("static-data/customer_aquisitions.csv",
+                                 col_types = cols(
+                                     email = col_character(),
+                                     date = col_date(format = "")))
+
 # ---- CONNECT TO REPLICA ----
 # set db connection
 source("fp_init.R")
