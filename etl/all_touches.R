@@ -9,7 +9,7 @@ source("~/code/analytics/ecommerce-performance/fp_init.R")
 br_csv <- read_csv("~/data/Contacts-Master_List.csv",
                    col_types = cols(
                        .default = col_character()),
-                   skip = 2) %>%
+                   skip = 0) %>%
     mutate(CONFIRM_TIME = substr(`Date Created`, 1, 10) %>%
                as.Date(format = "%m/%d/%Y") %>%
            as.POSIXct())
