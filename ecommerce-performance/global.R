@@ -435,6 +435,14 @@ products_sold <- ordered_units %>%
                   summarise(correct_ship_date = min(correct_ship_date)), 
               by = "line_item_id") %>%
     left_join(slow_fast_items, by = "line_item_id") %>%
+    left_join(customer_aquisitions %>%
+                  group_by(email) %>%
+                  summarise(acquisition_date = min(date)) %>%
+                  rbind(ordered_units %>%
+                            anti_join(customer_aquisitions, by = "email") %>%
+                            group_by(email) %>%
+                            summarise(acquisition_date = min(order_date))),
+              by = "email") %>%
     group_by(order_id) %>%
     mutate(payments = coalesce(order_payments / n(), 0),
            item_total_usd = item_total * conversion_rate,
@@ -469,7 +477,8 @@ products_sold <- ordered_units %>%
            ship_year_month = year_month(estimated_ship_date),
            order_year_month = year_month(order_date),
            payment_processing_cost = (sales_usd * 0.029) + 0.3,
-           physically_customized = ifelse(is.na(customized), 0, customized)) %>%
+           physically_customized = ifelse(is.na(customized), 0, customized),
+           repeat_purchase = order_date > acquisition_date) %>%
     left_join(collections %>%
                   group_by(product_id) %>%
                   summarise(collection_na = paste(unique(collection_na), collapse = ", ")),
