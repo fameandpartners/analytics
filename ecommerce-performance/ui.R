@@ -10,7 +10,7 @@ shinyUI(fluidPage(
                     h1("DUPLICATES DETECTED")
                 },
                 column(
-                    4,
+                    3,
                     dateRangeInput(
                         "order_dates",
                         label = "Order Date",
@@ -70,7 +70,7 @@ shinyUI(fluidPage(
                     )
                 ),
                 column(
-                    8,
+                    9,
                     div(tableOutput("kpis"), id = "kpi-wrapper"),
                     dataTableOutput("style_ranking"),
                     downloadButton("style_ranking_down")
