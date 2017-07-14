@@ -150,7 +150,8 @@ upper_products_campaigns <- ga_fb %>%
 
 # ---- Missing from GA ----
 missing <- fb %>% 
-    filter(utm_campaign %>% str_detect("_(.*)_")) %>%
+    filter(utm_campaign %>% str_detect("_(.*)_") 
+           & Date > today() - 14) %>%
     anti_join(ga, by = "utm_campaign") %>%
     group_by(`Ad Name` = utm_campaign) %>%
     summarise(Clicks = sum(Unique_Clicks),
