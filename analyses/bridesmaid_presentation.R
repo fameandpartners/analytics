@@ -176,3 +176,52 @@ message_lists <- three_user_channels %>%
                                  "time" = message$date_created)))
             })
     })
+
+wedding_app_users <- tbl(fp_con, sql("select distinct user_id, email from wedding_atelier_users_event_roles r inner join spree_users u on u.id = r.user_id where created_at < '2017-07-06'")) %>% collect()
+
+customer_aquisitions <- read_csv("static-data/customer_aquisitions.csv",
+                                 col_types = cols(
+                                     email = col_character(),
+                                     date = col_date(format = "")))
+
+wedding_app_user_acquisitions <- wedding_app_users %>%
+    left_join(customer_aquisitions %>%
+                  rbind(products_sold %>%
+                            group_by(email) %>%
+                            summarise(date = min(order_date))) %>%
+                  unique(), 
+              by = "email")
+
+wedding_app_user_acquisitions %>%
+    count(date > as.Date("2017-02-01")) %>%
+    mutate(n / sum(n))
+
+products_sold %>%
+    inner_join(wedding_app_users, by = "email") %>%
+    group_by(`Customer Type` = ifelse(order_date < as.Date("2017-02-01"),
+                                      "Before Launch", "After Launch") %>%
+                 factor(levels = c("Before Launch","After Launch")),
+             Collection = collection) %>%
+    summarise(Units = sum(quantity)) %>%
+    mutate(`% of Units` = Units / sum(Units)) %>%
+    arrange(`Customer Type`, desc(Units))
+
+wedding_app_user_acquisitions %>%
+    filter(date > as.Date("2017-02-01")) %>%
+    inner_join(tbl(fp_con, sql("select id user_id, created_at::DATE signup_date from spree_users")) %>% collect(n = Inf),
+               by = "user_id") %>%
+    inner_join(products_sold %>% 
+                   filter(collection == "2017 - Bridesmaids 4.2") %>%
+                   select(email) %>%
+                   unique(),
+               by = "email") %>%
+    mutate(signup_to_purchase = difftime(date, signup_date, units = "days")) %>%
+    group_by(sort = floor(signup_to_purchase / 25) * 25,
+             `Sales Cycle` = paste(floor(signup_to_purchase / 25) * 25, "days to",
+                                  (floor(signup_to_purchase / 25) * 25) + 25, "days")) %>%
+    summarise(Customers = n_distinct(email)) %>%
+    ungroup() %>%
+    filter(sort >= 0) %>%
+    select(-sort) %>%
+    mutate(`% of Customers` = Customers / sum(Customers)) %>%
+    write_csv("~/data/wedding_app_sales_cycle.csv")
