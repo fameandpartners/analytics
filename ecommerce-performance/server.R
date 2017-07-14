@@ -553,7 +553,7 @@ shinyServer(function(input, output) {
             group_by(ship_year_month) %>% 
             summarise(`Gross Revenue` = sum(gross_revenue_usd),
                       `Processed Returns` = sum(coalesce(refund_amount_usd, 0)),
-                      `Requested Returns` = sum(return_requested * gross_revenue_usd),
+                      `Requested Returns` = sum(return_requested * sales_usd),
                       `Estimated Returns` = sum(ifelse(# See NOTES in global.R
                           ship_date >= today() - 90,
                           coalesce(refund_amount_usd, return_requested * sales_usd * 0.65),
