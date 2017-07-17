@@ -225,3 +225,34 @@ wedding_app_user_acquisitions %>%
     select(-sort) %>%
     mutate(`% of Customers` = Customers / sum(Customers)) %>%
     write_csv("~/data/wedding_app_sales_cycle.csv")
+
+wedding_app_user_acquisitions %>%
+    filter(date > as.Date("2017-02-01")) %>%
+    inner_join(tbl(fp_con, sql("select id user_id, created_at::DATE signup_date from spree_users")) %>% collect(n = Inf),
+               by = "user_id") %>%
+    inner_join(products_sold %>% 
+                   filter(collection == "2017 - Bridesmaids 4.2") %>%
+                   select(email) %>%
+                   unique(),
+               by = "email") %>%
+    mutate(signup_to_purchase = difftime(date, signup_date, units = "days")) %>%
+    filter(between(signup_to_purchase, 0, 25)) %>%
+    group_by(signup_to_purchase) %>%
+    summarise(Customers = n_distinct(email)) %>%
+    mutate(`% of Customers` = Customers / sum(Customers)) %>%
+    write_csv("~/data/0_to_25_conversions.csv")
+
+# Conversations that asked about fabric
+twilio %>% 
+    filter(!is.na(user_id) 
+           & author != "Amber (Fame Stylist)" 
+           & content %>% tolower() %>% str_detect("fabric|swatch") 
+           & message_type == "simple") %>% 
+    group_by(channel_sid) %>% 
+    summarise(authors = n_distinct(author), 
+              messages = n()) %>% 
+    inner_join(twilio, by = "channel_sid") %>% 
+    filter(message_type == "simple") %>% 
+    arrange(channel_sid, date_created) %>% 
+    transmute(board = channel_sid, author, content, date_created) %>% 
+    write_csv("~/data/fabric_swatches_boards.csv")
