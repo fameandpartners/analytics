@@ -73,8 +73,11 @@ shinyServer(function(input, output) {
                                                       na.rm = T), 2) %>% as.numeric(),
                       `Refund Request Rate` = sum(sales_usd * return_requested) / sum(sales_usd),
                       `Customization Rate` = sum(quantity * physically_customized) / sum(quantity),
-                      `Margin %` = (sum(net_sales) - sum(cogs)) / sum(net_sales),
-                      `Margin $` = `Margin %` * ASP) %>%
+                      `Gross Margin %` = (sum(net_sales) 
+                                    - sum(net_sales * return_requested) * 0.9 
+                                    - sum(cogs)
+                                    ) / (sum(net_sales) - sum(net_sales * return_requested) * 0.9),
+                      `Gross Margin $` = `Gross Margin %` * ASP) %>%
             arrange(desc(Sales))
     })
     
@@ -85,10 +88,10 @@ shinyServer(function(input, output) {
             datatable(class = "hover row-border", style = "bootstrap", escape = FALSE,
                       options = list(lengthMenu = c(5, 10, 50), pageLength = 5)) %>%
             formatCurrency(c("Units"), digits = 0, currency = "") %>%
-            formatCurrency(c("Sales","ASP","Margin $")) %>%
+            formatCurrency(c("Sales","ASP","Gross Margin $")) %>%
             formatPercentage(c("Refund Request Rate",
                                "Customization Rate",
-                               "Margin %"))
+                               "Gross Margin %"))
     })
     
     output$style_ranking_down <- downloadHandler(
@@ -141,8 +144,18 @@ shinyServer(function(input, output) {
                       `Avg Days to Ship` = as.numeric(round(mean(days_to_ship, na.rm = T), 2)),
                       `Refund Request Rate` = round(sum(refunds_requested_usd) / sum(sales_usd), 2) %>% percent(),
                       `Customization Rate` = round(sum(quantity * physically_customized) / sum(quantity), 2) %>% percent(),
-                      `Margin %` = ((sum(net_revenue) - sum(cogs)) / sum(net_revenue)) %>% percent(),
-                      `Margin $` = dollar(((sum(net_revenue) - sum(cogs)) / sum(net_revenue)) * (sum(sales_usd) / sum(quantity))))
+                      `Gross Margin %` = ((sum(net_revenue) 
+                                     - sum(refunds_requested_usd) * 0.9
+                                     - sum(cogs)
+                                     ) / (sum(net_revenue) - sum(refunds_requested_usd) * 0.9)
+                                    ) %>% percent(),
+                      `Gross Margin $` = dollar(((sum(net_revenue) 
+                                                  - sum(refunds_requested_usd) * 0.9
+                                                  - sum(cogs)) 
+                                                 / (sum(net_revenue) 
+                                                    - sum(refunds_requested_usd) * 0.9)
+                                                 ) * (sum(sales_usd) 
+                                                      / sum(quantity))))
     })
     
     # ---- Daily Sales ----
