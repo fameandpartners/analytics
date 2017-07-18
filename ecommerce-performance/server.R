@@ -3216,7 +3216,8 @@ shinyServer(function(input, output) {
             filter(is_shipped & year(order_date) == 2017) %>%
             group_by(`Order Year` = year(order_date),
                      `Order Month` = month(order_date)) %>%
-            summarise(`Gross Revenue` = sum(gross_revenue_usd),
+            summarise(Units = sum(quantity),
+                      `Gross Revenue` = sum(gross_revenue_usd),
                       `Net Sales` = sum(sales_usd),
                       `Est. Returns` = sum(sales_usd * return_requested * 0.9),
                       COGS = sum(coalesce(manufacturing_cost, 70) 
