@@ -331,7 +331,7 @@ correct_shipments$line_item_id <- as.integer(correct_shipments$line_item_id)
 # ---- RETURNS ----
 returns <- tbl(fp_con, "item_returns") %>%
     select(requested_at, refunded_at, line_item_id, refund_amount,
-           reason_category, reason_sub_category, acceptance_status) %>%
+           reason_category, reason_sub_category, acceptance_status, factory_fault) %>%
     filter(line_item_id %in% ordered_units$line_item_id) %>%
     collect()
 
