@@ -602,6 +602,12 @@ shinyUI(fluidPage(
                     em("Monthly Summary"), 
                     br(),
                     downloadButton("download_finances_summary")
+                ),
+                column(
+                    2,
+                    em("Customer Contribution"),
+                    br(),
+                    downloadButton("download_customer_contribution")
                 )
             )
         )

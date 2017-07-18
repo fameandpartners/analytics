@@ -3103,41 +3103,6 @@ shinyServer(function(input, output) {
     }
     
     # ---- Gross Revenue Budget vs Actual ----
-    monthly_summary <- reactive({
-        products_sold %>%
-            filter(is_shipped & order_state != "canceled" & year(ship_date) >= 2017) %>%
-            group_by(ship_year = year(ship_date),
-                     ship_month = month(ship_date),
-                     currency) %>%
-            summarise(gross_revenue_usd = sum(gross_revenue_usd),
-                      gross_revenue_aud = sum(gross_revenue_usd / aud_to_usd),
-                      net_sales_usd = sum(sales_usd),
-                      net_sales_aud = sum(sales_usd / aud_to_usd),
-                      units_shipped = sum(quantity))
-    })
-    
-    line_item_details <- reactive({
-        products_sold %>%
-            filter(year(ship_date) %in% as.numeric(input$year)
-                   & quarter(ship_date) %in% quarter_filter()) %>%
-            mutate(ship_quarter = quarter(ship_date),
-                   ship_month = month(ship_date)) %>%
-            arrange(ship_date) %>%
-            select(line_item_id, order_number, currency, order_state, payment_state, order_status,
-                   gross_revenue_usd, shipping_usd, taxes_usd, promotions_usd,
-                   other_adjustments_usd, adjustments_usd, sales_usd, order_date, ship_date)
-    })
-    
-    output$download_finances_summary <- downloadHandler(
-        filename = function() { paste0("Finances - Monthly Summary ", today(), ".csv") },
-        content = function(file) { write_csv(monthly_summary(), file, na = "") }
-    )
-    
-    output$download_finances_line_items <- downloadHandler(
-        filename = function() { paste0("Finances - Line Items ", today(), ".csv") },
-        content = function(file) { write_csv(line_item_details(), file, na = "") }
-    )
-    
     gross_revenue <- reactive(quarterly_and_annual_budget_actuals() %>% filter(metric == "gross_revenue"))
     output$gross_revenue_actual <- renderText(dollar(gross_revenue()$actuals_2017[1]))
     output$gross_revenue_pob <- renderText(percent(gross_revenue()$percent_of_budget[1]))
@@ -3209,4 +3174,60 @@ shinyServer(function(input, output) {
     
     output$returns_per_unit <- renderPlot(budget_v_actual_plot("returns_per_unit", ylabel = "Revenue Lost (USD)"))
     output$returns_per_unit_down <- finance_downloader(monthly_budget_actuals() %>% filter(metric == "returns_per_unit"), "Returns per Unit")
+    
+    # ---- Download Buttons ----
+    monthly_summary <- reactive({
+        products_sold %>%
+            filter(is_shipped & order_state != "canceled" & year(ship_date) >= 2017) %>%
+            group_by(ship_year = year(ship_date),
+                     ship_month = month(ship_date),
+                     currency) %>%
+            summarise(gross_revenue_usd = sum(gross_revenue_usd),
+                      gross_revenue_aud = sum(gross_revenue_usd / aud_to_usd),
+                      net_sales_usd = sum(sales_usd),
+                      net_sales_aud = sum(sales_usd / aud_to_usd),
+                      units_shipped = sum(quantity))
+    })
+    
+    output$download_finances_summary <- downloadHandler(
+        filename = function() { paste0("Finances - Monthly Summary ", today(), ".csv") },
+        content = function(file) { write_csv(monthly_summary(), file, na = "") }
+    )
+    
+    line_item_details <- reactive({
+        products_sold %>%
+            filter(year(ship_date) %in% as.numeric(input$year)
+                   & quarter(ship_date) %in% quarter_filter()) %>%
+            mutate(ship_quarter = quarter(ship_date),
+                   ship_month = month(ship_date)) %>%
+            arrange(ship_date) %>%
+            select(line_item_id, order_number, currency, order_state, payment_state, order_status,
+                   gross_revenue_usd, shipping_usd, taxes_usd, promotions_usd,
+                   other_adjustments_usd, adjustments_usd, sales_usd, order_date, ship_date)
+    })
+    
+    output$download_finances_line_items <- downloadHandler(
+        filename = function() { paste0("Finances - Line Items ", today(), ".csv") },
+        content = function(file) { write_csv(line_item_details(), file, na = "") }
+    )
+    
+    customer_contribution <- reactive({
+        products_sold %>%
+            filter(is_shipped & year(order_date) == 2017) %>%
+            group_by(`Order Year` = year(order_date),
+                     `Order Month` = month(order_date)) %>%
+            summarise(`Gross Revenue` = sum(gross_revenue_usd),
+                      `Net Sales` = sum(sales_usd),
+                      `Est. Returns` = sum(sales_usd * return_requested * 0.9),
+                      COGS = sum(coalesce(manufacturing_cost, 70) 
+                                 + li_shipping_cost 
+                                 + payment_processing_cost)) %>%
+            mutate(`Gross Margin` = (`Net Sales` - `Est. Returns` - COGS) 
+                                  / (`Net Sales` - `Est. Returns`))
+    })
+    
+    output$download_customer_contribution <- downloadHandler(
+        filename = function() { paste0("Finances - Customer Contribution ", today(), ".csv")},
+        content = function(file) { write_csv(customer_contribution(), file, na = "")}
+    )
 })
