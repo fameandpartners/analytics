@@ -2,6 +2,7 @@ library(readr)
 library(dplyr)
 library(tidyr)
 library(stringr)
+library(lubridate)
 
 source("~/code/analytics/ecommerce-performance/fp_init.R")
 
@@ -112,10 +113,20 @@ all_refund_transactions <- bind_rows(
                                       formatC(as.integer(fixed_m), width = 2, flag = "0"), 
                                       formatC(as.integer(fixed_d), width = 2, flag = "0"), 
                                       sep = "-")) %>%
-            transmute(response_code = `Merchant Order Number`,
+            transmute(response_code = `Merchant Transaction ID`,
                       amount = `Purchase Amt`,
                       date_char = `Activity Date`,
                       date = date(clean_date),
+                      currency = `Purchase Currency`),
+        read_csv(
+            "~/data/Assembly Payments refunds_June 2017.csv",
+            col_types = cols(
+                .default = col_character(),
+                `Purchase Amt` = col_number())) %>%
+            transmute(response_code = `Merchant Transaction ID`,
+                      amount = `Purchase Amt`,
+                      date_char = `Activity Date`,
+                      date = mdy(`Activity Date`),
                       currency = `Purchase Currency`)
     )
 )
@@ -141,18 +152,15 @@ match1 <- all_refund_transactions %>%
     left_join(orders, by = "order_id")
 
 matched_refunds <- bind_rows(
-    list(
-        match1,
-        all_refund_transactions %>%
-            anti_join(match1, by = "response_code") %>%
-            rename(response_code_dirty = response_code) %>%
-            mutate(response_code = substr(response_code_dirty, 1, 24)) %>%
-            inner_join(payment_lkp, by = "response_code") %>%
-            left_join(orders, by = "order_id") %>%
-            select(-response_code) %>%
-            rename(response_code = response_code_dirty)
-    )
-) %>%
+    list(match1,
+         all_refund_transactions %>%
+             anti_join(match1, by = "response_code") %>%
+             rename(response_code_dirty = response_code) %>%
+             mutate(response_code = substr(response_code_dirty, 1, 24)) %>%
+             inner_join(payment_lkp, by = "response_code") %>%
+             left_join(orders, by = "order_id") %>%
+             select(-response_code) %>%
+             rename(response_code = response_code_dirty))) %>%
     arrange(response_code_source) %>%
     filter(!duplicated(response_code))
 
@@ -162,23 +170,22 @@ missing_refunds <- all_refund_transactions %>%
 matched_refunds$response_code_source <- as.character(matched_refunds$response_code_source)
 
 all_refunds <- bind_rows(
-    list(
-        matched_refunds %>%
-            select(-date_char) %>%
-            mutate(match_status = "Found in Database"),
-        missing_refunds %>%
-            select(-date_char) %>%
-            mutate(refund_requested = 0,
-                   refund_processed = 0,
-                   last_ship_date = NA,
-                   original_sales_amount = NA,
-                   db_refund_amount = NA,
-                   estimated_ship_date = date - 35,
-                   match_status = "Missing from Database") 
+    list(matched_refunds %>%
+             select(-date_char) %>%
+             mutate(match_status = "Found in Database"),
+         missing_refunds %>%
+             select(-date_char) %>%
+             mutate(refund_requested = 0,
+                    refund_processed = 0,
+                    last_ship_date = NA,
+                    original_sales_amount = NA,
+                    db_refund_amount = NA,
+                    estimated_ship_date = date - 35,
+                    match_status = "Missing from Database") 
         # Median of 45 days from order to return and 10 days to ship 
-    )
-) %>% mutate(payment_processor = ifelse(nchar(response_code) == 17,
-                                        "PayPal","Pin+Assembly")) 
+        )) %>% 
+    mutate(payment_processor = ifelse(
+        nchar(response_code) == 17, "PayPal", "Pin+Assembly")) 
 
-all_refunds %>% write_csv("~/data/returns_reconciled_2017-06-21.csv", na = "")
+all_refunds %>% write_csv("~/data/returns_reconciled_2017-07-18.csv", na = "")
     
