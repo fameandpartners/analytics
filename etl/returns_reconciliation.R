@@ -161,7 +161,7 @@ missing_refunds <- all_refund_transactions %>%
 
 matched_refunds$response_code_source <- as.character(matched_refunds$response_code_source)
 
-bind_rows(
+all_refunds <- bind_rows(
     list(
         matched_refunds %>%
             select(-date_char) %>%
@@ -178,6 +178,7 @@ bind_rows(
         # Median of 45 days from order to return and 10 days to ship 
     )
 ) %>% mutate(payment_processor = ifelse(nchar(response_code) == 17,
-                                        "PayPal","Pin+Assembly")) %>%
-    write_csv("~/data/returns_reconciled_2017-06-21.csv", na = "")
+                                        "PayPal","Pin+Assembly")) 
+
+all_refunds %>% write_csv("~/data/returns_reconciled_2017-06-21.csv", na = "")
     
