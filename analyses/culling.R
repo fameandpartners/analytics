@@ -15,8 +15,8 @@ path_to_culling_dropbox <- "/Users/Peter 1/Dropbox (Team Fame)/data/culling/"
 
 active_products <- products %>% 
     filter(!hidden 
-           & (is.na(deleted_at) | deleted_at > as.Date("2017-06-07"))
-           & available_on <= as.Date("2017-06-07"))
+           & (is.na(deleted_at) | deleted_at > today())
+           & available_on <= today())
 
 no_sales_live <- active_products %>%
     anti_join(products_sold, by = "product_id")
@@ -49,16 +49,16 @@ product_first_sale_dates <- products_sold %>%
 
 first_cull <- products_sold %>%
     inner_join(product_first_sale_dates %>%
-                   filter(first_sale_date < (as.Date("2017-06-07") - 395)), 
+                   filter(first_sale_date < (today() - 395)), 
                by = "product_id") %>%
-    filter(order_date >= (as.Date("2017-06-07") - 395) & order_date < (as.Date("2017-06-07") - 30)) %>%
+    filter(order_date >= (today() - 395) & order_date < (today() - 30)) %>%
     group_by(product_id) %>%
     summarise(units_ordered = sum(quantity),
               return_request_units = sum(return_requested),
               net_return_request_units = units_ordered - return_request_units) %>%
     filter(net_return_request_units < 10) %>%
     rbind(no_sales_live %>%
-              filter(available_on < (as.Date("2017-06-07") - 395)) %>%
+              filter(available_on < (today() - 395)) %>%
               transmute(product_id, 
                         units_ordered = 0,
                         return_request_units = 0,
@@ -77,12 +77,12 @@ zero_units <- function(df){
 }
 
 ongoing_cull_styles <- product_first_sale_dates %>%
-    filter(first_sale_date < (as.Date("2017-06-07") - 120)) %>%
+    filter(first_sale_date < (today() - 120)) %>%
     anti_join(first_cull, by = "product_id")
 
 ongoing_cull_sales <- products_sold %>%
     inner_join(ongoing_cull_styles, by = "product_id") %>%
-    filter(order_date >= (as.Date("2017-06-07") - 120) & order_date < (as.Date("2017-06-07") - 30))
+    filter(order_date >= (today() - 120) & order_date < (today() - 30))
 
 ongoing_cull <- ongoing_cull_sales %>%
     group_by(product_id) %>%
@@ -90,15 +90,15 @@ ongoing_cull <- ongoing_cull_sales %>%
               return_request_units = sum(return_requested),
               net_return_request_units = units_ordered - return_request_units) %>%
     filter(net_return_request_units < 3) %>%
-    anti_join(first_cull, by = "product_id") %>%
     bind_rows(list(
         no_sales_live %>%
-            filter(available_on < (as.Date("2017-06-07") - 120)) %>%
+            filter(available_on < (today() - 120)) %>%
             zero_units(),
         ongoing_cull_styles %>%
             anti_join(ongoing_cull_sales, by = "product_id") %>%
             zero_units()
         )) %>%
+    anti_join(first_cull, by = "product_id") %>%
     left_join(traffic, by = "product_id") %>%
     mutate(stake_holder = ifelse(sessions > 500, "Merchandising", "Marketing")) %>%
     inner_join(products %>%
@@ -107,7 +107,7 @@ ongoing_cull <- ongoing_cull_sales %>%
     semi_join(active_products, by = "product_id")
 
 write_csv(first_cull, paste0(path_to_culling_dropbox, 
-                             "styles/First Cull 2017-06-07.csv"))
+                             paste0("styles/First Cull ", today(), ".csv")))
 write_csv(dress_images %>%
               select(product_id, 
                      attachment_width, 
@@ -116,9 +116,9 @@ write_csv(dress_images %>%
               unique() %>%
               semi_join(first_cull, by = "product_id"),
           paste0(path_to_culling_dropbox, 
-                 "styles/First Cull Images 2017-06-07.csv"))
+                 "styles/First Cull Images ", today(), ".csv"))
 write_csv(ongoing_cull, paste0(path_to_culling_dropbox, 
-                               "styles/Endangered 2017-06-07.csv"))
+                               "styles/Endangered ", today(), ".csv"))
 write_csv(dress_images %>%
               select(product_id, 
                      attachment_width, 
@@ -127,4 +127,4 @@ write_csv(dress_images %>%
               unique() %>%
               semi_join(ongoing_cull, by = "product_id"),
           paste0(path_to_culling_dropbox, 
-                 "styles/Endangered Images 2017-06-07.csv"))
+                 "styles/Endangered Images ", today(), ".csv"))
