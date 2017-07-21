@@ -330,8 +330,9 @@ correct_shipments$line_item_id <- as.integer(correct_shipments$line_item_id)
 
 # ---- RETURNS ----
 returns <- tbl(fp_con, "item_returns") %>%
-    select(requested_at, refunded_at, line_item_id, refund_amount,
+    select(requested_at, refunded_at, line_item_id, refund_amount, comments,
            reason_category, reason_sub_category, acceptance_status, factory_fault) %>%
+    rename(return_comments = comments) %>%
     filter(line_item_id %in% ordered_units$line_item_id) %>%
     collect()
 
@@ -350,7 +351,7 @@ payments <- tbl(fp_con, sql(paste(
 adjustments <- tbl(fp_con, sql(paste(
     "SELECT adjustable_id order_id, originator_type, SUM(amount) adjustments",
     "FROM spree_adjustments",
-    "WHERE amount != 0 AND eligible",
+    "WHERE amount != 0 AND eligible AND adjustable_type = 'Spree::Order'",
     "GROUP BY order_id, originator_type"))) %>%
     collect() %>%
     left_join(data_frame(originator_type = c("Spree::TaxRate","Spree::ShippingMethod","Spree::PromotionAction",NA), 
@@ -358,6 +359,21 @@ adjustments <- tbl(fp_con, sql(paste(
               by = "originator_type") %>%
     select(-originator_type) %>%
     spread(adjustment_type, adjustments, fill = 0)
+
+# ---- PROMOTIONS ----
+promotions <- tbl(fp_con, sql(paste(
+    "SELECT adjustable_id order_id, STRING_AGG(label, ' ') labels",
+    "FROM spree_adjustments",
+    "WHERE amount != 0",
+        "AND eligible",
+        "AND adjustable_type = 'Spree::Order'",
+        "AND originator_type = 'Spree::PromotionAction'",
+        "AND EXTRACT(YEAR FROM created_at) >= 2015",
+    "GROUP BY order_id"))) %>%
+    collect() %>%
+    mutate(coupon_code = labels %>% 
+               str_replace_all("Promotion |\\(|\\)", "")) %>%
+    select(-labels)
 
 # ---- PRODUCT TAXONS ----
 product_taxons <- tbl(fp_con, sql(paste(
@@ -422,6 +438,7 @@ products_sold <- ordered_units %>%
     left_join(returns, by = "line_item_id") %>%
     left_join(payments, by = "order_id") %>%
     left_join(adjustments, by = "order_id") %>%
+    left_join(promotions, by = "order_id") %>%
     left_join(product_taxons %>%
                   filter(taxon_name %>% tolower() %>% str_detect("mini|knee|petti|midi|ankle|maxi|long")
                          & !str_detect(taxon_name, " ")) %>%
@@ -497,7 +514,7 @@ products_sold <- ordered_units %>%
     filter(order_id != 32162864) %>%
     # Filter PR orders
     filter(email != "abbyv@fameandpartners.com") %>%
-    filter(adjustments_total_percentage > -0.7) %>%
+    filter(between(adjustments_total_percentage, -0.7, 1)) %>%
     filter(payments != 0) %>%
     left_join(shipping_costs, by = c("ship_year_month")) %>%
     group_by(order_id) %>%
