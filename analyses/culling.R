@@ -47,27 +47,6 @@ product_first_sale_dates <- products_sold %>%
     group_by(product_id) %>%
     summarise(first_sale_date = min(order_date))
 
-first_cull <- products_sold %>%
-    inner_join(product_first_sale_dates %>%
-                   filter(first_sale_date < (today() - 395)), 
-               by = "product_id") %>%
-    filter(order_date >= (today() - 395) & order_date < (today() - 30)) %>%
-    group_by(product_id) %>%
-    summarise(units_ordered = sum(quantity),
-              return_request_units = sum(return_requested),
-              net_return_request_units = units_ordered - return_request_units) %>%
-    filter(net_return_request_units < 10) %>%
-    rbind(no_sales_live %>%
-              filter(available_on < (today() - 395)) %>%
-              transmute(product_id, 
-                        units_ordered = 0,
-                        return_request_units = 0,
-                        net_return_request_units = 0)) %>%
-    inner_join(products %>%
-                   select(product_id, style_number, style_name),
-               by = "product_id") %>%
-    semi_join(active_products, by = "product_id")
-
 zero_units <- function(df){
     df %>%
         transmute(product_id, 
@@ -89,7 +68,7 @@ ongoing_cull <- ongoing_cull_sales %>%
     summarise(units_ordered = sum(quantity),
               return_request_units = sum(return_requested),
               net_return_request_units = units_ordered - return_request_units) %>%
-    filter(net_return_request_units < 3) %>%
+    filter(net_return_request_units <= 3) %>%
     bind_rows(list(
         no_sales_live %>%
             filter(available_on < (today() - 120)) %>%
@@ -98,7 +77,6 @@ ongoing_cull <- ongoing_cull_sales %>%
             anti_join(ongoing_cull_sales, by = "product_id") %>%
             zero_units()
         )) %>%
-    anti_join(first_cull, by = "product_id") %>%
     left_join(traffic, by = "product_id") %>%
     mutate(stake_holder = ifelse(sessions > 500, "Merchandising", "Marketing")) %>%
     inner_join(products %>%
@@ -106,19 +84,6 @@ ongoing_cull <- ongoing_cull_sales %>%
                by = "product_id")  %>%
     semi_join(active_products, by = "product_id")
 
-write_csv(first_cull, paste0(path_to_culling_dropbox, 
-                             paste0("styles/First Cull ", today(), ".csv")))
-write_csv(dress_images %>%
-              select(product_id, 
-                     attachment_width, 
-                     attachment_height, 
-                     dress_image_url) %>%
-              unique() %>%
-              semi_join(first_cull, by = "product_id"),
-          paste0(path_to_culling_dropbox, 
-                 "styles/First Cull Images ", today(), ".csv"))
-write_csv(ongoing_cull, paste0(path_to_culling_dropbox, 
-                               "styles/Endangered ", today(), ".csv"))
 write_csv(dress_images %>%
               select(product_id, 
                      attachment_width, 
