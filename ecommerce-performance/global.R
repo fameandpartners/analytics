@@ -368,7 +368,6 @@ promotions <- tbl(fp_con, sql(paste(
         "AND eligible",
         "AND adjustable_type = 'Spree::Order'",
         "AND originator_type = 'Spree::PromotionAction'",
-        "AND EXTRACT(YEAR FROM created_at) >= 2015",
     "GROUP BY order_id"))) %>%
     collect() %>%
     mutate(coupon_code = labels %>% 
@@ -446,7 +445,7 @@ products_sold <- ordered_units %>%
                   summarise(length = paste0(taxon_name[1] %>% str_trim() %>% substr(1, 1) %>% toupper(), 
                                             taxon_name[1] %>% str_trim() %>% substr(2, 10))),
               by = "product_id") %>%
-    left_join(cohort_assigments, by = "email") %>%
+    left_join(cohort_assigments %>% filter(!duplicated(email)), by = "email") %>%
     left_join(correct_shipments %>%
                   group_by(line_item_id) %>%
                   summarise(correct_ship_date = min(correct_ship_date)), 
