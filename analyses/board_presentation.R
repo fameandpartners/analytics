@@ -72,15 +72,15 @@ nps_summary <- function(df){
         filter(total_responses > 50)
 }
 # Annual
-monthly_nps_responses %>%
+annual_nps <- monthly_nps_responses %>%
     group_by(acquisition_year) %>%
     nps_summary()
 # Quarterly
-monthly_nps_responses %>%
+quarterly_nps <- monthly_nps_responses %>%
     group_by(acquisition_year, acquisition_quarter) %>%
     nps_summary()
 # Monthly
-monthly_nps_responses %>%
+monthly_nps <- monthly_nps_responses %>%
     group_by(acquisition_year, acquisition_quarter, acquisition_month) %>%
     nps_summary()
 
@@ -107,15 +107,14 @@ repeat_summary <- function(df){
 }
 
 # Annual
-products_shipped %>%
+annual_repeats <- products_shipped %>%
     repeat_filterjoin() %>%
     group_by(`Ship Year` = year(ship_date),
              New_Repeat = ifelse(order_date <= acquisition_date, 
                                  "New Customers","Repeat Customers")) %>%
     repeat_summary()
-    
 # Quarterly
-products_shipped %>%
+quarterly_repeats <- products_shipped %>%
     repeat_filterjoin() %>%
     group_by(`Ship Year` = year(ship_date),
              `Ship Quarter` = quarter(ship_date),
@@ -123,7 +122,7 @@ products_shipped %>%
                                  "New Customers","Repeat Customers")) %>%
     repeat_summary()
 # Monthly
-products_shipped %>%
+monthly_repeats <- products_shipped %>%
     repeat_filterjoin() %>%
     group_by(`Ship Year` = year(ship_date),
              `Ship Quarter` = quarter(ship_date),
@@ -131,14 +130,3 @@ products_shipped %>%
              New_Repeat = ifelse(order_date <= acquisition_date, 
                                  "New Customers","Repeat Customers")) %>%
     repeat_summary()
-# Quarterly Retention
-products_shipped %>%
-    filter(year(acquisition_date) >= 2016 & !return_requested) %>%
-    group_by(`Acquisition Year Quarter` = paste(year(acquisition_date), 
-                                                quarter(acquisition_date)),
-             ship_yq = paste(year(ship_date), quarter(ship_date))) %>%
-    summarise(Customers = n_distinct(email)) %>%
-    mutate(qtrs_since_acquisition = dense_rank(ship_yq) - 1,
-           retention = Customers / max(Customers)) %>%
-    select(-ship_yq, -Customers) %>%
-    spread(qtrs_since_acquisition, retention, fill = 0)
