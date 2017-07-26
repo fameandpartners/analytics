@@ -50,34 +50,41 @@ payment_lkp <-
 source("~/code/analytics/etl/full_global.R")
 setwd("~/data")
 
+read_paypal <- function(file_name){
+    read_csv(file_name,
+             col_types = cols(
+                 .default = col_character(),
+                 Gross = col_number(),
+                 Fee = col_number(),
+                 Net = col_number(),
+                 Balance = col_number())) %>% 
+        transmute(response_code = `Transaction ID`, 
+                  amount = Gross,
+                  date_char = Date,
+                  currency = Currency)
+}
+
+read_pin <- function(file_name){
+    read_csv(file_name,
+             col_types = cols(
+                 .default = col_character(),
+                 Amount = col_number())) %>% 
+        transmute(response_code = Reference, 
+                  amount = Amount, 
+                  date_char = Date,
+                  date = Date %>%
+                      substr(1, 10) %>%
+                      dmy(),
+                  currency = Currency)
+}
+
 all_refund_transactions <- bind_rows(
     list(
-        read_csv(
-            "~/data/paypal_aud_jan_may_refunds.csv",
-            col_types = cols(
-                .default = col_character(),
-                Gross = col_number(),
-                Fee = col_number(),
-                Net = col_number(),
-                Balance = col_number())) %>% 
-            transmute(response_code = `Transaction ID`, 
-                      amount = Gross,
-                      date_char = Date,
-                      date = dmy(Date),
-                      currency = Currency),
-        read_csv(
-            "~/data/paypal_usd_jan_may_refunds.csv",
-            col_types = cols(
-                .default = col_character(),
-                Gross = col_number(),
-                Fee = col_number(),
-                Net = col_number(),
-                Balance = col_number())) %>% 
-            transmute(response_code = `Transaction ID`, 
-                      amount = Gross, 
-                      date_char = Date,
-                      date = mdy(Date),
-                      currency = Currency),
+        read_paypal("~/data/paypal_aud_jan_may_refunds.csv") %>%
+            mutate(date = dmy(date_char)),
+        read_paypal("~/data/paypal_usd_jan_may_refunds.csv") %>%
+            mutate(date = mdy(date_char)),
+        read_pin("~/data/pin_jan_may_refunds.csv"),
         read_csv(
             "~/data/pin_jan_may_refunds.csv",
             col_types = cols(
@@ -127,7 +134,12 @@ all_refund_transactions <- bind_rows(
                       amount = `Purchase Amt`,
                       date_char = `Activity Date`,
                       date = mdy(`Activity Date`),
-                      currency = `Purchase Currency`)
+                      currency = `Purchase Currency`),
+        read_paypal("~/data/Paypal USD refunds_June 2017.csv") %>%
+            mutate(date = mdy(date_char)),
+        read_paypal("~/data/Paypal AUD refunds_June 2017.csv") %>%
+            mutate(date = dmy(date_char)),
+        read_pin("Pin refunds_June 2017.csv")
     )
 )
 
@@ -137,7 +149,18 @@ payment_lkp$response_code_source <- factor(
                "spree_payments","spree_payments_paypal")
 )
 
-orders <- products_sold %>%
+orders <- ordered_units %>%
+    left_join(o_shipments, by = "order_id") %>%
+    left_join(li_shipments, by = "line_item_id") %>%
+    left_join(correct_shipments %>%
+                  group_by(line_item_id) %>%
+                  summarise(correct_ship_date = min(correct_ship_date)), 
+              by = "line_item_id") %>%
+    left_join(returns, by = "line_item_id") %>%
+    mutate(return_order_id = ifelse(!is.na(acceptance_status), order_id, NA),
+           return_requested = !is.na(return_order_id),
+           item_returned = !is.na(refund_amount),
+           ship_date = coalesce(correct_ship_date, li_ship_date, o_ship_date)) %>%
     group_by(order_id) %>%
     summarise(refund_requested = max(return_requested),
               refund_processed = max(item_returned),
@@ -147,6 +170,7 @@ orders <- products_sold %>%
               db_refund_amount = sum(refund_amount) / 100) %>%
     mutate(estimated_ship_date = coalesce(last_ship_date, 
                                           last_order_date + 10))
+
 match1 <- all_refund_transactions %>%
     inner_join(payment_lkp, by = "response_code") %>%
     left_join(orders, by = "order_id")
@@ -184,8 +208,11 @@ all_refunds <- bind_rows(
                     match_status = "Missing from Database") 
         # Median of 45 days from order to return and 10 days to ship 
         )) %>% 
-    mutate(payment_processor = ifelse(
-        nchar(response_code) == 17, "PayPal", "Pin+Assembly")) 
+    rename(esd = estimated_ship_date) %>%
+    mutate(payment_processor = ifelse(nchar(response_code) == 17, 
+                                      "PayPal", "Pin+Assembly"),
+           estimated_ship_date = coalesce(esd, date - 45)) %>%
+    select(-esd)
 
-all_refunds %>% write_csv("~/data/returns_reconciled_2017-07-18.csv", na = "")
+all_refunds %>% write_csv("~/data/returns_reconciled_2017-07-26.csv", na = "")
     
