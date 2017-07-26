@@ -91,36 +91,46 @@ customer_aquisitions <- customer_aquisitions %>%
               group_by(email) %>%
               summarise(date = min(order_date))) %>%
     unique()
+repeat_filterjoin <- function(df){
+    df %>%
+        filter(!return_requested) %>%
+        inner_join(customer_aquisitions %>%
+                       rename(acquisition_date = date),
+                   by = "email")
+}
+repeat_summary <- function(df){
+    df %>%
+        summarise(Customers = n_distinct(email)) %>%
+        spread(New_Repeat, Customers) %>%
+        mutate(`Repeat Rate` = `Repeat Customers` 
+                             / (`New Customers` + `Repeat Customers`))
+}
+
 # Annual
 products_shipped %>%
-    filter(!return_requested) %>%
+    repeat_filterjoin() %>%
     group_by(`Ship Year` = year(ship_date),
-             New_Repeat = ifelse(order_date <= acquisition_date, "New Customers",
-                                 "Repeat Customers")) %>%
-    summarise(Customers = n_distinct(email)) %>%
-    spread(New_Repeat, Customers) %>%
-    mutate(`Repeat Rate` = `Repeat Customers` / (`New Customers` + `Repeat Customers`))
+             New_Repeat = ifelse(order_date <= acquisition_date, 
+                                 "New Customers","Repeat Customers")) %>%
+    repeat_summary()
+    
 # Quarterly
 products_shipped %>%
-    filter(!return_requested) %>%
+    repeat_filterjoin() %>%
     group_by(`Ship Year` = year(ship_date),
              `Ship Quarter` = quarter(ship_date),
-             New_Repeat = ifelse(order_date <= acquisition_date, "New Customers",
-                                 "Repeat Customers")) %>%
-    summarise(Customers = n_distinct(email)) %>%
-    spread(New_Repeat, Customers) %>%
-    mutate(`Repeat Rate` = `Repeat Customers` / (`New Customers` + `Repeat Customers`))
+             New_Repeat = ifelse(order_date <= acquisition_date, 
+                                 "New Customers","Repeat Customers")) %>%
+    repeat_summary()
 # Monthly
 products_shipped %>%
-    filter(!return_requested) %>%
+    repeat_filterjoin() %>%
     group_by(`Ship Year` = year(ship_date),
              `Ship Quarter` = quarter(ship_date),
              `Ship Month` = month(ship_date),
-             New_Repeat = ifelse(order_date <= acquisition_date, "New Customers",
-                                 "Repeat Customers")) %>%
-    summarise(Customers = n_distinct(email)) %>%
-    spread(New_Repeat, Customers) %>%
-    mutate(`Repeat Rate` = `Repeat Customers` / (`New Customers` + `Repeat Customers`))
+             New_Repeat = ifelse(order_date <= acquisition_date, 
+                                 "New Customers","Repeat Customers")) %>%
+    repeat_summary()
 # Quarterly Retention
 products_shipped %>%
     filter(year(acquisition_date) >= 2016 & !return_requested) %>%
