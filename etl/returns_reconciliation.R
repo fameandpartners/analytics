@@ -212,7 +212,16 @@ all_refunds <- bind_rows(
     mutate(payment_processor = ifelse(nchar(response_code) == 17, 
                                       "PayPal", "Pin+Assembly"),
            estimated_ship_date = coalesce(esd, date - 45)) %>%
-    select(-esd)
+    select(-esd) %>%
+    unique()
 
 all_refunds %>% write_csv("~/data/returns_reconciled_2017-07-26.csv", na = "")
+all_refunds %>%
+    mutate(amount_usd = ifelse(currency == "AUD", abs(amount) * 0.75, abs(amount))) %>%
+    group_by(ship_year = year(estimated_ship_date),
+             ship_quarter = quarter(estimated_ship_date),
+             ship_month = month(estimated_ship_date)) %>%
+    summarise(adjusted_returns = sum(amount_usd)) %>%
+    filter(ship_year >= 2017) %>%
+    write_csv("~/code/analytics/ecommerce-performance/static-data/reconciled_returns.csv")
     
