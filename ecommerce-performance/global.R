@@ -271,7 +271,11 @@ products <- tbl(fp_con, sql(paste(
         "WHERE is_master",
         "GROUP BY product_id",
     ") g ON g.product_id = p.id"))) %>%
-    collect()
+    collect() %>%
+    mutate(product_live = ifelse(!hidden 
+                                 & (is.na(deleted_at) | deleted_at > today()) 
+                                 & (available_on <= today()),
+                                 "Yes", "No"))
 
 # ---- ADDRESSES ----
 addresses <- tbl(fp_con, sql(paste(
@@ -473,10 +477,6 @@ products_sold <- ordered_units %>%
            height = paste0(substr(lip_height, 1, 1) %>% toupper(), substr(lip_height, 2, 250)),
            size = coalesce(g_size, lip_size),
            return_order_id = ifelse(!is.na(acceptance_status), order_id, NA),
-           product_live = ifelse(!hidden 
-                                 & (is.na(deleted_at) | deleted_at > today()) 
-                                 & (available_on <= today()),
-                                 "Yes", "No"),
            is_shipped = !is.na(ship_date),
            return_requested = !is.na(return_order_id),
            item_returned = !is.na(refund_amount),
@@ -513,6 +513,8 @@ products_sold <- ordered_units %>%
     filter(order_id != 32162864) %>%
     # Filter PR orders
     filter(email != "abbyv@fameandpartners.com") %>%
+    # Filter out reggie's test order for Stripe
+    filter(order_number != "R028450713") %>%
     filter(between(adjustments_total_percentage, -0.7, 1)) %>%
     filter(payments != 0) %>%
     left_join(shipping_costs, by = c("ship_year_month")) %>%
@@ -543,6 +545,10 @@ products_sold$height <- factor(
 monthly_budget_2017 <- read_csv("static-data/direct_2017_monthly_budget.csv",
                                 col_types = "iddddddddddddddd")
 
+returns_reconciled <- read_csv("static-data/reconciled_returns.csv",
+                               col_types = cols(.default = col_number())) %>%
+    filter(ship_month <= 4)
+
 monthly_actuals_2017 <- products_sold %>%
     filter(is_shipped & order_state != "canceled" & year(ship_date) >= 2016) %>%
     group_by(ship_year = year(ship_date),
@@ -553,15 +559,20 @@ monthly_actuals_2017 <- products_sold %>%
               cogs = sum(coalesce(manufacturing_cost, 70))
                     + sum(li_shipping_cost)
                     + sum(payment_processing_cost),
-              returns = sum(coalesce(refund_amount_usd, 0)),
+              spree_returns = sum(coalesce(refund_amount_usd, 0)),
               total_adjustments = sum(adjustments_usd)) %>%
+    left_join(returns_reconciled %>% select(-ship_quarter),
+              by = c("ship_year","ship_month")) %>%
+    #mutate(returns = coalesce(adjusted_returns, spree_returns)) %>%
+    mutate(returns = spree_returns) %>%
     mutate(average_selling_price = gross_revenue / units_shipped,
            average_unit_cogs = cogs / units_shipped,
            return_rate = returns / gross_revenue,
            gross_margin = (gross_revenue + total_adjustments - cogs - returns)
                         / (gross_revenue + total_adjustments - returns),
            returns_per_unit = returns / units_shipped,
-           average_discount = abs(total_adjustments) / gross_revenue)
+           average_discount = abs(total_adjustments) / gross_revenue) %>%
+    select(-spree_returns, -adjusted_returns)
 # NOTES:
 # 98% of returns are processed within 90 days
 # less_than_90_days n `n/sum(n)`
