@@ -1,6 +1,6 @@
 # Use Python 3
 # Example args:
-# 'First Cull Images 2017-06-07.csv' 'First_Cull_Images.hmlt'
+# 'First Cull Images 2017-06-07.csv' 'First_Cull_Images.html'
 from sys import argv
 
 script, source_data, html_file = argv
