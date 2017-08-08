@@ -34,12 +34,22 @@ wholesale <- read_csv(paste0(data_folder, "wholesale/wholesale_revenue.csv"),
         by = "month_abbr") %>%
     select(-month_abbr)
 
+plan <- read_csv(paste0(data_folder, "finance/financial_model_2017-08.csv"),
+                 col_types = cols(.default = col_character())) %>%
+    gather(month_name, month_value, -Metric) %>%
+    spread(Metric, month_value) %>%
+    select(-month_name) %>%
+    mutate(Year = `Year Month` %>% as.Date() %>% year(),
+           Month = `Year Month` %>% as.Date() %>% month(),
+           `Month Name` = `Year Month` %>% as.Date() %>% month(label = T)) %>%
+    arrange(as.Date(`Year Month`))
+
 # Marketing
 # Monthly
 monthly_marketing <- data_frame(
-    `Marketing Spend` = c(78749.1737971831,69829.4937352113,325853.681397183,
-              408186.17028169,251748.655515493,60422.3189521127,
-              35733.1414129941),
+    `Marketing Spend` = c(
+        78749.1737971831,69829.4937352113,325853.681397183,408186.17028169,
+        251748.655515493,60422.3189521127,35733.1414129941),
     Month = 1:7,
     Year = 2017)
 # Annual
@@ -265,7 +275,19 @@ monthly_kpis <- monthly_direct %>%
     left_join(monthly_marketing, by = c("Year","Month")) %>%
     contribution_margin()
 # Cohort
-cohort_kpis <- cohort_direct
+cohort_direct$assigned_cohort <- as.character(cohort_direct$assigned_cohort)
+cohort_kpis <- cohort_direct %>%
+    left_join(plan %>% 
+                  select(Year, Month, contains("Gross Revenue Retail")) %>%
+                  gather(metric_name, metric_value, -Year, -Month)%>%
+                  filter(Year == year(today())) %>%
+                  mutate(assigned_cohort = ifelse(
+                      str_detect(metric_name, "Bridal|Bridesmaid"), "Bridal",
+                      ifelse(str_detect(metric_name, "Contem"), "Contemporary",
+                             ifelse(str_detect(metric_name, "Prom"), "Prom", NA)))) %>%
+                  group_by(assigned_cohort) %>%
+                  summarise(gross_revenue_plan = sum(as.numeric(metric_value))),
+              by = "assigned_cohort")
 
 # ---- WRITE TO CSV ----
 board_folder <- "~/Dropbox (Team Fame)/data/board/"
@@ -273,6 +295,6 @@ write_csv(annual_kpis, paste0(board_folder, "annual_kpis.csv"), na = "")
 write_csv(quarterly_kpis, paste0(board_folder, "quarterly_kpis.csv"), na = "")
 write_csv(monthly_kpis, paste0(board_folder, "monthly_kpis.csv"), na = "")
 write_csv(cohort_kpis, paste0(board_folder, "cohort_kpis.csv"), na = "")
-write_csv(wholesale, paste0(board_folder, "wholesale_monthly_accounts.csv", na = ""))
+write_csv(wholesale, paste0(board_folder, "wholesale_monthly_accounts.csv"), na = "")
+write_csv(plan, paste0(board_folder, "plan.csv"), na = "")
 
-# ---- VISUALIZATIONS ---
