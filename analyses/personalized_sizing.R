@@ -136,17 +136,29 @@ products %>%
            & (available_on <= today()))
 
 # Personalized sizing survey data
-size_survey <- read_csv("~/data/20170725181224-SurveyExport.csv")
+size_survey <- read_csv("~/data/20170725181224-SurveyExport.csv") %>%
+    mutate(fit = `What percentage of the clothes in your wardrobe fit you well`,
+           love = `What percentage of the clothes in your wardrobe do you love?`,
+           size = `Dress Size Type 1:What's your typical dress clothing size?` %>%
+               str_extract_all("[0-9]+") %>% 
+               as.numeric())
 
-fit_love <- size_survey %>%
-    transmute(fit = `What percentage of the clothes in your wardrobe fit you well`,
-              love = `What percentage of the clothes in your wardrobe do you love?`)
-
-fit_love %>%
+size_survey %>%
     ggplot(aes(fit, love)) +
     geom_point() +
-    geom_smooth(method = "lm")
+    geom_smooth(method = "lm", level = 0)
 
-fl_model <- lm(data = fit_love, love~fit)
+fl_model <- lm(data = size_survey, love~fit)
 summary(fl_model)
-cor(fit_love$fit, fit_love$love)
+cor(size_survey$fit, size_survey$love)
+
+
+fit_size <- size_survey %>% filter(!is.na(size))
+
+fit_size %>%
+    ggplot(aes(size)) +
+    geom_histogram(binwidth = 2)
+
+products_sold %>%
+    ggplot(aes(us_size)) +
+    geom_histogram(binwidth = 2)
