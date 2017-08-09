@@ -563,8 +563,7 @@ monthly_actuals_2017 <- products_sold %>%
               total_adjustments = sum(adjustments_usd)) %>%
     left_join(returns_reconciled %>% select(-ship_quarter),
               by = c("ship_year","ship_month")) %>%
-    #mutate(returns = coalesce(adjusted_returns, spree_returns)) %>%
-    mutate(returns = spree_returns) %>%
+    mutate(returns = coalesce(adjusted_returns, spree_returns)) %>%
     mutate(average_selling_price = gross_revenue / units_shipped,
            average_unit_cogs = cogs / units_shipped,
            return_rate = returns / gross_revenue,
