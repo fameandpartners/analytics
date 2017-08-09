@@ -162,3 +162,27 @@ fit_size %>%
 products_sold %>%
     ggplot(aes(us_size)) +
     geom_histogram(binwidth = 2)
+
+height_lengths <- read_csv("~/data/sales data chart - monica.csv")
+
+height_lengths$long_pval <- height_lengths %>%
+    select(`Units too Long`, Units) %>%
+    apply(1, function(x){
+        binom.test(x[1], x[2], 
+                   p = sum(height_lengths$`Units too Long`) / sum(height_lengths$Units), 
+                   "t")$p.value
+    })
+
+height_lengths$short_pval <- height_lengths %>%
+    select(`Units too Short`, Units) %>%
+    apply(1, function(x){
+        binom.test(x[1], x[2], 
+                   p = sum(height_lengths$`Units too Short`) / sum(height_lengths$Units), 
+                   "t")$p.value
+    })
+
+height_lengths %>%
+    filter((long_pval < 0.05 & `% too Long` > 0.03247294) | 
+               (short_pval < 0.05 & `% too Short` > 0.01686095)
+    )
+
