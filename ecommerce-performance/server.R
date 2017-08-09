@@ -602,20 +602,36 @@ shinyServer(function(input, output) {
             filter(!is.na(height) & !is.na(length)) %>%
             group_by(Height = height, Length = length) %>%
             summarise(Revenue = sum(gross_revenue_usd),
-                      `Returns Requested` = sum(gross_revenue_usd * return_requested),
-                      Returns = sum(coalesce(refund_amount_usd, 0))) %>%
+                      Units = sum(quantity),
+                      `Units too Long` = sum(coalesce(
+                          as.numeric(quantity * (reason_sub_category == "Dress was too long")),
+                          0
+                      )),
+                      `Units too Short` = sum(coalesce(
+                          as.numeric(quantity * (reason_sub_category == "Dress was too short")),
+                          0
+                      )),
+                      `Return Request Rate` = sum(gross_revenue_usd * return_requested) / sum(gross_revenue_usd)) %>%
             ungroup() %>%
-            mutate(`Return Request Rate` = `Returns Requested` / Revenue,
-                   `Return Rate` = Returns / Revenue) 
+            mutate(`% too Long` = `Units too Long` / Units,
+                   `% too Short` = `Units too Short` / Units)
     })
     
     output$height_length_return_rate <- renderDataTable({
         height_length_return_rate_data() %>%
             datatable(class = "hover row-border", style = "bootstrap", 
                       rownames = FALSE, selection = "none") %>%
-            formatPercentage(c("Return Request Rate","Return Rate")) %>%
-            formatCurrency(c("Revenue","Returns Requested","Returns"))
+            formatPercentage(c("Return Request Rate","% too Long","% too Short")) %>%
+            formatCurrency(c("Revenue")) %>%
+            formatCurrency(currency = "", 
+                           c("Units","Units too Long","Units too Short"), 
+                           digits = 0)
     })
+    
+    output$height_length_return_rate_down <- downloadHandler(
+        filename = function() {paste0("Return Rates by Height and Length ", today(), ".csv")},
+        content = function(file) {write_csv(height_length_return_rate_data(), file, na = "")}
+    )
     
     # ---- Returns Export ----
     
