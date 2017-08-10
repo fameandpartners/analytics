@@ -2,6 +2,7 @@ library(readr)
 library(dplyr)
 library(stringr)
 library(tidyr)
+library(lubridate)
 
 path_to_marketing_dropbox <- "/Users/Peter 1/Dropbox (Team Fame)/data/marketing/"
 
