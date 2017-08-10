@@ -139,9 +139,8 @@ all_refund_transactions <- bind_rows(
             mutate(date = mdy(date_char)),
         read_paypal("~/data/Paypal AUD refunds_June 2017.csv") %>%
             mutate(date = dmy(date_char)),
-        read_pin("Pin refunds_June 2017.csv")
-    )
-)
+        read_pin("~/data/Pin refunds_June 2017.csv"))) %>%
+    filter(!duplicated(response_code))
 
 payment_lkp$response_code_source <- factor(
     payment_lkp$response_code_source,
@@ -181,7 +180,10 @@ matched_refunds <- bind_rows(
              anti_join(match1, by = "response_code") %>%
              rename(response_code_dirty = response_code) %>%
              mutate(response_code = substr(response_code_dirty, 1, 24)) %>%
-             inner_join(payment_lkp, by = "response_code") %>%
+             inner_join(payment_lkp %>%
+                            rename(rc = response_code) %>%
+                            mutate(response_code = substr(rc, 1, 24)), 
+                        by = "response_code") %>%
              left_join(orders, by = "order_id") %>%
              select(-response_code) %>%
              rename(response_code = response_code_dirty))) %>%
