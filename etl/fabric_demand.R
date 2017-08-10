@@ -54,4 +54,44 @@ cleaned_fabrics <- fabrics %>%
                             original_fabric_description = fabric_description),
               by = "product_id")
 
+live_fabrics <- cleaned_fabrics %>%
+    inner_join(products, by = "product_id") %>%
+    filter(product_live == "Yes")
+
+data_frame(
+    fabric = c(
+        str_split(live_fabrics$main, ": ") %>%
+            lapply(function(x) x[2]) %>% 
+            unlist(),
+        str_split(live_fabrics$lining_1, ": ") %>%
+            lapply(function(x) x[2]) %>% 
+            unlist(),
+        str_split(live_fabrics$lining_2, ": ") %>%
+            lapply(function(x) x[2]) %>% 
+            unlist(),
+        str_split(live_fabrics$contrast_1, ": ") %>%
+            lapply(function(x) x[2]) %>% 
+            unlist(),
+        str_split(live_fabrics$contrast_2, ": ") %>%
+            lapply(function(x) x[2]) %>% 
+            unlist(),
+        str_split(live_fabrics$contrast_3, ": ") %>%
+            lapply(function(x) x[2]) %>% 
+            unlist(),
+        str_split(live_fabrics$trim, ": ") %>%
+            lapply(function(x) x[2]) %>% 
+            unlist())) %>%
+    filter(!is.na(fabric)) %>%
+    count(fabric) %>%
+    write_csv("~/data/fabric_dist.csv")
+
 write_csv(cleaned_fabrics, "~/data/cleaned_fabrics.csv", na = "")
+
+# ---- Forecasting ----
+
+# Main forecasts
+products_sold %>%
+    inner_join(cleaned_fabrics %>%
+                   select(product_id, main), 
+               by = "product_id")
+
