@@ -346,8 +346,7 @@ returns <- tbl(fp_con, "item_returns") %>%
 payments <- tbl(fp_con, sql(paste(
     "SELECT order_id, amount p_amount",
     "FROM spree_payments",
-    "WHERE state = 'completed'",
-    "AND created_at >= '2015-12-01'"))) %>%
+    "WHERE state = 'completed'"))) %>%
     collect() %>%
     group_by(order_id) %>%
     summarise(order_payments = n(),
@@ -514,7 +513,7 @@ products_sold <- ordered_units %>%
     # Filter out reggie's test order for Stripe
     filter(order_number != "R028450713") %>%
     filter(between(adjustments_total_percentage, -0.7, 1)) %>%
-    filter(payments != 0) %>%
+    #filter(payments != 0) %>%
     left_join(shipping_costs, by = c("ship_year_month")) %>%
     group_by(order_id) %>%
     mutate(li_shipping_cost = coalesce(avg_order_shipping_cost / n(),
