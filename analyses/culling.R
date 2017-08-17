@@ -55,8 +55,8 @@ zero_units <- function(df){
                   net_return_request_units = 0)
 }
 
-ongoing_cull_styles <- product_first_sale_dates %>%
-    filter(first_sale_date < (today() - 120))# %>%
+ongoing_cull_styles <- product_first_sale_dates# %>%
+    #filter(first_sale_date < (today() - 120))# %>%
     #anti_join(first_cull, by = "product_id")
 
 ongoing_cull_sales <- products_sold %>%
