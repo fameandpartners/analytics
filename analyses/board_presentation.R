@@ -32,10 +32,16 @@ ship_month_returns <- returns_reconciled %>%
 order_month_returns <- read_csv(paste0(data_folder, "finance/returns_reconciled_2017-07-26.csv")) %>%
     mutate(estimated_order_date = coalesce(last_order_date, date - 30),
            amount_usd = ifelse(currency == "AUD", abs(amount) * 0.74, abs(amount))) %>%
+    left_join(products_sold %>%
+                  mutate(cogs = coalesce(manufacturing_cost, 70)+ li_shipping_cost + payment_processing_cost) %>%
+                  group_by(order_id) %>%
+                  summarise(cogs = sum(cogs)),
+              by = "order_id") %>%
     group_by(order_year = year(estimated_order_date),
              order_quarter = quarter(estimated_order_date),
              order_month = month(estimated_order_date)) %>%
-    summarise(adjusted_returns = sum(amount_usd)) %>%
+    summarise(adjusted_returns = sum(amount_usd),
+              inventory_returns = sum(coalesce(cogs, 0))) %>%
     filter(order_year >= 2017 & order_month <= 4) %>%
     rename(returns = adjusted_returns) %>%
     ungroup() %>%
@@ -43,7 +49,9 @@ order_month_returns <- read_csv(paste0(data_folder, "finance/returns_reconciled_
               group_by(order_year = year(order_date),
                        order_quarter = quarter(order_date),
                        order_month = month(order_date)) %>%
-              summarise(returns = sum(return_requested * sales_usd * 0.9)) %>%
+              mutate(cogs = coalesce(manufacturing_cost, 70)+ li_shipping_cost + payment_processing_cost) %>%
+              summarise(returns = sum(return_requested * sales_usd * 0.9),
+                        inventory_returns = sum(return_requested * cogs * 0.9)) %>%
               ungroup() %>%
               filter(order_year >= 2017 & order_month %in% c(5,6)))
 
@@ -111,12 +119,13 @@ monthly_direct <- products_shipped %>%
 # Marketing
 contribution_margin <- function(df){
     df %>%
-        mutate(`Contribution Margin` = (net_sales - returns - cogs - `Marketing Spend`) / (net_sales - returns),
+        mutate(`Contribution Margin` = (net_sales - returns + inventory_returns - cogs - `Marketing Spend`) / (net_sales - returns),
                CAC = `Marketing Spend` / orders)
 }
 # Monthly
 monthly_marketing <- data_frame(
-    `Marketing Spend` = c(78749,69829,325853,408186,251749,60422,43566,26000),
+    # Total marketing expenses
+    `Marketing Spend` = c(164993,182330,417584,555331,322961,147465,114354,87488),
     Month = 1:8,
     Year = 2017) %>%
     left_join(products_sold %>%
@@ -125,11 +134,18 @@ monthly_marketing <- data_frame(
                   inner_join(order_month_returns %>% 
                                  transmute(Year = order_year,
                                            Month = order_month,
+                                           inventory_returns,
                                            returns),
                              by = c("Year","Month")),
               by = c("Year", "Month")) %>%
-    contribution_margin() %>%
-    transmute(Year, Month, `Marketing Spend`, CAC, `Contribution Margin`)
+    contribution_margin()%>%
+    select(Year, Month, returns, inventory_returns, `Marketing Spend`, `CAC`, `Contribution Margin`)
+
+monthly_direct_demand <- products_sold %>%
+    group_by(order_year = year(order_date), order_month = month(order_date)) %>%
+    finance_summary() %>%
+    rename(Year = order_year, Month = order_month) %>%
+    left_join(monthly_marketing, by = c("Year","Month"))
 
 # Annual
 annual_marketing <- monthly_marketing %>%
@@ -162,11 +178,17 @@ quarterly_marketing <- monthly_marketing %>%
     contribution_margin() %>%
     select(Year, Quarter, `Marketing Spend`, `Contribution Margin`, CAC)
 
-# Monthly by Cohort
+# Cohort
 cohort_direct <- products_shipped %>%
     filter(!is.na(assigned_cohort) & assigned_cohort != "Not Assigned") %>%
     group_by(assigned_cohort) %>%
     finance_summary() 
+
+quarterly_cohorts <- products_shipped %>%
+    group_by(order_year_qtr = paste(year(ship_date), quarter(ship_date)), assigned_cohort) %>%
+    summarise(gross_revenue = sum(gross_revenue_usd)) %>%
+    filter(!is.na(assigned_cohort)) %>%
+    spread(assigned_cohort, gross_revenue, fill = 0) 
 
 # NPS
 nps_sales <- nps %>%
@@ -257,6 +279,13 @@ monthly_repeats <- products_shipped %>%
     group_by(`Ship Year` = year(ship_date),
              `Ship Month` = month(ship_date),
              New_Repeat) %>%
+    repeat_summary()
+# Monthly by Cohort
+monthly_cohort_repeats <- products_shipped %>%
+    repeat_filterjoin() %>%
+    group_by(`Ship Year` = year(ship_date),
+             `Ship Month` = month(ship_date),
+             New_Repeat, assigned_cohort) %>%
     repeat_summary()
 
 # ---- MERGE KPIs by Year, Quarter and Month ----
@@ -354,6 +383,21 @@ style_sales_distribution_2017 <- products_sold_2017 %>%
     mutate(percent_of_total_units = total_net_return_units / sum(total_net_return_units)) %>%
     arrange(desc(total_net_return_units))
 
+monthly_style_sales_distribution_2017 <- products_sold_2017 %>%
+    group_by(order_year_month, product_id) %>%
+    summarise(units_ordered = sum(quantity),
+              return_request_units = sum(return_requested),
+              net_return_request_units = units_ordered - return_request_units) %>%
+    mutate(quintile = ntile(net_return_request_units, 5)) %>%
+    group_by(order_year_month, quintile) %>%
+    summarise(products = n_distinct(product_id),
+              total_net_return_units = sum(net_return_request_units)) %>%
+    mutate(percent_of_total_units = total_net_return_units / sum(total_net_return_units)) %>%
+    select(order_year_month, quintile, percent_of_total_units) %>%
+    spread(quintile, percent_of_total_units) %>%
+    rename(`Top 20%` = `5`, `60% to 80%` = `4`, `40% to 60%` = `3`,
+           `20% to 40%` = `2`, `Bottom 20%` = `1`)
+
 # ---- Customization Rate Trend ----
 weekly_customization_rates <- products_sold %>%
     mutate(order_year_week = paste(year(order_date), 
@@ -371,5 +415,8 @@ write_csv(quarterly_kpis, paste0(board_folder, "quarterly_kpis.csv"), na = "")
 write_csv(monthly_kpis, paste0(board_folder, "monthly_kpis.csv"), na = "")
 write_csv(cohort_kpis, paste0(board_folder, "cohort_kpis.csv"), na = "")
 write_csv(plan, paste0(board_folder, "plan.csv"), na = "")
-write_csv(weekly_customization_rates, paste(board_folder, "weekly_customizations.csv"), na = "")
-write_csv(style_sales_distribution_2017, paste(board_folder, "style_sales_distribution_2017.csv"), na = "")
+write_csv(weekly_customization_rates, paste0(board_folder, "weekly_customizations.csv"), na = "")
+write_csv(style_sales_distribution_2017, paste0(board_folder, "style_sales_distribution_2017.csv"), na = "")
+write_csv(monthly_direct_demand, paste0(board_folder, "monthly_direct_demand.csv"),na = "")
+write_csv(monthly_style_sales_distribution_2017, paste0(board_folder, "monthly_style_sales_distribution_2017.csv", na=""))
+write_csv(quarterly_cohorts, paste0(board_folder, "quarterly_cohorts.csv"), na="")
