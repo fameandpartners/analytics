@@ -156,11 +156,12 @@ annual_marketing <- monthly_marketing %>%
                   finance_summary() %>%
                   inner_join(order_month_returns %>%
                                  group_by(Year = order_year) %>%
-                                 summarise(returns = sum(returns)),
+                                 summarise(returns = sum(returns),
+                                           inventory_returns = sum(inventory_returns)),
                              by = "Year"),
               by = "Year") %>%
-    contribution_margin() %>%
-    select(Year, `Marketing Spend`, `Contribution Margin`, CAC)
+    contribution_margin()%>%
+    select(Year, returns, inventory_returns, `Marketing Spend`, `CAC`, `Contribution Margin`)
 
 # Quarterly
 quarterly_marketing <- monthly_marketing %>%
@@ -172,17 +173,26 @@ quarterly_marketing <- monthly_marketing %>%
                   inner_join(order_month_returns %>%
                                  group_by(Year = order_year,
                                           Quarter = order_quarter) %>%
-                                 summarise(returns = sum(returns)),
+                                 summarise(returns = sum(returns),
+                                           inventory_returns = sum(inventory_returns)),
                              by = c("Year","Quarter")),
               by = c("Year","Quarter")) %>%
-    contribution_margin() %>%
-    select(Year, Quarter, `Marketing Spend`, `Contribution Margin`, CAC)
-
+    contribution_margin()%>%
+    select(Year, Quarter, returns, inventory_returns, `Marketing Spend`, `CAC`, `Contribution Margin`)
 # Cohort
 cohort_direct <- products_shipped %>%
+    filter(year(order_date) == 2017) %>%
     filter(!is.na(assigned_cohort) & assigned_cohort != "Not Assigned") %>%
     group_by(assigned_cohort) %>%
-    finance_summary() 
+    summarise(gross_revenue = sum(gross_revenue_usd),
+              net_sales = sum(sales_usd),
+              units_shipped = sum(quantity),
+              cogs = sum(coalesce(manufacturing_cost, 70))
+              + sum(li_shipping_cost)
+              + sum(payment_processing_cost),
+              total_adjustments = sum(adjustments_usd),
+              orders = n_distinct(order_id),
+              returns = sum(coalesce(refund_amount_usd, return_requested * sales_usd * 0.3)))
 
 quarterly_cohorts <- products_shipped %>%
     group_by(order_year_qtr = paste(year(ship_date), quarter(ship_date)), assigned_cohort) %>%
@@ -321,7 +331,7 @@ monthly_kpis <- monthly_direct %>%
 cohort_direct$assigned_cohort <- as.character(cohort_direct$assigned_cohort)
 cohort_assignments$assigned_cohort <- as.character(cohort_assignments$assigned_cohort)
 products_shipped$assigned_cohort <- as.character(products_shipped$assigned_cohort)
-cohort_kpis <- cohort_direct %>%
+cohort_kpis <- cohort_direct 
     left_join(plan %>% 
                   select(Year, Month, contains("Gross Revenue Retail")) %>%
                   gather(metric_name, metric_value, -Year, -Month)%>%
