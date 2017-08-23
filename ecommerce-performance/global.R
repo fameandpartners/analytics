@@ -527,7 +527,7 @@ products_sold <- ordered_units %>%
     mutate(li_shipping_cost0 = coalesce(avg_order_shipping_cost / n(),
                                        median(shipping_costs$avg_order_shipping_cost) / n()),
            li_shipping_cost = ifelse(return_requested, li_shipping_cost0 + 5, li_shipping_cost0),
-           packaging_cost = 3,
+           packaging_cost = 2.5,
            units_in_order = n()) %>%
     ungroup() %>%
     left_join(dress_images, by = "product_id")
@@ -565,7 +565,8 @@ monthly_actuals_2017 <- products_sold %>%
               units_shipped = sum(quantity),
               cogs = sum(coalesce(manufacturing_cost, 70))
                     + sum(li_shipping_cost)
-                    + sum(payment_processing_cost),
+                    + sum(payment_processing_cost)
+                    + sum(packaging_cost),
               spree_returns = sum(coalesce(refund_amount_usd, 0)),
               total_adjustments = sum(adjustments_usd)) %>%
     left_join(returns_reconciled %>% select(-ship_quarter),
