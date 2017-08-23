@@ -102,7 +102,7 @@ all_touches <- read_csv("static-data/all_touches.csv",
     rename(sales_usd = revenue_usd)
 
 # ---- CUSTOMER ACQUISITIONS ----
-customer_aquisitions <- read_csv("static-data/customer_aquisitions.csv",
+customer_acquisitions <- read_csv("static-data/customer_acquisitions.csv",
                                  col_types = cols(
                                      email = col_character(),
                                      date = col_date(format = "")))
@@ -163,7 +163,7 @@ ga_fb <- read_csv("static-data/ga_fb.csv",
     mutate(creative = coalesce(ad_images, creative_no_image))
 
 # ---- COHORTS ----
-cohort_assigments <- all_touches %>%
+cohort_assignments <- all_touches %>%
     transmute(email, assigned_cohort = cohort) %>%
     unique()
 
@@ -336,9 +336,18 @@ correct_shipments$line_item_id <- as.integer(correct_shipments$line_item_id)
 # ---- RETURNS ----
 returns <- tbl(fp_con, "item_returns") %>%
     select(requested_at, refunded_at, line_item_id, refund_amount, comments,
-           reason_category, reason_sub_category, acceptance_status, factory_fault) %>%
+           reason_category, reason_sub_category, acceptance_status, 
+           factory_fault, factory_fault_reason, uuid) %>%
+    rename(item_return_uuid = uuid) %>%
     rename(return_comments = comments) %>%
     filter(line_item_id %in% ordered_units$line_item_id) %>%
+    collect()
+
+return_events <- tbl(fp_con, sql(paste(
+    "SELECT item_return_uuid, STRING_AGG(DISTINCT TRIM(SPLIT_PART(SPLIT_PART(ire.data, '@', 1), 'user:', 2)), ' and ') return_processed_by",
+    "FROM item_return_events ire",
+    "WHERE ire.event_type = 'receive_item'",
+    "GROUP BY item_return_uuid"))) %>%
     collect()
 
 # ---- PAYMENTS ----
@@ -440,6 +449,7 @@ products_sold <- ordered_units %>%
     left_join(o_shipments, by = "order_id") %>%
     left_join(li_shipments, by = "line_item_id") %>%
     left_join(returns, by = "line_item_id") %>%
+    left_join(return_events, by = "item_return_uuid") %>%
     left_join(payments, by = "order_id") %>%
     left_join(adjustments, by = "order_id") %>%
     left_join(promotions, by = "order_id") %>%
@@ -450,20 +460,12 @@ products_sold <- ordered_units %>%
                   summarise(length = paste0(taxon_name[1] %>% str_trim() %>% substr(1, 1) %>% toupper(), 
                                             taxon_name[1] %>% str_trim() %>% substr(2, 10))),
               by = "product_id") %>%
-    left_join(cohort_assigments %>% filter(!duplicated(email)), by = "email") %>%
+    left_join(cohort_assignments %>% filter(!duplicated(email)), by = "email") %>%
     left_join(correct_shipments %>%
                   group_by(line_item_id) %>%
                   summarise(correct_ship_date = min(correct_ship_date)), 
               by = "line_item_id") %>%
     left_join(slow_fast_items, by = "line_item_id") %>%
-    left_join(customer_aquisitions %>%
-                  group_by(email) %>%
-                  summarise(acquisition_date = min(date)) %>%
-                  rbind(ordered_units %>%
-                            anti_join(customer_aquisitions, by = "email") %>%
-                            group_by(email) %>%
-                            summarise(acquisition_date = min(order_date))),
-              by = "email") %>%
     group_by(order_id) %>%
     mutate(payments = coalesce(order_payments / n(), 0),
            item_total_usd = item_total * conversion_rate,
@@ -497,8 +499,7 @@ products_sold <- ordered_units %>%
            ship_year_month = year_month(estimated_ship_date),
            order_year_month = year_month(order_date),
            payment_processing_cost = (sales_usd * 0.029) + 0.3,
-           physically_customized = ifelse(is.na(customized), 0, customized),
-           repeat_purchase = order_date > acquisition_date) %>%
+           physically_customized = ifelse(is.na(customized), 0, customized)) %>%
     left_join(collections %>%
                   group_by(product_id) %>%
                   summarise(collection_na = paste(unique(collection_na), collapse = ", ")),
@@ -523,8 +524,10 @@ products_sold <- ordered_units %>%
     filter(payments != 0) %>%
     left_join(shipping_costs, by = c("ship_year_month")) %>%
     group_by(order_id) %>%
-    mutate(li_shipping_cost = coalesce(avg_order_shipping_cost / n(),
+    mutate(li_shipping_cost0 = coalesce(avg_order_shipping_cost / n(),
                                        median(shipping_costs$avg_order_shipping_cost) / n()),
+           li_shipping_cost = ifelse(return_requested, li_shipping_cost0 + 5, li_shipping_cost0),
+           packaging_cost = 3,
            units_in_order = n()) %>%
     ungroup() %>%
     left_join(dress_images, by = "product_id")
