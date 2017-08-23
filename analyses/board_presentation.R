@@ -1,6 +1,3 @@
-library(dplyr)
-library(stringr)
-
 # ---- QUERY DATA ----
 setwd("~/code/analytics/ecommerce-performance")
 source("~/code/analytics/ecommerce-performance/global.R")
@@ -180,7 +177,7 @@ quarterly_marketing <- monthly_marketing %>%
     contribution_margin()%>%
     select(Year, Quarter, returns, inventory_returns, `Marketing Spend`, `CAC`, `Contribution Margin`)
 # Cohort
-cohort_direct <- products_shipped %>%
+cohort_direct <- products_sold %>%
     filter(year(order_date) == 2017) %>%
     filter(!is.na(assigned_cohort) & assigned_cohort != "Not Assigned") %>%
     group_by(assigned_cohort) %>%
@@ -192,7 +189,8 @@ cohort_direct <- products_shipped %>%
               + sum(payment_processing_cost),
               total_adjustments = sum(adjustments_usd),
               orders = n_distinct(order_id),
-              returns = sum(coalesce(refund_amount_usd, return_requested * sales_usd * 0.3)))
+              returns = sum(coalesce(refund_amount_usd, return_requested * sales_usd * 0.3)),
+              inventory_returns = sum(coalesce(manufacturing_cost, 70) * !is.na(refund_amount_usd)))
 
 quarterly_cohorts <- products_shipped %>%
     group_by(order_year_qtr = paste(year(ship_date), quarter(ship_date)), assigned_cohort) %>%
@@ -331,7 +329,7 @@ monthly_kpis <- monthly_direct %>%
 cohort_direct$assigned_cohort <- as.character(cohort_direct$assigned_cohort)
 cohort_assignments$assigned_cohort <- as.character(cohort_assignments$assigned_cohort)
 products_shipped$assigned_cohort <- as.character(products_shipped$assigned_cohort)
-cohort_kpis <- cohort_direct 
+cohort_kpis <- cohort_direct %>%
     left_join(plan %>% 
                   select(Year, Month, contains("Gross Revenue Retail")) %>%
                   gather(metric_name, metric_value, -Year, -Month)%>%
@@ -362,7 +360,8 @@ cohort_kpis <- cohort_direct
                   repeat_summary() %>%
                   ungroup() %>%
                   select(assigned_cohort, `Repeat Rate`),
-              by = "assigned_cohort")
+              by = "assigned_cohort") %>%
+    mutate(gross_margin = (net_sales - returns - cogs*0.7)/(net_sales - returns))
 
 # ---- Product Sales Distribution ----
 active_products <- products %>% 
