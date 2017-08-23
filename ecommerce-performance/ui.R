@@ -57,8 +57,8 @@ shinyUI(fluidPage(
                         "us_size",
                         "Size (US):",
                         min = 0,
-                        max = 22,
-                        value = c(0,22)
+                        max = 26,
+                        value = c(0,26)
                     ),
                     sliderInput(
                         "price_range",
@@ -132,6 +132,45 @@ shinyUI(fluidPage(
                 downloadButton("download_all")
             )
         ),
+        # tabPanel(
+        #     "Factories",
+        #     fluidRow(
+        #         column(
+        #             3,
+        #             dateRangeInput(
+        #                 "factory_order_dates",
+        #                 label = "Order Date",
+        #                 start = today() - 90,
+        #                 end = today()
+        #             ),
+        #             dateRangeInput(
+        #                 "factory_ship_dates",
+        #                 label = "Ship Date",
+        #                 start = today() - 100,
+        #                 end = today()
+        #             ),
+        #             selectInput(
+        #                 "factory_collections",
+        #                 label = "Collection",
+        #                 choices = sort(unique(collections$collection_na)),
+        #                 multiple = TRUE
+        #             ),
+        #             selectInput(
+        #                 "factory_styles",
+        #                 label = "Style",
+        #                 choices = sort(unique(products_sold$style_name)),
+        #                 multiple = TRUE
+        #             ),
+        #             sliderInput(
+        #                 "factory_us_size",
+        #                 "Size (US):",
+        #                 min = 0,
+        #                 max = 26,
+        #                 value = c(0,26)
+        #             )
+        #         )
+        #     )
+        # ),
         tabPanel(
             "Returns",
             fluidRow(
@@ -165,8 +204,8 @@ shinyUI(fluidPage(
                         "us_size_r",
                         label = "Size (US)",
                         min = 0,
-                        max = 22,
-                        value = c(0,22)
+                        max = 26,
+                        value = c(0,26)
                     )
                 ),
                 column(
