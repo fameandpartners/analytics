@@ -86,18 +86,6 @@ all_refund_transactions <- bind_rows(
             mutate(date = mdy(date_char)),
         read_pin("~/data/pin_jan_may_refunds.csv"),
         read_csv(
-            "~/data/pin_jan_may_refunds.csv",
-            col_types = cols(
-                .default = col_character(),
-                Amount = col_number())) %>% 
-            transmute(response_code = Reference, 
-                      amount = Amount, 
-                      date_char = Date,
-                      date = Date %>%
-                          substr(1, 10) %>%
-                          dmy(),
-                      currency = Currency),
-        read_csv(
             "~/data/assembly_payments_jan_to_april_old_format.csv",
             col_types = cols(
                 .default = col_character(),
@@ -120,7 +108,7 @@ all_refund_transactions <- bind_rows(
                                       formatC(as.integer(fixed_m), width = 2, flag = "0"), 
                                       formatC(as.integer(fixed_d), width = 2, flag = "0"), 
                                       sep = "-")) %>%
-            transmute(response_code = `Merchant Transaction ID`,
+            transmute(response_code = `Merchant Order Number`,
                       amount = `Purchase Amt`,
                       date_char = `Activity Date`,
                       date = date(clean_date),
@@ -130,7 +118,7 @@ all_refund_transactions <- bind_rows(
             col_types = cols(
                 .default = col_character(),
                 `Purchase Amt` = col_number())) %>%
-            transmute(response_code = `Merchant Transaction ID`,
+            transmute(response_code = `Merchant Order Number`,
                       amount = `Purchase Amt`,
                       date_char = `Activity Date`,
                       date = mdy(`Activity Date`),
@@ -215,11 +203,15 @@ all_refunds <- bind_rows(
                                       "PayPal", "Pin+Assembly"),
            estimated_ship_date = coalesce(esd, date - 45)) %>%
     select(-esd) %>%
-    unique()
+    unique() %>%
+    left_join(ordered_units %>%
+                  select(order_id, order_number) %>%
+                  unique(),
+              by = "order_id")
 
 all_refunds %>% write_csv("~/data/returns_reconciled_2017-07-26.csv", na = "")
 all_refunds %>%
-    mutate(amount_usd = ifelse(currency == "AUD", abs(amount) * 0.75, abs(amount))) %>%
+    mutate(amount_usd = ifelse(currency == "AUD", abs(amount) * 0.74, abs(amount))) %>%
     group_by(ship_year = year(estimated_ship_date),
              ship_quarter = quarter(estimated_ship_date),
              ship_month = month(estimated_ship_date)) %>%
