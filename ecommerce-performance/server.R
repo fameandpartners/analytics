@@ -398,6 +398,7 @@ shinyServer(function(input, output) {
                               ship_city,
                               ship_state,
                               ship_country,
+                              completed_timestamp,
                               order_date,
                               ship_date,
                               email,
