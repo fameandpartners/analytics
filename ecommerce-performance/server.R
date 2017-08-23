@@ -60,7 +60,8 @@ shinyServer(function(input, output) {
         filtered_sales() %>%
             filter(sales_usd > 0) %>%
             mutate(net_sales = gross_revenue_usd + adjustments_usd,
-                   cogs = manufacturing_cost + li_shipping_cost + payment_processing_cost) %>%
+                   cogs = manufacturing_cost + li_shipping_cost + 
+                       payment_processing_cost + packaging_cost) %>%
             group_by(style_number) %>%
             summarise(`Style Name` = paste(unique(style_name), collapse = ","),
                       `Dress Image` = dress_image_tag[1],
@@ -417,6 +418,28 @@ shinyServer(function(input, output) {
         }
     )
     
+# ---- Factories Tab ----
+    # ---- Factories Data Set Filters ----
+    factory_collection_filter <- reactive({
+        if(length(input$factory_collections) > 0) {
+            input$factory_collections
+        } else { unique(products_sold$collection) }
+    })
+    
+    factory_style_filter <- reactive({
+        if(length(input$factory_styles) > 0){
+            input$factory_styles
+        } else { unique(products_sold$style_name) }
+    })
+    
+    filtered_factories <- reactive({
+        products_sold %>%
+            filter(between(order_date, input$factory_order_dates[1], input$factory_order_dates[2])) %>%
+            filter(between(ship_date, input$factory_ship_dates[1], input$factory_ship_dates[2])) %>%
+            filter(collection %in% factory_collection_filter()) %>%
+            filter(style_name %in% factory_style_filter()) %>%
+            filter(between(us_size, input$factory_us_size[1], input$factory_us_size[2]))
+    })
 # ---- Returns Tab ----
     return_collections_filter <- reactive({
         if(length(input$collections_r) > 0) {
@@ -438,6 +461,15 @@ shinyServer(function(input, output) {
     
     filtered_for_returns <- reactive({
         products_sold %>%
+            rename(reason_dirty = return_reason) %>%
+            mutate(return_reason = paste0(substr(reason_dirty %>% 
+                                                     str_replace_all("_"," "),
+                                                 1,1) %>% 
+                                              toupper(),
+                                          substr(reason_dirty %>% 
+                                                     str_replace_all("_"," "),
+                                                 2,250) %>% 
+                                              tolower())) %>%
             filter(between(ship_date, input$ship_dates_r[1], input$ship_dates_r[2])) %>%
             filter(collection %in% return_collections_filter()) %>%
             filter(style_name %in% return_styles_filter()) %>%
