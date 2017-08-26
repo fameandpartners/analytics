@@ -159,14 +159,9 @@ missing <- fb %>%
               Purchases = sum(Purchases))
 
 # ---- WRITE DATA TO static-data ----
-clean <- function(df){
-    df %>%
-        format(scientific = FALSE) %>%
-        as_data_frame()
-}
 path_to_static <- "~/code/analytics/ecommerce-performance/static-data/"
-write_csv(clean(fb), paste0(path_to_static, "fb.csv"), na = "")
-write_csv(clean(ga), paste0(path_to_static, "ga.csv"), na = "")
-write_csv(clean(ga_fb), paste0(path_to_static, "ga_fb.csv"), na = "")
-write_csv(clean(upper_products_campaigns), paste0(path_to_static, "upper_products_campaigns.csv"), na = "")
-write_csv(clean(missing), paste0(path_to_marketing_dropbox, "misc/missing_ads.csv"))
+write_csv(fb, paste0(path_to_static, "fb.csv"), na = "")
+write_csv(ga, paste0(path_to_static, "ga.csv"), na = "")
+write_csv(ga_fb, paste0(path_to_static, "ga_fb.csv"), na = "")
+write_csv(upper_products_campaigns, paste0(path_to_static, "upper_products_campaigns.csv"), na = "")
+write_csv(missing, paste0(path_to_marketing_dropbox, "misc/missing_ads.csv"))
