@@ -520,7 +520,7 @@ products_sold <- ordered_units %>%
     filter(email != "abbyv@fameandpartners.com") %>%
     # Filter out reggie's test order for Stripe
     filter(order_number != "R028450713") %>%
-    filter(between(adjustments_total_percentage, -0.7, 1)) %>%
+    filter(between(adjustments_total_percentage, -0.9, 1)) %>%
     filter(payments != 0) %>%
     left_join(shipping_costs, by = c("ship_year_month")) %>%
     group_by(order_id) %>%
