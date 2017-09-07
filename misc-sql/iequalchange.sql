@@ -38,3 +38,17 @@ WHERE o.completed_at IS NOT NULL
 	AND o.number NOT LIKE 'E%'
 
 -- SELECT DISTINCT o.number, o.completed_at FROM spree_line_items li INNER JOIN spree_orders o ON li.order_id = o.id INNER JOIN item_returns ir ON ir.line_item_id = li.id WHERE o.completed_at IS NOT NULL AND o.total > 0 AND o.completed_at BETWEEN '2017-01-01' AND '2017-03-31' AND o.state != 'canceled' AND o.number NOT LIKE 'E%'
+
+
+-- Pulled for iequalchange on 2017-08-23
+SELECT DISTINCT o.number, o.completed_at
+FROM spree_line_items li
+INNER JOIN spree_orders o
+	ON li.order_id = o.id
+INNER JOIN item_returns ir
+	ON ir.line_item_id = li.id
+WHERE o.completed_at IS NOT NULL
+	AND o.total > 0
+	AND o.completed_at BETWEEN '2017-04-01' AND '2017-06-30'
+	AND o.state != 'canceled'
+	AND o.number NOT LIKE 'E%'
