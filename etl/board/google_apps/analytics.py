@@ -27,13 +27,11 @@ def initialize_analyticsreporting():
 
     return ga_conn
 
-
 def get_report(
         ga_conn, 
         date_ranges=[{'startDate': '2017-01-01', 'endDate': 'today'}],
         metrics=[{'expression': 'ga:sessions'},{'expression': 'ga:transactions'}],
-        dimensions=[{'name': 'ga:country'}, {'name': 'ga:yearMonth'}]
-        ):
+        dimensions=[{'name': 'ga:yearMonth'}]):
     """Queries the Analytics Reporting API V4.
     """
     results = ga_conn.reports().batchGet(
@@ -41,14 +39,13 @@ def get_report(
                 'reportRequests': [
                 {
                     'viewId': VIEW_ID,
+                    'pageSize': '5000',
                     'dateRanges': date_ranges,
                     'metrics': metrics,
                     'dimensions': dimensions
                 }]
             }
     ).execute()
-
-    print('GA Report with %s rows.' % results.get('reports')[0].get('data').get('rowCount'))
 
     ga_report = results.get('reports')[0]
     rows = []
@@ -63,6 +60,32 @@ def get_report(
     df.columns = d_cols + m_cols
     return df
 
+def bucket_countries(country_row):
+    country = country_row['country']
+    if country in ['United States','Australia',]:
+        return country
+    else:
+        return 'Other'
 
+def bucket_channels(channel_row):
+    channel = channel_row['channelGrouping']
+    if channel in ['Facebook','Paid Search','Referral','Display',]:
+        return 'Paid'
+    else: 
+        return 'Organic & Direct'
 
+def melt_ga(df, a, c, d):
+    new_df = df.melt(id_vars=['yearMonth', d], 
+                     value_vars=['sessions','transactions'])\
+               .rename(columns={'yearMonth': 'year_month',
+                                'variable': 'B',
+                                d: 'D'})
+    new_df['A'] = a 
+    new_df['B'] = new_df['B'].apply(lambda v: v.title())
+    new_df['C'] = c 
+    new_df['D'] = new_df['D'].apply(lambda d: d.title())
+    new_df['year_month'] = (new_df['year_month'].apply(lambda d: d[:4])
+                            + '-'
+                            + new_df['year_month'].apply(lambda d: d[4:]))
+    return new_df[['A','B','C','D','year_month','value']]
 
