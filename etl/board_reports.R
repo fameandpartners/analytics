@@ -1,0 +1,122 @@
+# Short term solution to get the 2017-09 board meeting reports done for Nyree
+setwd("~/code/analytics/ecommerce-performance")
+source("~/code/analytics/ecommerce-performance/global.R")
+setwd("~/data")      
+
+products_sold$Cohort <- products_sold$assigned_cohort %>%
+    as.character() %>%
+    coalesce("Not Assigned")
+# ---- MONTHLY KPIs ----
+
+products_shipped <- products_sold %>%
+    filter(is_shipped 
+           & order_state != "canceled"
+           & year(ship_date) >= 2016) 
+
+monthly_direct_demand <- products_shipped %>%
+    group_by(Year = year(order_date), 
+             Month = month(order_date),
+             Cohort) %>%
+    summarise(gross_revenue = sum(gross_revenue_usd),
+              net_sales = sum(sales_usd),
+              units_shipped = sum(quantity),
+              customized_units = sum(coalesce(as.double(customized), 0)),
+              cogs = sum(coalesce(manufacturing_cost, 70))
+                    + sum(li_shipping_cost)
+                    + sum(payment_processing_cost),
+              total_adjustments = sum(adjustments_usd),
+              orders = n_distinct(order_id)) %>%
+    filter(Year >= 2016)
+
+# Repeat Rate
+customer_acquisitions <- read_csv(
+    "~/code/analytics/ecommerce-performance/static-data/customer_acquisitions.csv",
+    col_types = cols(
+        email = col_character(),
+        date = col_date(format = ""))) %>%
+    bind_rows(list(
+        products_sold %>%
+            filter(!return_requested) %>%
+            group_by(email) %>%
+            summarise(date = min(order_date)))) %>%
+    unique() %>%
+    rename(acquisition_date = date)
+
+# Monthly
+monthly_repeats <- products_shipped %>%
+    filter(!return_requested) %>%
+    left_join(customer_acquisitions, by = "email") %>%
+    mutate(new_repeat = ifelse(order_date <= coalesce(acquisition_date,
+                                                      order_date), 
+                               "new_customers","repeat_customers")) %>%
+    group_by(`Year` = year(order_date),
+             `Month` = month(order_date),
+             Cohort,
+             new_repeat) %>%
+    summarise(Customers = n_distinct(email)) %>%
+    spread(new_repeat, Customers, fill = 0) %>%
+    mutate(repeat_rate = repeat_customers / (new_customers + repeat_customers)) %>%
+    filter(Year >= 2016)
+
+# ---- Avg. Make Times ----
+monthly_avg_make_times <- products_shipped %>%
+    group_by(Year = year(order_date), 
+             Month = month(order_date),
+             Cohort) %>%
+    summarise(avg_make_time = mean(difftime(ship_date, order_date, units = "days")))
+
+# ---- MERGE KPIs by Year, Quarter and Month ----
+
+monthly_kpis <- monthly_direct_demand %>%
+    left_join(monthly_repeats, by = c("Year","Month","Cohort")) %>%
+    left_join(monthly_avg_make_times, by = c("Year","Month","Cohort"))
+
+# ---- Product Sales Distribution ----
+active_products <- products %>% 
+    filter(!hidden 
+           & (is.na(deleted_at) | deleted_at > today())
+           & available_on <= today())
+
+products_sold_2017 <- products_sold %>%
+    filter(year(order_date) == 2017)
+
+no_sales_live <- active_products %>%
+    anti_join(products_sold_2017, by = "product_id")
+
+style_sales_distribution_2017 <- products_sold_2017 %>%
+    group_by(product_id) %>%
+    summarise(units_ordered = sum(quantity),
+              return_request_units = sum(return_requested),
+              net_return_request_units = units_ordered - return_request_units) %>%
+    bind_rows(list(no_sales_live %>%
+                       transmute(product_id, 
+                                 units_ordered = 0,
+                                 return_request_units = 0,
+                                 net_return_request_units = 0))) %>%
+    mutate(quintile = ntile(net_return_request_units, 5)) %>%
+    group_by(quintile) %>%
+    summarise(products = n_distinct(product_id),
+              total_net_return_units = sum(net_return_request_units)) %>%
+    mutate(percent_of_total_units = total_net_return_units / sum(total_net_return_units)) %>%
+    arrange(desc(total_net_return_units))
+
+monthly_style_sales_distribution_2017 <- products_sold_2017 %>%
+    group_by(order_year_month, product_id) %>%
+    summarise(units_ordered = sum(quantity),
+              return_request_units = sum(return_requested),
+              net_return_request_units = units_ordered - return_request_units) %>%
+    mutate(quintile = ntile(net_return_request_units, 5)) %>%
+    group_by(order_year_month, quintile) %>%
+    summarise(products = n_distinct(product_id),
+              total_net_return_units = sum(net_return_request_units)) %>%
+    mutate(percent_of_total_units = total_net_return_units / sum(total_net_return_units)) %>%
+    select(order_year_month, quintile, percent_of_total_units) %>%
+    spread(quintile, percent_of_total_units) %>%
+    rename(`Top 20%` = `5`, `60% to 80%` = `4`, `40% to 60%` = `3`,
+           `20% to 40%` = `2`, `Bottom 20%` = `1`)
+
+
+board_inputs <- "/Users/Peter 1/Dropbox (Team Fame)/data/board/inputs/"
+write_csv(monthly_kpis, paste0(board_inputs,"monthly_direct_kpis.csv"), na="")
+write_csv(customer_acquisitions, paste0(board_inputs,"customer_acquisitions.csv", na=""))
+write_csv(monthly_style_sales_distribution_2017, paste0(board_inputs,"monthly_style_distribution.csv"),na="")
