@@ -10,7 +10,7 @@ products_shipped <- products_sold %>%
 
 data_folder <- "~/Dropbox (Team Fame)/data/"
 nps <- read_csv(paste0(data_folder,
-                       "nps/delighted-data_17-August-2017.csv"),
+                       "nps/delighted-data_11-September-2017.csv"),
                 col_types = cols(
                     .default = col_character(),
                     `Response ID` = col_integer(),
@@ -30,15 +30,14 @@ order_month_returns <- read_csv(paste0(data_folder, "finance/returns_reconciled_
     mutate(estimated_order_date = coalesce(last_order_date, date - 30),
            amount_usd = ifelse(currency == "AUD", abs(amount) * 0.74, abs(amount))) %>%
     left_join(products_sold %>%
-                  mutate(cogs = coalesce(manufacturing_cost, 70)+ li_shipping_cost + payment_processing_cost) %>%
                   group_by(order_id) %>%
-                  summarise(cogs = sum(cogs)),
+                  summarise(manufacturing_cost = sum(manufacturing_cost)),
               by = "order_id") %>%
     group_by(order_year = year(estimated_order_date),
              order_quarter = quarter(estimated_order_date),
              order_month = month(estimated_order_date)) %>%
     summarise(adjusted_returns = sum(amount_usd),
-              inventory_returns = sum(coalesce(cogs, 0))) %>%
+              inventory_returns = sum(coalesce(manufacturing_cost, 70))) %>%
     filter(order_year >= 2017 & order_month <= 4) %>%
     rename(returns = adjusted_returns) %>%
     ungroup() %>%
@@ -46,9 +45,9 @@ order_month_returns <- read_csv(paste0(data_folder, "finance/returns_reconciled_
               group_by(order_year = year(order_date),
                        order_quarter = quarter(order_date),
                        order_month = month(order_date)) %>%
-              mutate(cogs = coalesce(manufacturing_cost, 70)+ li_shipping_cost + payment_processing_cost) %>%
+              mutate(manufacturing_cost = coalesce(manufacturing_cost, 70)) %>%
               summarise(returns = sum(return_requested * sales_usd * 0.9),
-                        inventory_returns = sum(return_requested * cogs * 0.9)) %>%
+                        inventory_returns = sum(return_requested * manufacturing_cost * 0.9)) %>%
               ungroup() %>%
               filter(order_year >= 2017 & order_month %in% c(5,6)))
 
@@ -255,8 +254,7 @@ customer_acquisitions <- read_csv(
 repeat_filterjoin <- function(df){
     df %>%
         filter(!return_requested) %>%
-        left_join(customer_acquisitions, 
-                  by = "email") %>%
+        left_join(customer_acquisitions, by = "email") %>%
         mutate(New_Repeat = ifelse(order_date <= coalesce(acquisition_date,
                                                           order_date), 
                                    "New Customers","Repeat Customers"))
@@ -296,6 +294,11 @@ monthly_cohort_repeats <- products_shipped %>%
              New_Repeat, assigned_cohort) %>%
     repeat_summary()
 
+# ---- Avg. Make Times ----
+monthly_avg_make_times <- products_shipped %>%
+    group_by(Year = year(order_date), Month = month(order_date)) %>%
+    summarise(avg_make_time = mean(difftime(ship_date, order_date, units = "days")))
+
 # ---- MERGE KPIs by Year, Quarter and Month ----
 
 # Annual
@@ -323,7 +326,8 @@ monthly_kpis <- monthly_direct %>%
     left_join(monthly_repeats %>% rename(Year = `Ship Year`, 
                                          Month = `Ship Month`),
               by = c("Year","Month")) %>%
-    left_join(monthly_marketing, by = c("Year","Month"))
+    left_join(monthly_marketing, by = c("Year","Month")) %>%
+    left_join(monthly_avg_make_times, by = c("Year","Month"))
 
 # Cohort
 cohort_direct$assigned_cohort <- as.character(cohort_direct$assigned_cohort)
@@ -417,8 +421,9 @@ weekly_customization_rates <- products_sold %>%
               Units = sum(physically_customized * quantity) / sum(quantity)) %>%
     filter(year(`Week Ending`) == 2017)
 
+
 # ---- WRITE TO CSV ----
-board_folder <- "~/Dropbox (Team Fame)/data/board/"
+board_folder <- "~/Dropbox (Team Fame)/data/board/output/"
 write_csv(annual_kpis, paste0(board_folder, "annual_kpis.csv"), na = "")
 write_csv(quarterly_kpis, paste0(board_folder, "quarterly_kpis.csv"), na = "")
 write_csv(monthly_kpis, paste0(board_folder, "monthly_kpis.csv"), na = "")
