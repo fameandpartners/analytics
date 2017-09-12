@@ -23,4 +23,5 @@ def pull_monthly_kpis():
                                             fill_value='')
     return monthly_kpis
 
-
+if __name__ == '__main__':
+    print(pull_monthly_kpis().to_csv())
