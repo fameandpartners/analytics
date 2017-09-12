@@ -32,6 +32,24 @@ weekly_sales %>%
     scale_y_continuous(labels = short_dollar) +
     xlab("Order Week")
 
+# by Country
+products_sold %>%
+    filter(ship_country %in% c("United States","Australia")
+           & order_date >= as.Date("2015-01-01")
+           & order_date <= as.Date("2017-09-02") 
+           & payment_state == "paid") %>%
+    group_by(order_year = year(order_date) %>% as.character(), 
+             order_week = week(order_date),
+             ship_country) %>%
+    summarise(`Net Sales` = sum(sales_usd)) %>%
+    ggplot(aes(x = order_week)) +
+    geom_path(aes(y = `Net Sales`, color = order_year), group = 4) +
+    geom_point(aes(y = `Net Sales`, color = order_year)) +
+    facet_grid(ship_country~.) +
+    scale_x_continuous(limits = c(1, 52)) +
+    scale_y_continuous(labels = short_dollar) +
+    xlab("Order Week")
+
 # ---- YoY Percent Change ----
 weekly_sales %>%
     select(-Units) %>%
@@ -44,6 +62,29 @@ weekly_sales %>%
     #filter(years_changed %>% str_detect("2017")) %>%
     ggplot(aes(x = order_week, y = percent_change, color = years_changed)) +
     geom_path() + geom_point() +
+    scale_y_continuous(labels = percent, limits = c(-0.3,3)) +
+    xlab("Order Week") + ylab("Percent Change") +
+    theme(legend.title = element_blank())
+
+# by Country
+products_sold %>%
+    filter(ship_country %in% c("United States","Australia")
+           & order_date >= as.Date("2015-01-01")
+           & order_date <= as.Date("2017-09-02") 
+           & payment_state == "paid") %>%
+    group_by(order_year = year(order_date) %>% as.character(), 
+             order_week = week(order_date),
+             ship_country) %>%
+    summarise(`Net Sales` = sum(sales_usd)) %>%
+    group_by(order_week, ship_country) %>%
+    spread(order_year, `Net Sales`) %>%
+    mutate(`2015 to 2016` = (`2016` - `2015`) / `2015`,
+           `2016 to 2017` = (`2017` - `2016`) / `2016`) %>%
+    select(-`2015`,-`2016`,-`2017`) %>%
+    gather(years_changed, percent_change, -order_week, -ship_country) %>%
+    ggplot(aes(x = order_week, y = percent_change, color = years_changed)) +
+    geom_path() + geom_point() +
+    facet_grid(ship_country~.) +
     scale_y_continuous(labels = percent, limits = c(-0.3,3)) +
     xlab("Order Week") + ylab("Percent Change") +
     theme(legend.title = element_blank())

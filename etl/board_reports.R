@@ -135,4 +135,3 @@ write_csv(customer_acquisitions, paste0(board_inputs,"customer_acquisitions.csv"
 write_csv(cohort_assignments %>% filter(assigned_cohort != "Not Assigned"),
           paste0(board_inputs, "cohort_assignments.csv", na=""))
 write_csv(monthly_style_sales_distribution_2017, paste0(board_inputs,"monthly_style_distribution.csv"),na="")
-write_csv(monthly_avg_make_times, paste0(board_inputs,"monthly_avg_make_times.csv"))

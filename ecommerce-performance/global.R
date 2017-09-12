@@ -163,9 +163,7 @@ ga_fb <- read_csv("static-data/ga_fb.csv",
     mutate(creative = coalesce(ad_images, creative_no_image))
 
 # ---- COHORTS ----
-cohort_assignments <- all_touches %>%
-    transmute(email, assigned_cohort = cohort) %>%
-    unique()
+cohort_assignments <- read_csv("static-data/cohort_assignments.csv")
 
 comp_choices <- c("Spend (USD)","Purchases","CAC","CTR","CPAC","CPL",
                   "T.O.S.","Sessions","Total Carts","Bounce Rate")
