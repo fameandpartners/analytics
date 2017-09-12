@@ -17,15 +17,21 @@ monthly_direct_demand <- products_shipped %>%
     group_by(Year = year(order_date), 
              Month = month(order_date),
              Cohort) %>%
-    summarise(gross_revenue = sum(gross_revenue_usd),
-              net_sales = sum(sales_usd),
-              units_shipped = sum(quantity),
-              customized_units = sum(coalesce(as.double(customized), 0)),
-              cogs = sum(coalesce(manufacturing_cost, 70))
+    summarise(`Gross Revenue` = sum(gross_revenue_usd),
+              `Net Sales` = sum(sales_usd),
+              `Units` = sum(quantity),
+              `Customized Units` = sum(coalesce(as.double(customized), 0)),
+              COGS = sum(coalesce(manufacturing_cost, 70))
                     + sum(li_shipping_cost)
-                    + sum(payment_processing_cost),
-              total_adjustments = sum(adjustments_usd),
-              orders = n_distinct(order_id)) %>%
+                    + sum(payment_processing_cost)
+                    + sum(packaging_cost),
+              `Packaging Materials` = sum(packaging_cost),
+              `Product Cost` = sum(coalesce(manufacturing_cost, 70)),
+              Discounts = sum(coalesce(promotions_usd, 0)),
+              Shipping = sum(coalesce(shipping_usd, 0)),
+              Taxes = sum(coalesce(taxes_usd, 0)),
+              `Other Adjustments` = sum(coalesce(other_adjustments_usd, 0)),
+              Transactions = n_distinct(order_id)) %>%
     filter(Year >= 2016)
 
 # Repeat Rate
@@ -48,28 +54,34 @@ monthly_repeats <- products_shipped %>%
     left_join(customer_acquisitions, by = "email") %>%
     mutate(new_repeat = ifelse(order_date <= coalesce(acquisition_date,
                                                       order_date), 
-                               "new_customers","repeat_customers")) %>%
+                               "New Customers","Repeat Customers")) %>%
     group_by(`Year` = year(order_date),
              `Month` = month(order_date),
              Cohort,
              new_repeat) %>%
     summarise(Customers = n_distinct(email)) %>%
     spread(new_repeat, Customers, fill = 0) %>%
-    mutate(repeat_rate = repeat_customers / (new_customers + repeat_customers)) %>%
     filter(Year >= 2016)
 
-# ---- Avg. Make Times ----
-monthly_avg_make_times <- products_shipped %>%
-    group_by(Year = year(order_date), 
-             Month = month(order_date),
-             Cohort) %>%
-    summarise(avg_make_time = mean(difftime(ship_date, order_date, units = "days")))
+# ---- Monthly Factory Direct ----
+monthly_factory_direct <- products_shipped %>%
+    filter(year(order_date) >= 2017) %>%
+    group_by(year_month = order_year_month,
+             Factory = factory_name) %>%
+    summarise(Units = sum(quantity),
+              `Avg. Make Time` = mean(difftime(ship_date, 
+                                               order_date, 
+                                               units = "days")) %>%
+                  as.numeric())
 
 # ---- MERGE KPIs by Year, Quarter and Month ----
 
-monthly_kpis <- monthly_direct_demand %>%
+monthly_direct <- monthly_direct_demand %>%
     left_join(monthly_repeats, by = c("Year","Month","Cohort")) %>%
-    left_join(monthly_avg_make_times, by = c("Year","Month","Cohort"))
+    ungroup() %>%
+    filter(Year >= 2017) %>%
+    mutate(year_month = paste(Year, formatC(Month, width=2, flag="0"), sep="-")) %>%
+    select(-Year, -Month)
 
 # ---- Product Sales Distribution ----
 active_products <- products %>% 
@@ -117,6 +129,10 @@ monthly_style_sales_distribution_2017 <- products_sold_2017 %>%
 
 
 board_inputs <- "/Users/Peter 1/Dropbox (Team Fame)/data/board/inputs/"
-write_csv(monthly_kpis, paste0(board_inputs,"monthly_direct_kpis.csv"), na="")
+write_csv(monthly_direct, paste0(board_inputs,"monthly_direct.csv"), na="")
+write_csv(monthly_factory_direct, paste0(board_inputs, "monthly_factory_direct.csv", na=""))
 write_csv(customer_acquisitions, paste0(board_inputs,"customer_acquisitions.csv", na=""))
+write_csv(cohort_assignments %>% filter(assigned_cohort != "Not Assigned"),
+          paste0(board_inputs, "cohort_assignments.csv", na=""))
 write_csv(monthly_style_sales_distribution_2017, paste0(board_inputs,"monthly_style_distribution.csv"),na="")
+write_csv(monthly_avg_make_times, paste0(board_inputs,"monthly_avg_make_times.csv"))

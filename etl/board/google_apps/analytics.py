@@ -1,9 +1,52 @@
-"""Hello Analytics Reporting API V4."""
+"""Google Analytics Reporting API V4."""
 import os
 
 from apiclient.discovery import build
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
+
+def pull_traffic():
+    """Queries Google Analytics to create a few reports and then merges the
+    reports into one report in a standard format.
+    """
+    ga_conn = initialize_analyticsreporting()
+
+    device_traffic = get_report(
+        ga_conn=ga_conn, 
+        dimensions=[{'name': 'ga:deviceCategory'},{'name': 'ga:yearMonth'},])
+    device_traffic = melt_ga(device_traffic, 
+                                a='Traffic', 
+                                c='Device', 
+                                d='deviceCategory')
+
+    geo_traffic = get_report(
+        ga_conn=ga_conn,
+        dimensions=[{'name': 'ga:country'},{'name': 'ga:yearMonth'},])
+    bucketed_countries = geo_traffic.apply(lambda row: bucket_countries(row), axis=1)
+    geo_traffic['country'] = bucketed_countries
+    geo_traffic = geo_traffic.groupby(['yearMonth','country'])\
+                             .sum()\
+                             .reset_index()
+    geo_traffic = melt_ga(geo_traffic, 
+                             a='Traffic', 
+                             c='Geography', 
+                             d='country')
+
+    channel_traffic = get_report(
+        ga_conn=ga_conn, 
+        dimensions=[{'name': 'ga:channelGrouping'},{'name': 'ga:yearMonth'},])
+    bucketed_channels = channel_traffic.apply(lambda row: bucket_channels(row), axis=1)
+    channel_traffic['channelGrouping'] = bucketed_channels
+    channel_traffic = channel_traffic.groupby(['yearMonth','channelGrouping'])\
+                                     .sum()\
+                                     .reset_index()
+    channel_traffic = melt_ga(channel_traffic, 
+                                 a='Traffic', 
+                                 c='Channel', 
+                                 d='channelGrouping')
+    df_out = pd.concat([device_traffic, geo_traffic, channel_traffic])
+    return df_out
+
 
 __location__ = os.path.realpath(
     os.path.join(os.getcwd(), os.path.dirname(__file__)))
@@ -32,7 +75,8 @@ def get_report(
         date_ranges=[{'startDate': '2017-01-01', 'endDate': 'today'}],
         metrics=[{'expression': 'ga:sessions'},{'expression': 'ga:transactions'}],
         dimensions=[{'name': 'ga:yearMonth'}]):
-    """Queries the Analytics Reporting API V4.
+    """Queries the Analytics Reporting API V4 and returns the results in a 
+    pandas DataFrame.
     """
     results = ga_conn.reports().batchGet(
             body={
@@ -44,8 +88,7 @@ def get_report(
                     'metrics': metrics,
                     'dimensions': dimensions
                 }]
-            }
-    ).execute()
+            }).execute()
 
     ga_report = results.get('reports')[0]
     rows = []
