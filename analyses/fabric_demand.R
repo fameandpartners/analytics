@@ -133,49 +133,30 @@ weekly_main_sales <- products_sold %>%
     arrange(main, order_year, order_week) %>%
     group_by(main) %>%
     mutate(prior_units_sold = lag(units_sold)) %>%
-    filter(!is.na(prior_units_sold) & between(prior_units_sold, 10, 250)) %>%
+    filter(!is.na(prior_units_sold)) %>%
     ungroup()
 
 basic_model <- lm(units_sold ~ prior_units_sold, data = weekly_main_sales)
 
 weekly_main_sales$basic_prediction <- predict(basic_model)
-weekly_main_sales$basic_residuals <- residuals(basic_model)
+weekly_main_sales$basic_residual <- residuals(basic_model)
 
 summary(basic_model)
 
-qqplot.data <- function (vec) {
-    # following four lines from base R's qqline()
-    y <- quantile(vec[!is.na(vec)], c(0.25, 0.75))
-    x <- qnorm(c(0.25, 0.75))
-    slope <- diff(y)/diff(x)
-    int <- y[1L] - slope * x[1L]
-    
-    d <- data.frame(resids = vec)
-    
-    ggplot(d, aes(sample = resids)) + 
-        stat_qq() + 
-        geom_abline(slope = slope, intercept = int, color = "red")
-    
-}
-
 # Residuals vs. Fitted Values
-qqplot.data(residuals(basic_model))
-
-pois_model <- glm(units_sold ~ prior_units_sold, 
-                   data = weekly_main_sales,
-                   family = poisson())
-
-summary(pois_model)
-
-qqplot.data(residuals(pois_model))
-
-weekly_main_sales$pois_residual <- residuals(pois_model)
-weekly_main_sales$pois_prediction <- predict(pois_model)
+weekly_main_sales %>%
+    ggplot(aes(x=basic_prediction,y=basic_residual)) +
+    geom_point()
 
 # Decision Tree
 rpart_model <- rpart(units_sold ~ prior_units_sold, data = weekly_main_sales)
 
 weekly_main_sales$rpart_prediction <- predict(rpart_model)
+weekly_main_sales$rpart_residual <- residuals(rpart_model)
+
+weekly_main_sales %>%
+    ggplot(aes(x=rpart_prediction,y=rpart_residual)) +
+    geom_point()
 
 mse <- function(actual, prediction){
     mean((actual - prediction)**2)
@@ -184,6 +165,13 @@ weekly_main_sales %>%
     filter(prior_units_sold < 100) %>%
     summarise(sample_size = n(),
               basic_mse = mse(units_sold, basic_prediction),
-              rpart_mse = mse(units_sold, rpart_prediction),
-              pois_mse = mse(units_sold, pois_prediction))
+              rpart_mse = mse(units_sold, rpart_prediction))
+
+
+weekly_main_sales %>%
+    ggplot(aes(x=prior_units_sold, y=units_sold)) +
+    geom_point() +
+    geom_line(aes(x=prior_units_sold, y=basic_prediction,color="basic"))
+
+
 
