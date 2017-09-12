@@ -194,68 +194,19 @@ all_touches <-
 
 write_csv(all_touches, "~/code/analytics/ecommerce-performance/static-data/all_touches.csv", na = "")
 
-items <- tbl(fp_con, sql(paste(
-    "SELECT",
-        "li.id line_item_id,",
-        "li.order_id,",
-        "v.product_id,",
-        "p.name product_name,",
-        "li.price",
-    "FROM spree_line_items li",
-    "INNER JOIN spree_variants v",
-        "ON v.id = li.variant_id",
-    "INNER JOIN spree_products p",
-        "ON p.id = v.product_id",
-    "WHERE li.order_id IN (",
-    paste(orders$order_id, collapse = ","),
-    ")"))) %>%
-    collect(n = Inf)
-
-# orders %>%
-#     select(order_id, email, state, currency) %>%
-#     left_join(utm_cohort_assignments %>%
-#                   rename(assigned_cohort = cohort), 
-#               by = "email") %>%
-#     filter(state == "complete") %>%
-#     inner_join(items, by = "order_id") %>%
-#     mutate(price_usd = ifelse(currency == "AUD", price * 0.75, price),
-#            cohort = coalesce(assigned_cohort, "Not Assigned")) %>%
-#     select(-assigned_cohort) %>%
-#     inner_join(touches %>%
-#                    group_by(order_id) %>%
-#                    filter(touch_time == min(touch_time)),
-#                by = "order_id") %>%
-#     group_by(utm_source, cohort, product_name) %>%
-#     summarise(units_sold = n_distinct(line_item_id)) %>%
-#     arrange(utm_source, cohort, desc(units_sold)) %>%
-#     write_csv("~/data/Last Touch by Source, Cohort and Product.csv")
-# 
-# collections <- read_csv("~/code/analytics/ecommerce-performance/static-data/collections_2.csv",
-#                         col_types = "iccccc") %>%
-#     transmute(product_id = `Product ID`,
-#               collection_na = Collection)
-# 
-# orders %>%
-#     select(order_id, email, state, currency) %>%
-#     left_join(utm_cohort_assignments %>%
-#                   rename(assigned_cohort = cohort), 
-#               by = "email") %>%
-#     filter(state == "complete") %>%
-#     inner_join(items, by = "order_id") %>%
-#     inner_join(collections, by = "product_id") %>%
-#     mutate(collection = coalesce(collection_na, "2014-2015 - Old")) %>%
-#     mutate(price_usd = ifelse(currency == "AUD", price * 0.75, price),
-#            cohort = coalesce(assigned_cohort, "Not Assigned")) %>%
-#     select(-assigned_cohort) %>%
-#     inner_join(touches %>%
-#                    filter(touch_time %>% 
-#                               as.Date %>% 
-#                               between(as.Date("2017-05-01"),
-#                                       as.Date("2017-06-07"))) %>%
-#                    group_by(order_id) %>%
-#                    filter(touch_time == min(touch_time)),
-#                by = "order_id") %>%
-#     group_by(utm_source, collection, product_name) %>%
-#     summarise(units_sold = n_distinct(line_item_id)) %>%
-#     arrange(utm_source, collection, desc(units_sold)) %>%
-#     write_csv("~/data/Last Touch by Collection and Product.csv")
+bind_rows(list(
+    mc_csv %>%
+        rename(email = `Email Address`, event_type_d = `Event Type`) %>%
+        select(email, event_type_d, utm_source, utm_medium, utm_campaign, CONFIRM_TIME),
+    br_csv %>%
+        rename(email = `Email Address`, event_type_d = `EventType`) %>%
+        select(email, event_type_d, utm_source, utm_medium, utm_campaign, CONFIRM_TIME))) %>%
+    mutate(mc_cohort = ifelse(str_detect(tolower(event_type_d), "bridal"),
+                              "Bridal", 
+                              ifelse(str_detect(tolower(event_type_d), "formal|cocktail|wedding guest|daytime|work"), 
+                                     "Contemporary",
+                                     ifelse(tolower(event_type_d) == "prom", "Prom", NA)))) %>%
+    filter(!is.na(mc_cohort)) %>%
+    transmute(email, assigned_cohort = mc_cohort) %>%
+    filter(!duplicated(email)) %>%
+    write_csv("~/code/analytics/ecommerce-performance/static-data/cohort_assignments.csv")
