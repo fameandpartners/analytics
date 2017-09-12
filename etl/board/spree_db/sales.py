@@ -57,7 +57,6 @@ def pull_all():
         return_events,payments,adjustments,promotions,product_taxons,
         dress_images,slow_fast_items,
     ]
-
     return results
 
 LOCAL_DROPBOX = '/Users/Peter 1/Dropbox (Team Fame)/data/board/inputs/'
@@ -110,7 +109,6 @@ def pull_direct_net_revenue():
     contra_revenue['B'] = 'Contra Revenue'
     contra_revenue['C'] = 'Direct'
     contra_revenue['D'] = 'Discounts'
-
     return pd.concat([customers,gross_revenue,units,customized,contra_revenue])
 
 def pull_cost_of_sales():
@@ -136,7 +134,6 @@ def pull_cost_of_sales():
     cohorts['A'] = 'Cost of Sales'
     cohorts['B'] = 'Cost of Goods Sold'
     cohorts['C'] = 'Direct'
-
     return pd.concat([direct_costs,direct_expenses,cohorts])
 
 def pull_factory_performance():
@@ -147,5 +144,4 @@ def pull_factory_performance():
                                                     'variable':'C'})
     factory_direct['A'] = 'Factory Performance'
     factory_direct['B'] = 'Direct'
-
     return factory_direct

@@ -22,17 +22,22 @@ def pull():
     acquisitions = sales.pull_acquisitions()
     cohorts = sales.pull_cohort_assignments_csv()
 
-    df = pd.merge(scores, acquisitions, on='email')\
+    nps_df = pd.merge(scores, acquisitions, on='email')\
            .merge(cohorts, on='email', how='left')\
            .fillna('Not Assigned')
-
-    df['year_month'] = df['first_order_date'].apply(lambda d: d.isoformat()[:7])
-    df = df.rename(columns={'assigned_cohort':'Cohort'})\
-           .groupby(['year_month','Cohort'])\
+    nps_df['year_month'] = nps_df['first_order_date'].apply(lambda d: d.isoformat()[:7])
+    nps_df = nps_df.groupby(['year_month','assigned_cohort'])\
            .agg([nps_score, promoter_count, detractor_count, len])\
            .reset_index()
-    df.columns = pd.Index(['year_month','Cohort','NPS Score','Promoters','Detractors','Responses',], dtype='object')
-    return df[df.year_month.str.contains('2017')]
+    nps_df.columns = pd.Index(['year_month','Cohort','Score','Promoters','Detractors','Responses',], dtype='object')
+
+    nps_df = nps_df[nps_df.year_month.str.contains('2017')]
+    nps_df = nps_df.melt(id_vars=['year_month','Cohort',],
+                 value_vars=['Score','Promoters','Detractors','Responses',])\
+           .rename(columns={'variable':'C','Cohort':'D'})
+    nps_df['A'] = 'NPS Score'
+    nps_df['B'] = 'Direct'
+    return nps_df
 
 def promoter_count(scores):
     return sum(score >= 9 for score in scores)

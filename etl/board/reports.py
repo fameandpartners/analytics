@@ -14,8 +14,9 @@ def pull_monthly_kpis():
     net_revenue_direct = sales.pull_direct_net_revenue()
     direct_costs = sales.pull_cost_of_sales()
     factory_performance = sales.pull_factory_performance()
+    nps_responses = nps.pull()
     monthly_kpis = pd.concat([traffic, net_revenue_direct, direct_costs,
-                              factory_performance,])
+                              factory_performance,nps_responses,])
     monthly_kpis = monthly_kpis.pivot_table(index=['A','B','C','D'], 
                                             columns='year_month', 
                                             values='value', 
