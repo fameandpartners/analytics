@@ -262,6 +262,7 @@ products <- tbl(fp_con, sql(paste(
         "p.id product_id,",
         "g.style style_number,",
         "INITCAP(p.name) style_name,",
+        "INITCAP(f.name) factory_name,",
         "p.hidden,",
         "p.deleted_at,",
         "p.available_on",
@@ -271,7 +272,9 @@ products <- tbl(fp_con, sql(paste(
         "FROM spree_variants",
         "WHERE is_master",
         "GROUP BY product_id",
-    ") g ON g.product_id = p.id"))) %>%
+    ") g ON g.product_id = p.id",
+    "LEFT JOIN factories f",
+        "ON p.factory_id = f.id"))) %>%
     collect() %>%
     mutate(product_live = ifelse(!hidden 
                                  & (is.na(deleted_at) | deleted_at > today()) 
