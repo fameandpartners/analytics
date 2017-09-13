@@ -1,6 +1,6 @@
 import pandas as pd
 
-import spree_db.sales as sales
+from spree_db import sales, returns
 import google_apps.analytics as ga
 import nps
 
@@ -12,11 +12,12 @@ def pull_monthly_kpis():
     """
     traffic = ga.pull_traffic()
     net_revenue_direct = sales.pull_direct_net_revenue()
+    reconciled_returns = returns.pull_reconciled_demand_returns()
     direct_costs = sales.pull_cost_of_sales()
     factory_performance = sales.pull_factory_performance()
     nps_responses = nps.pull()
     monthly_kpis = pd.concat([traffic, net_revenue_direct, direct_costs,
-                              factory_performance,nps_responses,])
+                              factory_performance,nps_responses,reconciled_returns,])
     monthly_kpis = monthly_kpis.pivot_table(index=['A','B','C','D'], 
                                             columns='year_month', 
                                             values='value', 

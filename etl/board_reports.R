@@ -20,7 +20,7 @@ monthly_direct_demand <- products_shipped %>%
     summarise(`Gross Revenue` = sum(gross_revenue_usd),
               `Net Sales` = sum(sales_usd),
               `Units` = sum(quantity),
-              `Customized Units` = sum(coalesce(as.double(customized), 0)),
+              `Customized Units` = sum(coalesce(as.double(customized * quantity), 0)),
               COGS = sum(coalesce(manufacturing_cost, 70))
                     + sum(li_shipping_cost)
                     + sum(payment_processing_cost)
@@ -128,6 +128,37 @@ monthly_style_sales_distribution_2017 <- products_sold_2017 %>%
            `20% to 40%` = `2`, `Bottom 20%` = `1`)
 
 
+# ---- DEMAND BASED RETURNS ----
+demand_returns <- read_csv("/Users/Peter 1/Dropbox (Team Fame)/data/finance/returns_reconciled_2017-07-26.csv") %>%
+    mutate(estimated_order_date = coalesce(last_order_date, date - 30),
+           amount_usd = ifelse(currency == "AUD", abs(amount) * 0.74, abs(amount))) %>%
+    left_join(products_sold %>%
+                  group_by(order_id) %>%
+                  summarise(manufacturing_cost = sum(manufacturing_cost),
+                            Cohort = Cohort[1]),
+              by = "order_id") %>%
+    group_by(order_year = year(estimated_order_date),
+             order_month = month(estimated_order_date),
+             Cohort = coalesce(Cohort, "Not Assigned")) %>%
+    summarise(adjusted_returns = sum(amount_usd),
+              inventory_returns = sum(coalesce(manufacturing_cost, 70))) %>%
+    filter(order_year >= 2017 & order_month <= 4) %>%
+    rename(returns = adjusted_returns) %>%
+    ungroup() %>%
+    rbind(products_shipped %>%
+              group_by(order_year = year(order_date),
+                       order_month = month(order_date),
+                       Cohort = coalesce(Cohort, "Not Assigned")) %>%
+              mutate(manufacturing_cost = coalesce(manufacturing_cost, 70)) %>%
+              summarise(returns = sum(return_requested * sales_usd * 0.9),
+                        inventory_returns = sum(return_requested * manufacturing_cost * 0.9)) %>%
+              ungroup() %>%
+              filter(order_year >= 2017 & order_month %in% c(5,6))) %>%
+    mutate(year_month = paste(order_year, 
+                              formatC(order_month, width=2, flag="0"),
+                              sep = "-")) %>%
+    select(-order_year,-order_month)
+
 board_inputs <- "/Users/Peter 1/Dropbox (Team Fame)/data/board/inputs/"
 write_csv(monthly_direct, paste0(board_inputs,"monthly_direct.csv"), na="")
 write_csv(monthly_factory_direct, paste0(board_inputs, "monthly_factory_direct.csv", na=""))
@@ -135,3 +166,4 @@ write_csv(customer_acquisitions, paste0(board_inputs,"customer_acquisitions.csv"
 write_csv(cohort_assignments %>% filter(assigned_cohort != "Not Assigned"),
           paste0(board_inputs, "cohort_assignments.csv", na=""))
 write_csv(monthly_style_sales_distribution_2017, paste0(board_inputs,"monthly_style_distribution.csv"),na="")
+write_csv(demand_returns, paste0(board_inputs, "reconciled_demand_returns.csv"))
