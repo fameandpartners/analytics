@@ -91,14 +91,12 @@ def pull_direct_net_revenue():
     gross_revenue['B'] = 'Gross Revenue'
     gross_revenue['C'] = 'Direct'
 
-    units = monthly_direct[base_cols + ['Units']].rename(columns={'Units':'value'})
-    units['B'] = 'Units'
-    units['C'] = 'Direct'
-
-    customized = monthly_direct[base_cols + ['Customized Units']]\
-                               .rename(columns={'Customized Units':'value'})
-    customized['B'] = 'Customized Units'
-    customized['C'] = 'Direct'
+    transactions = monthly_direct.melt(id_vars=base_cols,
+                                       value_vars=['Orders','Units',
+                                                   'Customized Units',
+                                                   'Re-fulfilled Units'])\
+                                 .rename(columns={'variable':'B'})
+    transactions['C'] = 'Direct'
 
     contra_revenue = monthly_direct.groupby(['year_month'])\
                                    .sum()\
@@ -109,7 +107,7 @@ def pull_direct_net_revenue():
     contra_revenue['B'] = 'Contra Revenue'
     contra_revenue['C'] = 'Direct'
     contra_revenue['D'] = 'Discounts'
-    return pd.concat([customers,gross_revenue,units,customized,contra_revenue])
+    return pd.concat([customers,gross_revenue,contra_revenue,transactions,])
 
 def pull_cost_of_sales():
     monthly_direct = pull_direct_csv()
