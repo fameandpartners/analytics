@@ -6,9 +6,18 @@ setwd("~/data")
 products_sold$Cohort <- products_sold$assigned_cohort %>%
     as.character() %>%
     coalesce("Not Assigned")
+
+# ---- 3PL ----
+tpl <- read_csv("/Users/Peter 1/Dropbox (Team Fame)/data/3PL/3PL Orders - COMBINED.csv",
+                col_types = cols(
+                    order_number = col_character(),
+                    ship_date = col_date(format = "")
+                ))
+
 # ---- MONTHLY KPIs ----
 
 products_shipped <- products_sold %>%
+    mutate(refulfilled = order_number %in% tpl$order_number) %>%
     filter(is_shipped 
            & order_state != "canceled"
            & year(ship_date) >= 2016) 
@@ -19,16 +28,17 @@ monthly_direct_demand <- products_shipped %>%
              Cohort) %>%
     summarise(`Gross Revenue` = sum(gross_revenue_usd),
               `Net Sales` = sum(sales_usd),
+              Orders = n_distinct(order_id),
               `Units` = sum(quantity),
               `Customized Units` = sum(coalesce(as.double(customized * quantity), 0)),
+              `Re-fulfilled Units` = sum(coalesce(refulfilled*quantity), 0),
               COGS = sum(coalesce(manufacturing_cost, 70))
-                    + sum(li_shipping_cost)
-                    + sum(payment_processing_cost)
-                    + sum(packaging_cost),
+                    + sum(coalesce(li_shipping_cost, 20))
+                    + sum(payment_processing_cost),
               `Packaging Materials` = sum(packaging_cost),
               `Product Cost` = sum(coalesce(manufacturing_cost, 70)),
               Discounts = sum(coalesce(promotions_usd, 0)),
-              Shipping = sum(coalesce(shipping_usd, 0)),
+              Shipping = sum(coalesce(li_shipping_cost, 20)),
               Taxes = sum(coalesce(taxes_usd, 0)),
               `Other Adjustments` = sum(coalesce(other_adjustments_usd, 0)),
               Transactions = n_distinct(order_id)) %>%
@@ -133,15 +143,17 @@ demand_returns <- read_csv("/Users/Peter 1/Dropbox (Team Fame)/data/finance/retu
     mutate(estimated_order_date = coalesce(last_order_date, date - 30),
            amount_usd = ifelse(currency == "AUD", abs(amount) * 0.74, abs(amount))) %>%
     left_join(products_sold %>%
-                  group_by(order_id) %>%
+                  group_by(order_id,order_number) %>%
                   summarise(manufacturing_cost = sum(manufacturing_cost),
                             Cohort = Cohort[1]),
               by = "order_id") %>%
+    mutate(refulfilled = order_number %in% tpl$order_number) %>%
     group_by(order_year = year(estimated_order_date),
              order_month = month(estimated_order_date),
              Cohort = coalesce(Cohort, "Not Assigned")) %>%
     summarise(adjusted_returns = sum(amount_usd),
-              inventory_returns = sum(coalesce(manufacturing_cost, 70))) %>%
+              inventory_returns = sum(coalesce(manufacturing_cost, 70)),
+              refulfilled_return_units = sum(refulfilled)) %>%
     filter(order_year >= 2017 & order_month <= 4) %>%
     rename(returns = adjusted_returns) %>%
     ungroup() %>%
@@ -151,7 +163,8 @@ demand_returns <- read_csv("/Users/Peter 1/Dropbox (Team Fame)/data/finance/retu
                        Cohort = coalesce(Cohort, "Not Assigned")) %>%
               mutate(manufacturing_cost = coalesce(manufacturing_cost, 70)) %>%
               summarise(returns = sum(return_requested * sales_usd * 0.9),
-                        inventory_returns = sum(return_requested * manufacturing_cost * 0.9)) %>%
+                        inventory_returns = sum(return_requested * manufacturing_cost * 0.9),
+                        refulfilled_return_units = 0) %>%
               ungroup() %>%
               filter(order_year >= 2017 & order_month %in% c(5,6))) %>%
     mutate(year_month = paste(order_year, 
