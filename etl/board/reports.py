@@ -7,7 +7,7 @@ import nps
 # Hacky way to make sure I don't put the password in git 
 from secrets import PASS, DKEY
 
-def pull_monthly_kpis():
+def monthly_kpis():
     """Merges the above reports utilizing their standard formatting.
     """
     traffic = ga.pull_traffic()
@@ -24,5 +24,9 @@ def pull_monthly_kpis():
                                             fill_value='')
     return monthly_kpis
 
+def revenue_attribution():
+    c = ga.pull_all_channels()
+    return c[['channelGrouping','transactions']]
+
 if __name__ == '__main__':
-    print(pull_monthly_kpis().to_csv())
+    print(monthly_kpis().to_csv())

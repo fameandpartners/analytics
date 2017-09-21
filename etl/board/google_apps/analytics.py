@@ -47,6 +47,14 @@ def pull_traffic():
     df_out = pd.concat([device_traffic, geo_traffic, channel_traffic])
     return df_out
 
+def pull_all_channels():
+    ga_conn = initialize_analyticsreporting()
+    channel_traffic = get_report(
+        ga_conn=ga_conn, 
+        date_ranges=[{'startDate': '2017-01-01', 'endDate': 'today'}],
+        dimensions=[{'name': 'ga:channelGrouping'},])
+    return channel_traffic
+
 
 __location__ = os.path.realpath(
     os.path.join(os.getcwd(), os.path.dirname(__file__)))
@@ -72,7 +80,7 @@ def initialize_analyticsreporting():
 
 def get_report(
         ga_conn, 
-        date_ranges=[{'startDate': '2017-01-01', 'endDate': 'today'}],
+        date_ranges=[{'startDate': '2016-01-01', 'endDate': 'today'}],
         metrics=[{'expression': 'ga:sessions'},{'expression': 'ga:transactions'}],
         dimensions=[{'name': 'ga:yearMonth'}]):
     """Queries the Analytics Reporting API V4 and returns the results in a 

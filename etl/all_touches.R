@@ -6,7 +6,7 @@ library(lubridate)
 
 source("~/code/analytics/ecommerce-performance/fp_init.R")
 
-br_csv <- read_csv("~/data/Contacts-Master_List.csv",
+br_csv <- read_csv("~/data/Contacts-All.csv",
                    col_types = cols(
                        .default = col_character()),
                    skip = 0) %>%
@@ -34,11 +34,10 @@ mc <- bind_rows(list(
         rename(email = `Email Address`, event_type_d = `EventType`) %>%
         select(email, event_type_d, utm_source, utm_medium, utm_campaign, CONFIRM_TIME))) %>%
     filter(!duplicated(email)) %>%
-    mutate(mc_cohort = ifelse(str_detect(tolower(event_type_d), "bridal"),
-                              "Bridal", 
-                              ifelse(str_detect(tolower(event_type_d), "formal|cocktail|wedding guest|daytime|work"), 
-                                     "Contemporary",
-                                     ifelse(tolower(event_type_d) == "prom", "Prom", NA))))
+    mutate(mc_cohort = ifelse(tolower(event_type_d) == "bridal party", "Bridesmaid",
+                       ifelse(str_detect(tolower(event_type_d), "bridal"), "Bridal",           
+                       ifelse(str_detect(tolower(event_type_d), "formal|cocktail|wedding guest|daytime|work"),"Contemporary",
+                       ifelse(tolower(event_type_d) == "prom", "Prom", NA)))))
 
 # order carts that were created from 2016 to present
 orders <- tbl(fp_con, sql(paste(

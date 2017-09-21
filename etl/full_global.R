@@ -98,7 +98,7 @@ all_touches <- read_csv("static-data/all_touches.csv",
                             total = col_double(),
                             revenue_usd = col_double(),
                             step = readr::col_factor(levels = c("Cart","Checkout","Purchase", ordered = TRUE)),
-                            cohort = readr::col_factor(levels = c("Prom", "Bridal", "Contemporary", "Not Assigned", ordered = TRUE))
+                            cohort = readr::col_factor(levels = c("Prom", "Bridal", "Bridesmaid", "Contemporary", "Not Assigned", ordered = TRUE))
                         )) %>%
     rename(sales_usd = revenue_usd)
 

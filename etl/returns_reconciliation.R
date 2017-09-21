@@ -6,6 +6,15 @@ library(lubridate)
 
 source("~/code/analytics/ecommerce-performance/fp_init.R")
 
+# ---- 3PL ----
+tpl <- read_csv("/Users/Peter 1/Dropbox (Team Fame)/data/3PL/3PL Orders - COMBINED.csv",
+                col_types = cols(
+                    order_number = col_character(),
+                    ship_date = col_date(format = "")
+                ))
+
+# ---- Spree DB ----
+
 payment_lkp <-
     tbl(fp_con, sql(paste(
         "SELECT DISTINCT * FROM (",
@@ -218,4 +227,17 @@ all_refunds %>%
     summarise(adjusted_returns = sum(amount_usd)) %>%
     filter(ship_year >= 2017) %>%
     write_csv("~/code/analytics/ecommerce-performance/static-data/reconciled_returns.csv")
-    
+all_refunds %>%
+    filter(order_number %in% tpl$order_number) %>%
+    mutate(amount_usd = ifelse(currency == "AUD", abs(amount) * 0.74, abs(amount))) %>%
+    group_by(ship_year = year(estimated_ship_date),
+             ship_month = month(estimated_ship_date)) %>%
+    summarise(adjusted_returns = sum(amount_usd)) %>%
+    filter(ship_year >= 2017) %>%
+    inner_join(products_sold %>%
+                   filter(order_number %in% tpl$order_number & order_state != "canceled") %>%
+                   group_by(ship_year = year(ship_date), ship_month = month(ship_date)) %>%
+                   summarise(gross_revenue_usd = sum(gross_revenue_usd)),
+               by = c("ship_year","ship_month")) %>%
+    mutate(return_rate = adjusted_returns/gross_revenue_usd) %>%
+    write_csv("~/data/refulfilled_reconciled_returns.csv")

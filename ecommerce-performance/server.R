@@ -462,15 +462,6 @@ shinyServer(function(input, output) {
     
     filtered_for_returns <- reactive({
         products_sold %>%
-            rename(reason_dirty = return_reason) %>%
-            mutate(return_reason = paste0(substr(reason_dirty %>% 
-                                                     str_replace_all("_"," "),
-                                                 1,1) %>% 
-                                              toupper(),
-                                          substr(reason_dirty %>% 
-                                                     str_replace_all("_"," "),
-                                                 2,250) %>% 
-                                              tolower())) %>%
             filter(between(ship_date, input$ship_dates_r[1], input$ship_dates_r[2])) %>%
             filter(collection %in% return_collections_filter()) %>%
             filter(style_name %in% return_styles_filter()) %>%
@@ -942,7 +933,7 @@ shinyServer(function(input, output) {
                                              file, na = "" )}
     )
     
-    # ---- Monthly Cohort Distrobution ----
+    # ---- Monthly Cohort Distribution ----
     cohort_dist_data <- reactive({
         filtered_touches() %>%
             filter(cohort %in% c("Prom","Bridal","Contemporary")

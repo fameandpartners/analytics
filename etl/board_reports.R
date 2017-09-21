@@ -17,10 +17,8 @@ tpl <- read_csv("/Users/Peter 1/Dropbox (Team Fame)/data/3PL/3PL Orders - COMBIN
 # ---- MONTHLY KPIs ----
 
 products_shipped <- products_sold %>%
-    mutate(refulfilled = order_number %in% tpl$order_number) %>%
-    filter(is_shipped 
-           & order_state != "canceled"
-           & year(ship_date) >= 2016) 
+    filter(order_state != "canceled") %>%
+    mutate(refulfilled = order_number %in% tpl$order_number)
 
 monthly_direct_demand <- products_shipped %>%
     group_by(Year = year(order_date), 
@@ -89,7 +87,6 @@ monthly_factory_direct <- products_shipped %>%
 monthly_direct <- monthly_direct_demand %>%
     left_join(monthly_repeats, by = c("Year","Month","Cohort")) %>%
     ungroup() %>%
-    filter(Year >= 2017) %>%
     mutate(year_month = paste(Year, formatC(Month, width=2, flag="0"), sep="-")) %>%
     select(-Year, -Month)
 
@@ -139,12 +136,30 @@ monthly_style_sales_distribution_2017 <- products_sold_2017 %>%
 
 
 # ---- DEMAND BASED RETURNS ----
-demand_returns <- read_csv("/Users/Peter 1/Dropbox (Team Fame)/data/finance/returns_reconciled_2017-07-26.csv") %>%
+reconciled_returns <- read_csv("/Users/Peter 1/Dropbox (Team Fame)/data/finance/returns_reconciled_2017-07-26.csv",
+                               col_types = cols(
+                                   response_code = col_character(),
+                                   amount = col_double(),
+                                   currency = col_character(),
+                                   date = col_date(format = ""),
+                                   order_id = col_integer(),
+                                   response_code_source = col_character(),
+                                   refund_requested = col_integer(),
+                                   refund_processed = col_integer(),
+                                   last_order_date = col_date(format = ""),
+                                   last_ship_date = col_date(format = ""),
+                                   original_sales_amount = col_double(),
+                                   db_refund_amount = col_double(),
+                                   estimated_ship_date = col_date(format = ""),
+                                   match_status = col_character(),
+                                   payment_processor = col_character()
+                               ))
+demand_returns <- reconciled_returns %>%
     mutate(estimated_order_date = coalesce(last_order_date, date - 30),
            amount_usd = ifelse(currency == "AUD", abs(amount) * 0.74, abs(amount))) %>%
     left_join(products_sold %>%
                   group_by(order_id,order_number) %>%
-                  summarise(manufacturing_cost = sum(manufacturing_cost),
+                  summarise(manufacturing_cost = mean(coalesce(manufacturing_cost, 70)),
                             Cohort = Cohort[1]),
               by = "order_id") %>%
     mutate(refulfilled = order_number %in% tpl$order_number) %>%
@@ -163,7 +178,7 @@ demand_returns <- read_csv("/Users/Peter 1/Dropbox (Team Fame)/data/finance/retu
                        Cohort = coalesce(Cohort, "Not Assigned")) %>%
               mutate(manufacturing_cost = coalesce(manufacturing_cost, 70)) %>%
               summarise(returns = sum(return_requested * sales_usd * 0.9),
-                        inventory_returns = sum(return_requested * manufacturing_cost * 0.9),
+                        inventory_returns = sum(return_requested * coalesce(manufacturing_cost, 70) * 0.9),
                         refulfilled_return_units = 0) %>%
               ungroup() %>%
               filter(order_year >= 2017 & order_month %in% c(5,6))) %>%
@@ -171,6 +186,25 @@ demand_returns <- read_csv("/Users/Peter 1/Dropbox (Team Fame)/data/finance/retu
                               formatC(order_month, width=2, flag="0"),
                               sep = "-")) %>%
     select(-order_year,-order_month)
+
+# ---- Return Reasons ----
+return_reasons <- products_shipped %>%
+    filter(year(order_date) == 2017) %>%
+    filter(!is.na(return_reason) & return_reason != "No reason") %>%
+    group_by(`Return Reason` = return_reason) %>%
+    summarise(Units = n())
+
+# ---- Customization Rate Trend ----
+customization_trend <- products_sold %>%
+    filter(year(order_date) >= 2017) %>%
+    mutate(order_year_week = paste(year(order_date), 
+                               formatC(week(order_date), width = 2, flag = "0"), 
+                               sep = " W")) %>%
+    group_by(order_year_week) %>% 
+    summarise(`Week Ending` = max(order_date),
+              `Customization Rate` = sum(physically_customized * quantity) / sum(quantity)) %>%
+    select(-order_year_week)
+
 
 board_inputs <- "/Users/Peter 1/Dropbox (Team Fame)/data/board/inputs/"
 write_csv(monthly_direct, paste0(board_inputs,"monthly_direct.csv"), na="")
@@ -180,3 +214,5 @@ write_csv(cohort_assignments %>% filter(assigned_cohort != "Not Assigned"),
           paste0(board_inputs, "cohort_assignments.csv", na=""))
 write_csv(monthly_style_sales_distribution_2017, paste0(board_inputs,"monthly_style_distribution.csv"),na="")
 write_csv(demand_returns, paste0(board_inputs, "reconciled_demand_returns.csv"))
+write_csv(return_reasons, paste0(board_inputs, "return_reasons.csv"))
+write_csv(customization_trend, paste0(board_inputs, "customization_trend.csv"))

@@ -97,7 +97,7 @@ all_touches <- read_csv("static-data/all_touches.csv",
                             total = col_double(),
                             revenue_usd = col_double(),
                             step = readr::col_factor(levels = c("Cart","Checkout","Purchase", ordered = TRUE)),
-                            cohort = readr::col_factor(levels = c("Prom", "Bridal", "Contemporary", "Not Assigned", ordered = TRUE))
+                            cohort = readr::col_factor(levels = c("Prom", "Bridal", "Contemporary", "Bridesmaid", "Not Assigned", ordered = TRUE))
                         )) %>%
     rename(sales_usd = revenue_usd)
 
@@ -163,7 +163,11 @@ ga_fb <- read_csv("static-data/ga_fb.csv",
     mutate(creative = coalesce(ad_images, creative_no_image))
 
 # ---- COHORTS ----
-cohort_assignments <- read_csv("static-data/cohort_assignments.csv")
+cohort_assignments <- read_csv("static-data/cohort_assignments.csv",
+                               col_types = cols(
+                                   email = col_character(),
+                                   assigned_cohort = col_character()
+                               ))
 
 comp_choices <- c("Spend (USD)","Purchases","CAC","CTR","CPAC","CPL",
                   "T.O.S.","Sessions","Total Carts","Bounce Rate")
@@ -523,15 +527,29 @@ products_sold <- ordered_units %>%
     filter(order_number != "R028450713") %>%
     filter(between(adjustments_total_percentage, -0.9, 1)) %>%
     filter(payments != 0) %>%
-    left_join(shipping_costs, by = c("ship_year_month")) %>%
+    left_join(shipping_costs %>% select(-ship_year, -ship_month), 
+              by = c("ship_year_month")) %>%
     group_by(order_id) %>%
     mutate(li_shipping_cost0 = coalesce(avg_order_shipping_cost / n(),
                                        median(shipping_costs$avg_order_shipping_cost) / n()),
            li_shipping_cost = ifelse(return_requested, li_shipping_cost0 + 5, li_shipping_cost0),
            packaging_cost = 2.5,
-           units_in_order = n()) %>%
+           units_in_order = sum(quantity)) %>%
     ungroup() %>%
-    left_join(dress_images, by = "product_id")
+    left_join(dress_images, by = "product_id") %>%
+    rename(reason_dirty = return_reason) %>%
+    mutate(reason_dirty1 = paste0(substr(reason_dirty %>% 
+                                                    str_replace_all("_"," "),
+                                                1,1) %>% 
+                                             toupper(),
+                                         substr(reason_dirty %>% 
+                                                    str_replace_all("_"," "),
+                                                2,250) %>% 
+                                             tolower()),
+           return_reason = ifelse(reason_dirty1 == "Ordered multiple styles or sizes","Ordered multiple",
+                           ifelse(reason_dirty1 == "Looks different to image on site","Looks different",
+                           ifelse(reason_dirty1 == "Poor quality or faulty", "Poor quality", reason_dirty1)))) %>%
+    select(-contains("reason_dirty"))
 
 products_sold$order_status <- factor(
     products_sold$order_status,
