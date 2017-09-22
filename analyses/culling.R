@@ -60,7 +60,7 @@ ongoing_cull_sales <- products_sold %>%
     filter(order_date >= (today() - 120) & order_date < (today() - 30))
 
 no_sales_live <- active_products %>%
-    anti_join(ongoing_cull_sales, by = "product_id")
+    anti_join(products_sold, by = "product_id")
 
 ongoing_cull <- ongoing_cull_sales %>%
     group_by(product_id) %>%
