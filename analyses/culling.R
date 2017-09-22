@@ -18,9 +18,6 @@ active_products <- products %>%
            & (is.na(deleted_at) | deleted_at > today())
            & available_on <= today())
 
-no_sales_live <- active_products %>%
-    anti_join(products_sold, by = "product_id")
-
 traffic <- paste0(
     path_to_culling_dropbox,
     list.files(path = path_to_culling_dropbox, pattern = "*.csv")) %>%
@@ -55,14 +52,15 @@ zero_units <- function(df){
                   net_return_request_units = 0)
 }
 
-ongoing_cull_styles <- product_first_sale_dates# %>%
-    #filter(first_sale_date < (today() - 120))# %>%
-    #anti_join(first_cull, by = "product_id")
+ongoing_cull_styles <- product_first_sale_dates %>%
+    filter(first_sale_date < (today() - 120))
 
 ongoing_cull_sales <- products_sold %>%
     inner_join(ongoing_cull_styles, by = "product_id") %>%
-    filter(#order_date >= (today() - 120) & include all styles 
-               order_date < (today() - 30))
+    filter(order_date >= (today() - 120) & order_date < (today() - 30))
+
+no_sales_live <- active_products %>%
+    anti_join(ongoing_cull_sales, by = "product_id")
 
 ongoing_cull <- ongoing_cull_sales %>%
     group_by(product_id) %>%
@@ -72,7 +70,7 @@ ongoing_cull <- ongoing_cull_sales %>%
     filter(net_return_request_units <= 3) %>%
     bind_rows(list(
         no_sales_live %>%
-            #filter(available_on < (today() - 120)) %>% include all styles
+            filter(available_on < (today() - 120)) %>% # include all styles
             zero_units(),
         ongoing_cull_styles %>%
             anti_join(ongoing_cull_sales, by = "product_id") %>%
@@ -83,7 +81,8 @@ ongoing_cull <- ongoing_cull_sales %>%
     inner_join(products %>%
                    select(product_id, style_number, style_name),
                by = "product_id")  %>%
-    semi_join(active_products, by = "product_id")
+    semi_join(active_products, by = "product_id") %>%
+    unique()
 
 write_csv(ongoing_cull %>% 
               left_join(collections %>% 
