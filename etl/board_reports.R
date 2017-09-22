@@ -16,11 +16,11 @@ tpl <- read_csv("/Users/Peter 1/Dropbox (Team Fame)/data/3PL/3PL Orders - COMBIN
 
 # ---- MONTHLY KPIs ----
 
-products_shipped <- products_sold %>%
+confirmed_sales <- products_sold %>%
     filter(order_state != "canceled") %>%
     mutate(refulfilled = order_number %in% tpl$order_number)
 
-monthly_direct_demand <- products_shipped %>%
+monthly_direct_demand <- confirmed_sales %>%
     group_by(Year = year(order_date), 
              Month = month(order_date),
              Cohort) %>%
@@ -57,7 +57,7 @@ customer_acquisitions <- read_csv(
     rename(acquisition_date = date)
 
 # Monthly
-monthly_repeats <- products_shipped %>%
+monthly_repeats <- confirmed_sales %>%
     filter(!return_requested) %>%
     left_join(customer_acquisitions, by = "email") %>%
     mutate(new_repeat = ifelse(order_date <= coalesce(acquisition_date,
@@ -72,15 +72,24 @@ monthly_repeats <- products_shipped %>%
     filter(Year >= 2016)
 
 # ---- Monthly Factory Direct ----
-monthly_factory_direct <- products_shipped %>%
-    filter(year(order_date) >= 2017) %>%
+monthly_factory_direct <- confirmed_sales %>%
+    filter(year(order_date) >= 2017 & is_shipped) %>%
     group_by(year_month = order_year_month,
              Factory = factory_name) %>%
     summarise(Units = sum(quantity),
               `Avg. Make Time` = mean(difftime(ship_date, 
                                                order_date, 
                                                units = "days")) %>%
-                  as.numeric())
+                  as.numeric()) %>%
+    rbind(confirmed_sales %>%
+              filter(year(order_date) >= 2017 & is_shipped) %>%
+              group_by(year_month = order_year_month,
+                       Factory = "All") %>%
+              summarise(Units = sum(quantity),
+                        `Avg. Make Time` = mean(difftime(ship_date, 
+                                                         order_date, 
+                                                         units = "days")) %>%
+                            as.numeric()))
 
 # ---- MERGE KPIs by Year, Quarter and Month ----
 
@@ -172,7 +181,7 @@ demand_returns <- reconciled_returns %>%
     filter(order_year >= 2017 & order_month <= 4) %>%
     rename(returns = adjusted_returns) %>%
     ungroup() %>%
-    rbind(products_shipped %>%
+    rbind(confirmed_sales %>%
               group_by(order_year = year(order_date),
                        order_month = month(order_date),
                        Cohort = coalesce(Cohort, "Not Assigned")) %>%
@@ -188,14 +197,14 @@ demand_returns <- reconciled_returns %>%
     select(-order_year,-order_month)
 
 # ---- Return Reasons ----
-return_reasons <- products_shipped %>%
+return_reasons <- confirmed_sales %>%
     filter(year(order_date) == 2017) %>%
     filter(!is.na(return_reason) & return_reason != "No reason") %>%
     group_by(`Return Reason` = return_reason) %>%
     summarise(Units = n())
 
 # ---- Customization Rate Trend ----
-customization_trend <- products_sold %>%
+customization_trend <- confirmed_sales %>%
     filter(year(order_date) >= 2017) %>%
     mutate(order_year_week = paste(year(order_date), 
                                formatC(week(order_date), width = 2, flag = "0"), 
