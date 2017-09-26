@@ -10,3 +10,4 @@
 *secrets.py
 *.Rproj
 *rsconnect/
+.Rproj.user
