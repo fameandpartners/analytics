@@ -1,3 +1,11 @@
+# /anaconda/envs/etl/bin/python
+# ex:
+# python create.py production
+# python create.py development
+# 
+# the 'production' connects to the dw in aws
+# while anything else connects to my dev dw
+
 from sys import argv
 
 from sqlalchemy import create_engine
