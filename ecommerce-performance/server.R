@@ -302,8 +302,7 @@ shinyServer(function(input, output) {
                            rename(customization_price = price), 
                        by = "customization_value_id") %>%
             group_by(Customization = presentation, 
-                     `Price Bucket` = ifelse(customization_price > 0
-                                             | is.na(customization_price),
+                     `Price Bucket` = ifelse(customization_price > 0 | is.na(customization_price),
                                              "Paid", "Free")) %>%
             summarise(Units = n_distinct(line_item_id)) %>%
             arrange(desc(Units))
