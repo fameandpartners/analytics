@@ -12,9 +12,21 @@ from sqlalchemy import create_engine
 from sqlalchemy import MetaData
 from sqlalchemy import Table, Column
 from sqlalchemy import Integer, String
+from sqlalchemy.ext.declarative import declarative_base
 
 from secrets import DWPASS
 
+Base = declarative_base()
+
+class Test(Base):
+     __tablename__ = 'test'
+
+     id = Column(Integer, primary_key=True)
+     first_name = Column(String)
+     last_name = Column(String)
+
+     def __repr__(self):
+        return "<User(first_name='%s', last_name='%s')>" % (self.name, self.fullname)
 
 def create_dw_engine(production = False):
     if production:
@@ -27,18 +39,20 @@ def create_dw_engine(production = False):
         engine = create_engine(f'postgresql+psycopg2://peterh:{password}@{host}:5432/dw_dev')
     return engine
 
-
 def create_dw_tables(engine):
-    metadata = MetaData()
-    test_table = Table('test', metadata,
-                    Column('id', Integer, primary_key=True),
-                    Column('name', String)
-                )
-    test_table.create(engine)
+    Test.metadata.create_all(engine)
+
+def which_db(sys_argv):
+    try:
+        which_eng = sys_argv[1]
+        production = True if which_eng == 'production' else False
+    except:
+        production = False
+    return production
+
 
 if __name__ == '__main__':
-    which_eng = argv[1]
-    production = True if which_eng == 'production' else False
+    production = which_db(argv)
     print('Connecting to our Data Warehouse')
     engine = create_dw_engine(production=production)
     if len(engine.table_names()) == 0:
@@ -46,4 +60,4 @@ if __name__ == '__main__':
         create_dw_tables(engine=engine)
         print('Done :)')
     else:
-        print(f'Hey! There are already tables in {which_eng} bud.\nMaybe you meant to run update.py?')
+        print(f'Hey! There are already tables in this DW bud.\nMaybe you meant to run update.py?')
