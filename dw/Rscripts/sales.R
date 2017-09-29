@@ -131,8 +131,6 @@ col_args <- function(){
          Platform = col_character(),
          Date = col_date(format = ""))
 }
-fb <- read_csv("Rscripts/static-data/fb.csv", col_types = col_args())
-ga <- read_csv("Rscripts/static-data/ga.csv", col_types = col_args())
 ga_fb <- read_csv("Rscripts/static-data/ga_fb.csv",
                   col_types = cols(
                       .default = col_number(),
