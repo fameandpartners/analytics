@@ -1,5 +1,6 @@
-from models import Test
+from feather import read_dataframe
 from sqlalchemy.orm import sessionmaker
+from models import Test
 
 def load_test(engine):
     Session = sessionmaker(bind=engine)
@@ -13,3 +14,7 @@ def load_test(engine):
     session.add(t1)
     session.add(t2)
     session.commit()
+
+def load_sales():
+    sales = read_dataframe('feathers/sales.feather')
+    return sales
