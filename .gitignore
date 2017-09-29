@@ -10,4 +10,5 @@
 *secrets.py
 *.Rproj
 *rsconnect/
-.Rproj.user
+*.Rproj.user
+*.feather
