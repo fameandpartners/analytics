@@ -382,10 +382,28 @@ week_based_monthly <- products_sold %>%
 monthly_fabrics2 <- monthly_fabrics %>%
     inner_join(week_based_monthly, by = c("order_year","order_month","fabric"))
 
-mixed_model <- lm(meters ~ wlmpred + prior_meters + season, data = monthly_fabrics2)
-summary(mixed_model)
+mixed_model1 <- lm(meters ~ prior_meters / season, data = monthly_fabrics2)
+summary(mixed_model1)
 
-monthly_fabrics2$mixed_pred = predict(mixed_model)
+mixed_model2 <- lm(meters ~ wlmpred + prior_meters / season, data = monthly_fabrics2)
+summary(mixed_model2)
+
+just_wlm <- lm(meters ~ wlmpred, data = monthly_fabrics2)
+summary(just_wlm)
+
+monthly_fabrics2$mixed_pred1 = predict(mixed_model1)
+monthly_fabrics2$mixed_pred2 = predict(mixed_model2)
+monthly_fabrics2$just_wlm_pred = predict(just_wlm)
+
+monthly_fabrics2 %>%
+    summarise(mse(meters, wlmpred),
+              mse(meters, mixed_pred1),
+              mse(meters, mixed_pred2),
+              mse(meters, just_wlm_pred)) %>%
+    gather(model, mse) %>%
+    arrange(mse) %>%
+    mutate(sqrt(mse))
+
 
 fabrics_with_data <- monthly_fabrics2 %>%
     filter(order_year >= 2017) %>%
@@ -472,7 +490,11 @@ weekly_fabrics2 <- products_sold %>%
 seasonal_model1 <- lm(meters ~ prior_meters / deseason, weekly_fabrics2)
 summary(fabrics_model)
 summary(seasonal_model1)
-anova(seasonal_model1)
+
+# should be the same R-squared
+seasonal_model1_1 <- lm(meters ~ prior_meters_d, weekly_fabrics2 %>%
+                            mutate(prior_meters_d = prior_meters / deseason))
+summary(seasonal_model1_1)
 
 seasonal_model2 <- lm(meters ~ prior_meters + mean_seasonal_zscore, weekly_fabrics2)
 summary(seasonal_model2)
@@ -494,8 +516,9 @@ compare_df %>%
     summarise(mse(meters, basic_lm),
               mse(meters, seasonal_lm1),
               mse(meters, seasonal_lm2)) %>%
-    gather(mse, result) %>%
-    arrange(result)
+    gather(model, mse) %>%
+    arrange(mse) %>%
+    mutate(sqrt(mse))
 
 compare_df %>%
     filter(fabric %in% arrange(top_fabrics, desc(meters))$fabric[1:5]) %>%
@@ -505,6 +528,6 @@ compare_df %>%
     facet_grid(order_year~fabric)
 
 
-# Ok now I gotta throw something workable together
+# Ok I'm gonna use
 
 
