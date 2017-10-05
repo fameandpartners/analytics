@@ -289,64 +289,6 @@ weekly_fabrics %>%
     geom_line(aes(y=meters, color="Actual")) +
     geom_line(aes(y=lm_pred, color="Predicted")) +
     facet_grid(.~fabric)
-
-seasonality <- products_sold %>%
-    filter(order_status != "Canceled" & year(order_date) >= 2015) %>%
-    group_by(order_year = year(order_date), 
-             order_month = month(order_date)) %>%
-    summarise(units_sold = sum(quantity)) %>%
-    filter(ifelse(order_year == 2017 & order_month == 10, F, T)) %>%
-    group_by(order_month) %>%
-    mutate(period_mean = mean(units_sold)) %>%
-    ungroup() %>%
-    mutate(overall_mean = mean(units_sold)) %>%
-    select(-order_year, -units_sold) %>%
-    unique() %>%
-    mutate(season = period_mean / overall_mean)
-
-monthly_fabrics <- products_sold %>%
-    filter(order_status != "Canceled" & year(order_date) >= 2016) %>%
-    group_by(order_year = year(order_date), 
-             order_quarter = quarter(order_date),
-             order_month = month(order_date),
-             product_id) %>%
-    summarise(units_sold = sum(quantity)) %>%
-    inner_join(fabric_usage, by = "product_id") %>%
-    mutate(meters = usage*units_sold) %>%
-    group_by(order_year, order_month, order_quarter, fabric) %>%
-    summarise(meters = sum(meters)) %>%
-    inner_join(seasonality, by = "order_month") %>%
-    arrange(fabric, order_year, order_month) %>%
-    group_by(fabric) %>%
-    mutate(prior_meters = lag(meters)) %>%
-    ungroup() %>%
-    filter(!is.na(prior_meters)) %>% 
-    mutate(Q1 = as.numeric(order_quarter == 1),
-           Q2 = as.numeric(order_quarter == 2),
-           Q3 = as.numeric(order_quarter == 3),
-           Q4 = as.numeric(order_quarter == 4))
-
-monthly_lm1 <- lm(meters ~ prior_meters, data = monthly_fabrics)
-summary(monthly_lm1)
-
-monthly_lm2 <- lm(meters ~ season, data = monthly_fabrics)
-summary(monthly_lm2)
-
-monthly_lm3 <- lm(meters ~ prior_meters / season, data = monthly_fabrics)
-summary(monthly_lm3)
-
-monthly_fabrics$m1lm_pred <- predict(monthly_lm1)
-monthly_fabrics$m3lm_pred <- predict(monthly_lm3)
-
-monthly_fabrics %>%
-    semi_join(top_fabrics %>% top_n(5, meters), by = "fabric") %>%
-    filter(order_year >= 2017) %>%
-    ggplot(aes(x=order_month)) +
-    geom_path(aes(y=meters, color="Actual")) +
-    geom_path(aes(y=m1lm_pred, color="Prior Month")) +
-    geom_path(aes(y=m3lm_pred, color="Prior Month with Season")) +
-    facet_grid(.~fabric)
-
 # Try to simulate what running a regression recursively on one week
 # of data to predict total volume for that month
 weekly_predict <- function(prior_meters){
@@ -373,11 +315,12 @@ week_based_monthly <- products_sold %>%
     group_by(order_year, order_month) %>%
     filter(order_week == min(order_week)) %>%
     mutate(wlmpred = 
-        weekly_predict(prior_meters) # Next week
-        + prior_meters %>% weekly_predict() %>% weekly_predict() # The week after
-        + prior_meters %>% weekly_predict() %>% weekly_predict() %>% weekly_predict() # The week after that
+               weekly_predict(prior_meters) # Next week
+           + prior_meters %>% weekly_predict() %>% weekly_predict() # The week after
+           + prior_meters %>% weekly_predict() %>% weekly_predict() %>% weekly_predict() # The week after that
     ) %>%
-    select(order_year, order_month, fabric, wlmpred)
+    select(order_year, order_month, fabric, wlmpred) %>%
+    unique()
 
 monthly_fabrics2 <- monthly_fabrics %>%
     inner_join(week_based_monthly, by = c("order_year","order_month","fabric"))
@@ -391,7 +334,7 @@ summary(mixed_model2)
 just_wlm <- lm(meters ~ wlmpred, data = monthly_fabrics2)
 summary(just_wlm)
 
-monthly_fabrics2$mixed_pred1 = predict(mixed_model1)
+monthly_fabrics2$mixed_pred1 = predict(mixed_model1, newdata = monthly_fabrics2)
 monthly_fabrics2$mixed_pred2 = predict(mixed_model2)
 monthly_fabrics2$just_wlm_pred = predict(just_wlm)
 
@@ -403,6 +346,116 @@ monthly_fabrics2 %>%
     gather(model, mse) %>%
     arrange(mse) %>%
     mutate(sqrt(mse))
+
+seasonality <- products_sold %>%
+    filter(order_status != "Canceled" & year(order_date) >= 2015) %>%
+    group_by(order_year = year(order_date), 
+             order_month = month(order_date)) %>%
+    summarise(units_sold = sum(quantity)) %>%
+    filter(ifelse(order_year == 2017 & order_month == 10, F, T)) %>%
+    group_by(order_month) %>%
+    mutate(period_mean = mean(units_sold)) %>%
+    ungroup() %>%
+    mutate(overall_mean = mean(units_sold)) %>%
+    select(-order_year, -units_sold) %>%
+    unique() %>%
+    mutate(deseason = period_mean / overall_mean) %>%
+    select(-contains("mean"))
+
+monthly_meters <- products_sold %>%
+    filter(year(order_date) >= 2015) %>%
+    group_by(order_year = year(order_date), 
+             order_quarter = quarter(order_date),
+             order_month = month(order_date),
+             product_id) %>%
+    summarise(units_sold = sum(quantity)) %>%
+    inner_join(fabric_usage, by = "product_id") %>%
+    mutate(meters = usage*units_sold) %>%
+    group_by(order_year, order_month, order_quarter, fabric) %>%
+    summarise(meters = sum(meters))
+
+monthly_fabrics <- monthly_meters %>%
+    filter(ifelse(order_year == year(today()),
+           order_month < month(today()), TRUE)) %>%
+    inner_join(seasonality, by = "order_month") %>%
+    group_by(fabric) %>%
+    arrange(fabric, order_year, order_month) %>%
+    mutate(prior_meters = lag(meters)) %>%
+    arrange(fabric, order_month, order_year) %>%
+    mutate(prior_yr_meters = lag(meters)) %>%
+    ungroup() %>%
+    filter(!is.na(prior_meters) & !is.na(prior_yr_meters)) %>% 
+    mutate(Q1 = as.numeric(order_quarter == 1),
+           Q2 = as.numeric(order_quarter == 2),
+           Q3 = as.numeric(order_quarter == 3),
+           Q4 = as.numeric(order_quarter == 4)) %>%
+    mutate(wlmpred = 
+               weekly_predict(prior_meters) # Next week
+           + prior_meters %>% weekly_predict() %>% weekly_predict() # The week after
+           + prior_meters %>% weekly_predict() %>% weekly_predict() %>% weekly_predict() # The week after that
+    ) 
+
+monthly_lm1 <- lm(meters ~ prior_meters, data = monthly_fabrics)
+summary(monthly_lm1)
+
+monthly_lm2 <- lm(meters ~ deseason, data = monthly_fabrics)
+summary(monthly_lm2)
+
+monthly_lm3 <- lm(meters ~ prior_meters / deseason, data = monthly_fabrics)
+summary(monthly_lm3)
+
+monthly_lm4 <- lm(meters ~ prior_meters + Q1 + Q2 + Q3, data = monthly_fabrics)
+summary(monthly_lm4)
+
+monthly_lm5 <- lm(meters ~ (prior_meters * prior_yr_meters) / deseason , data = monthly_fabrics)
+summary(monthly_lm5)
+
+long_term_mlm <-lm(meters ~ prior_yr_meters / deseason, data = monthly_fabrics) 
+summary(long_term_mlm)
+
+monthly_fabrics$m1lm_pred <- predict(monthly_lm1)
+monthly_fabrics$m2lm_pred <- predict(monthly_lm2)
+monthly_fabrics$m3lm_pred <- predict(monthly_lm3)
+monthly_fabrics$m4lm_pred <- predict(monthly_lm4)
+monthly_fabrics$m5lm_pred <- predict(monthly_lm5)
+monthly_fabrics$mmixed_pred  <- predict(mixed_model2, newdata = monthly_fabrics)
+
+model_performance_by_scale <- monthly_fabrics %>%
+    group_by(meters_q = ntile(prior_meters, 5)) %>%
+    summarise(m1 = mse(meters, m1lm_pred),
+              m2 = mse(meters, m2lm_pred),
+              m3 = mse(meters, m3lm_pred),
+              m4 = mse(meters, m4lm_pred),
+              m5 = mse(meters, m5lm_pred),
+              max_pm = max(prior_meters)) %>%
+    gather(model, mse, -meters_q, -max_pm) %>%
+    arrange(meters_q, mse) %>%
+    group_by(meters_q) %>%
+    mutate(ee=sqrt(mse), winner = as.numeric(mse == min(mse)))
+
+model_performance_by_scale %>%
+    select(meters_q, model, winner, max_pm, ee) %>% 
+    filter(winner == 1)
+# # A tibble: 5 x 5
+# # Groups:   meters_q [5]
+# meters_q model winner  max_pm         ee
+# 1        1    m1      1    10.5   85.21385
+# 2        2    m1      1    30.0   83.58873
+# 3        3    m1      1    94.0  111.01240
+# 4        4    m4      1   371.0  186.63079
+# 5        5    m3      1 15754.5 1212.04855
+# Model 1 - the simplest - works best when prior meters is lower than 94 
+# Model 4 - the one using dummy vars for Q1-Q3 to account for seasonality - works best from 94 to 371
+# Model 3 - the one using the fancy deseason stat works best at large scales
+
+monthly_fabrics %>%
+    semi_join(top_fabrics %>% top_n(10, meters), by = "fabric") %>%
+    filter(order_year >= 2017) %>%
+    ggplot(aes(x=order_month)) +
+    geom_path(aes(y=meters, color="Actual")) +
+    geom_path(aes(y=m1lm_pred, color="Predicted Basic")) +
+    geom_path(aes(y=m5lm_pred, color="Predicted Hardcore")) +
+    facet_wrap(~fabric, nrow = 2)
 
 
 fabrics_with_data <- monthly_fabrics2 %>%
@@ -469,7 +522,7 @@ seasonality2 <- products_sold %>%
     summarise(mean_seasonal_zscore = mean(seasonal_zscore))
 
 weekly_fabrics2 <- products_sold %>%
-    filter(order_status != "Canceled" & year(order_date) >= 2016) %>%
+    filter(order_status != "Canceled" & year(order_date) >= 2015) %>%
     group_by(order_year = year(order_date), 
              order_quarter = quarter(order_date),
              order_week = week(order_date),
@@ -481,20 +534,21 @@ weekly_fabrics2 <- products_sold %>%
     summarise(meters = sum(meters)) %>%
     left_join(seasonality1, by = "order_week") %>%
     left_join(seasonality2, by = "order_week") %>%
-    arrange(fabric, order_year, order_week) %>%
     group_by(fabric) %>%
+    arrange(fabric, order_year, order_week) %>%
     mutate(prior_meters = lag(meters)) %>%
-    filter(!is.na(prior_meters)) %>%
+    arrange(fabric, order_week, order_year) %>%
+    mutate(prior_yr_meters = lag(meters)) %>%
+    filter(!is.na(prior_meters) & !is.na(prior_yr_meters)) %>%
     ungroup()
 
-seasonal_model1 <- lm(meters ~ prior_meters / deseason, weekly_fabrics2)
+seasonal_model1 <- lm(meters ~ (prior_meters * prior_yr_meters) / deseason, weekly_fabrics2)
 summary(fabrics_model)
 summary(seasonal_model1)
 
-# should be the same R-squared
-seasonal_model1_1 <- lm(meters ~ prior_meters_d, weekly_fabrics2 %>%
-                            mutate(prior_meters_d = prior_meters / deseason))
-summary(seasonal_model1_1)
+long_term_model <- lm(meters ~ prior_yr_meters / deseason, weekly_fabrics2)
+summary(long_term_model)
+predict(long_term_model, interval = "confidence", level = 0.999)
 
 seasonal_model2 <- lm(meters ~ prior_meters + mean_seasonal_zscore, weekly_fabrics2)
 summary(seasonal_model2)
@@ -527,7 +581,20 @@ compare_df %>%
     geom_path(aes(y = seasonal_lm1, color = "Predicted")) +
     facet_grid(order_year~fabric)
 
+write_csv(fabric_usage, "~/code/analytics/dw/Rscripts/static-data/fabric_usage.csv")
 
-# Ok I'm gonna use
+# Chosen Models:
+
+# Short term / high confidence
+# Next Week:
+summary(seasonal_model1)
+# Next Month:
+summary(monthly_lm5)
+
+# Long term / low confidence
+# Monthly
+summary(long_term_mlm)
+# Weekly
+summary(long_term_model)
 
 
