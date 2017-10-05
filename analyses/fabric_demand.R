@@ -592,9 +592,7 @@ summary(seasonal_model1)
 summary(monthly_lm5)
 
 # Long term / low confidence
-# Monthly
-summary(long_term_mlm)
 # Weekly
 summary(long_term_model)
-
+# Extrapolate this out 12 weeks to forecast next 3 months
 
