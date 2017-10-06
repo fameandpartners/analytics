@@ -90,54 +90,33 @@ read_pin <- function(file_name){
 all_refund_transactions <- bind_rows(
     list(
         read_paypal("~/data/paypal_aud_jan_may_refunds.csv") %>%
-            mutate(date = dmy(date_char)),
+            mutate(date = dmy(date_char),
+                   source = "us_paypal"),
         read_paypal("~/data/paypal_usd_jan_may_refunds.csv") %>%
-            mutate(date = mdy(date_char)),
-        read_pin("~/data/pin_jan_may_refunds.csv"),
-        read_csv(
-            "~/data/assembly_payments_jan_to_april_old_format.csv",
-            col_types = cols(
-                .default = col_character(),
-                `Purchase Amt` = col_number())) %>% 
-            transmute(response_code = `Merchant Order #`, 
-                      amount = `Purchase Amt`,
-                      date_char = `Batch Post Day`,
-                      date = mdy(`Batch Post Day`),
-                      currency = `Purchase Currency`),
-        read_csv(
-            "~/data/assembly_payments_may_new_format.csv",
-            col_types = cols(
-                .default = col_character(),
-                `Purchase Amt` = col_number())) %>%
-            separate(`Activity Date`, into = c("m","d","y"), 
-                     sep = "/", remove = FALSE) %>%
-            mutate(fixed_m = ifelse(as.integer(m) >= 6, d, m),
-                   fixed_d = ifelse(as.integer(m) >= 6, m, d),
-                   clean_date = paste(ifelse(as.integer(y) == 17, 2017, y), 
-                                      formatC(as.integer(fixed_m), width = 2, flag = "0"), 
-                                      formatC(as.integer(fixed_d), width = 2, flag = "0"), 
-                                      sep = "-")) %>%
-            transmute(response_code = `Merchant Order Number`,
-                      amount = `Purchase Amt`,
-                      date_char = `Activity Date`,
-                      date = date(clean_date),
-                      currency = `Purchase Currency`),
-        read_csv(
-            "~/data/Assembly Payments refunds_June 2017.csv",
-            col_types = cols(
-                .default = col_character(),
-                `Purchase Amt` = col_number())) %>%
+            mutate(date = mdy(date_char),
+                   source = "au_paypal"),
+        read_pin("~/data/pin_jan_may_refunds.csv") %>%
+            mutate(source = "pin"),
+        read_csv("~/data/F&P YTD report.csv",
+                  col_types = cols(
+                      .default = col_character(),
+                      `Purchase Amt` = col_double(),
+                      `Settlement Amt` = col_double())) %>% 
+            filter(!is.na(`Merchant Order Number`) & `Txn Type` == "Refund") %>%
             transmute(response_code = `Merchant Order Number`,
                       amount = `Purchase Amt`,
                       date_char = `Activity Date`,
                       date = mdy(`Activity Date`),
-                      currency = `Purchase Currency`),
+                      source = "assembly_ytd"),
         read_paypal("~/data/Paypal USD refunds_June 2017.csv") %>%
-            mutate(date = mdy(date_char)),
+            mutate(date = mdy(date_char),
+                   source = "us_paypal_jun"),
         read_paypal("~/data/Paypal AUD refunds_June 2017.csv") %>%
-            mutate(date = dmy(date_char)),
-        read_pin("~/data/Pin refunds_June 2017.csv"))) %>%
-    filter(!duplicated(response_code))
+            mutate(date = dmy(date_char),
+                   source = "au_paypal_jun"),
+        read_pin("~/data/Pin refunds_June 2017.csv") %>%
+            mutate(source = "pin_jun"))) #%>%
+    #filter(!duplicated(response_code))
 
 payment_lkp$response_code_source <- factor(
     payment_lkp$response_code_source,
