@@ -383,17 +383,7 @@ monthly_fabrics <- monthly_meters %>%
     mutate(prior_meters = lag(meters)) %>%
     arrange(fabric, order_month, order_year) %>%
     mutate(prior_yr_meters = lag(meters)) %>%
-    ungroup() %>%
-    filter(!is.na(prior_meters) & !is.na(prior_yr_meters)) %>% 
-    mutate(Q1 = as.numeric(order_quarter == 1),
-           Q2 = as.numeric(order_quarter == 2),
-           Q3 = as.numeric(order_quarter == 3),
-           Q4 = as.numeric(order_quarter == 4)) %>%
-    mutate(wlmpred = 
-               weekly_predict(prior_meters) # Next week
-           + prior_meters %>% weekly_predict() %>% weekly_predict() # The week after
-           + prior_meters %>% weekly_predict() %>% weekly_predict() %>% weekly_predict() # The week after that
-    ) 
+    ungroup()
 
 monthly_lm1 <- lm(meters ~ prior_meters, data = monthly_fabrics)
 summary(monthly_lm1)
@@ -453,8 +443,7 @@ monthly_fabrics %>%
     filter(order_year >= 2017) %>%
     ggplot(aes(x=order_month)) +
     geom_path(aes(y=meters, color="Actual")) +
-    geom_path(aes(y=m1lm_pred, color="Predicted Basic")) +
-    geom_path(aes(y=m5lm_pred, color="Predicted Hardcore")) +
+    geom_path(aes(y=m5lm_pred, color="Predicted")) +
     facet_wrap(~fabric, nrow = 2)
 
 
@@ -522,7 +511,7 @@ seasonality2 <- products_sold %>%
     summarise(mean_seasonal_zscore = mean(seasonal_zscore))
 
 weekly_fabrics2 <- products_sold %>%
-    filter(order_status != "Canceled" & year(order_date) >= 2015) %>%
+    filter(order_status != "Canceled" & year(order_date) >= 2016) %>%
     group_by(order_year = year(order_date), 
              order_quarter = quarter(order_date),
              order_week = week(order_date),
