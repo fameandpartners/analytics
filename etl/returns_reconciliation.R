@@ -67,6 +67,7 @@ read_paypal <- function(file_name){
                  Fee = col_number(),
                  Net = col_number(),
                  Balance = col_number())) %>% 
+        filter(Type == "Payment Refund") %>%
         transmute(response_code = `Transaction ID`, 
                   amount = Gross,
                   date_char = Date,
@@ -89,13 +90,17 @@ read_pin <- function(file_name){
 
 all_refund_transactions <- bind_rows(
     list(
-        read_paypal("~/data/paypal_aud_jan_may_refunds.csv") %>%
+        read_paypal("~/data/au_paypal_2017-01-01_2017-09-29.csv") %>%
+            select(-currency) %>%
             mutate(date = dmy(date_char),
-                   source = "us_paypal"),
-        read_paypal("~/data/paypal_usd_jan_may_refunds.csv") %>%
-            mutate(date = mdy(date_char),
+                   currency = "AUD",
                    source = "au_paypal"),
-        read_pin("~/data/pin_jan_may_refunds.csv") %>%
+        read_paypal("~/data/us_paypal_2017-01-01_2017-09-29.csv") %>%
+            select(-currency) %>%
+            mutate(date = mdy(date_char),
+                   currency = "USD",
+                   source = "us_paypal"),
+        read_pin("~/data/refunds-fame-and-partners-01-jan-00-00-30092017.csv") %>%
             mutate(source = "pin"),
         read_csv("~/data/F&P YTD report.csv",
                   col_types = cols(
@@ -106,17 +111,28 @@ all_refund_transactions <- bind_rows(
             transmute(response_code = `Merchant Order Number`,
                       amount = `Purchase Amt`,
                       date_char = `Activity Date`,
+                      currency = `Purchase Currency`,
                       date = mdy(`Activity Date`),
                       source = "assembly_ytd"),
-        read_paypal("~/data/Paypal USD refunds_June 2017.csv") %>%
-            mutate(date = mdy(date_char),
-                   source = "us_paypal_jun"),
-        read_paypal("~/data/Paypal AUD refunds_June 2017.csv") %>%
-            mutate(date = dmy(date_char),
-                   source = "au_paypal_jun"),
-        read_pin("~/data/Pin refunds_June 2017.csv") %>%
-            mutate(source = "pin_jun"))) #%>%
-    #filter(!duplicated(response_code))
+        read_csv("~/data/stripe_payments_2017-08-02_2017-09-28.csv",
+                 col_types = cols(
+                     .default = col_character(),
+                     `Created (UTC)` = col_datetime(format = ""),
+                     `Amount Refunded` = col_double())) %>%
+            filter(`Amount Refunded` > 0) %>%
+            transmute(response_code = id,
+                      amount = `Amount Refunded`,
+                      date_char = as.character(`Created (UTC)`),
+                      currency = toupper(Currency),
+                      date = as.Date(`Created (UTC)`),
+                      source = "stripe"))) %>%
+    group_by(response_code) %>%
+    summarise(amount = sum(abs(amount)),
+              currency = paste(unique(currency), collapse = " "),
+              date_char = paste(unique(date_char), collapse = " "),
+              date = max(date),
+              source = paste(unique(source), collapse = " "),
+              records = n())
 
 payment_lkp$response_code_source <- factor(
     payment_lkp$response_code_source,
