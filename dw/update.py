@@ -1,6 +1,6 @@
 from sys import argv
 from sqlalchemy import create_engine
-from jobs import load_test
+from jobs import load_sales
 from secrets import DWPASS
 
 def create_dw_engine(production = False):
@@ -13,10 +13,6 @@ def create_dw_engine(production = False):
         engine = create_engine(f'postgresql+psycopg2://peterh:@{host}:5432/dw_dev')
     return engine
 
-def query_test(engine):
-    query = engine.execute('select * from test')
-    return query.fetchall()
-
 def which_db(sys_argv):
     try:
         which_eng = sys_argv[1]
@@ -26,11 +22,9 @@ def which_db(sys_argv):
     return production
 
 if __name__ == '__main__':
-    # Connect to Data Warehouse
     production = which_db(argv)
     print('Connecting to our Data Warehouse')
     dw_engine = create_dw_engine(production=production)
-    print('Loading Test Data')
-    load_test(engine=dw_engine)
-    print('Done :)\nHere are your datas')
-    print(query_test(engine=dw_engine))
+    print('Loading Sales Data')
+    load_sales(engine=dw_engine)
+    print('Done :)')

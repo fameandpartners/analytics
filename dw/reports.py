@@ -1,10 +1,9 @@
 import pandas as pd
-
 from spree_db import sales, returns
 import google_apps.analytics as ga
 import nps
 
-# Hacky way to make sure I don't put the password in git 
+# Hacky way to make sure I don't put the password in git
 from secrets import PASS, DKEY
 
 def monthly_kpis():
@@ -18,9 +17,9 @@ def monthly_kpis():
     nps_responses = nps.pull()
     monthly_kpis = pd.concat([traffic, net_revenue_direct, direct_costs,
                               factory_performance,nps_responses,reconciled_returns,])
-    monthly_kpis = monthly_kpis.pivot_table(index=['A','B','C','D'], 
-                                            columns='year_month', 
-                                            values='value', 
+    monthly_kpis = monthly_kpis.pivot_table(index=['A','B','C','D'],
+                                            columns='year_month',
+                                            values='value',
                                             fill_value='')
     return monthly_kpis
 
