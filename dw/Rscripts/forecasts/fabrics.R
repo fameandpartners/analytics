@@ -115,9 +115,9 @@ this_month <- monthly_fabrics %>%
     inner_join(monthly_seasonality, by = "order_month")
     
 this_month_forecasts <- predict(
-    monthly_st_lm, newdata = october,
+    monthly_st_lm, newdata = this_month,
     interval = "confidence", level = 0.75) %>%
-    cbind(october) %>%
+    cbind(this_month) %>%
     as_data_frame() %>%
     filter(lwr > 0)
 

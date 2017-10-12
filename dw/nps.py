@@ -1,11 +1,10 @@
 import delighted
 import pandas as pd
-
-from secrets import DKEY
 import spree_db.sales as sales
+from secrets import DKEY
 
 
-def pull():
+def fetch():
     delighted.api_key = DKEY
     responses = []
     for page in range(1, 1000):
@@ -25,12 +24,16 @@ def pull():
     nps_df = pd.merge(scores, acquisitions, on='email')\
            .merge(cohorts, on='email', how='left')\
            .fillna('Not Assigned')
+    return nps_df
+
+def pull():
+    nps_df = fetch()
     nps_df['year_month'] = nps_df['first_order_date'].apply(lambda d: d.isoformat()[:7])
     nps_df = nps_df.groupby(['year_month','assigned_cohort'])\
            .agg([nps_score, promoter_count, detractor_count, len])\
            .reset_index()
-    nps_df.columns = pd.Index(['year_month','Cohort','Score','Promoters','Detractors','Responses',], dtype='object')
-
+    nps_df.columns = pd.Index(['year_month','Cohort','Score','Promoters',
+                               'Detractors','Responses',], dtype='object')
     nps_df = nps_df[nps_df.year_month.str.contains('2017')]
     nps_df = nps_df.melt(id_vars=['year_month','Cohort',],
                  value_vars=['Score','Promoters','Detractors','Responses',])\

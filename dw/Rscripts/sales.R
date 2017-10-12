@@ -1,10 +1,10 @@
-library(readr)
-library(RPostgreSQL)
-library(dplyr)
-library(tidyr)
-library(lubridate)
-library(stringr)
-library(feather)
+suppressMessages(library(readr))
+suppressMessages(library(RPostgreSQL))
+suppressMessages(library(dplyr))
+suppressMessages(library(tidyr))
+suppressMessages(library(lubridate))
+suppressMessages(library(stringr))
+suppressMessages(library(feather))
 
 # ---- FUNCTIONS ----
 year_month <- function(date_value){
@@ -93,12 +93,6 @@ all_touches <- read_csv("Rscripts/static-data/all_touches.csv",
                               ordered = TRUE))
                         )) %>%
     rename(sales_usd = revenue_usd)
-
-# ---- CUSTOMER ACQUISITIONS ----
-customer_acquisitions <- read_csv("Rscripts/static-data/customer_acquisitions.csv",
-                                 col_types = cols(
-                                     email = col_character(),
-                                     date = col_date(format = "")))
 
 # ---- CONNECT TO REPLICA ----
 # set db connection
@@ -197,8 +191,7 @@ ordered_units <- tbl(fp_con, sql(paste(
         ") pay ON pay.order_id = o.id",
     "LEFT JOIN global_skus g",
         "ON g.sku = v.sku",
-    "WHERE completed_at IS NOT NULL",
-    "AND completed_at >= '2015-01-01'"))) %>%
+    "WHERE completed_at IS NOT NULL"))) %>%
     collect() %>%
     group_by(order_id) %>%
     mutate(gross_extra_attributed = (item_total - sum(price)) / n(),
@@ -262,10 +255,11 @@ products <- tbl(fp_con, sql(paste(
     "LEFT JOIN factories f",
         "ON p.factory_id = f.id"))) %>%
     collect() %>%
-    mutate(product_live = ifelse(!hidden
-                                 & (is.na(deleted_at) | deleted_at > today())
-                                 & (available_on <= today()),
-                                 "Yes", "No"))
+    mutate(live = ifelse(!hidden
+                         & (is.na(deleted_at) | deleted_at > today())
+                         & (available_on <= today()),
+                         "Yes", "No")) %>%
+    select(-hidden, -deleted_at)
 
 # ---- ADDRESSES ----
 addresses <- tbl(fp_con, sql(paste(
@@ -336,8 +330,7 @@ return_events <- tbl(fp_con, sql(paste(
 payments <- tbl(fp_con, sql(paste(
     "SELECT order_id, amount p_amount",
     "FROM spree_payments",
-    "WHERE state = 'completed'",
-        "AND created_at >= '2015-12-01'"))) %>%
+    "WHERE state = 'completed'"))) %>%
     collect() %>%
     group_by(order_id) %>%
     summarise(order_payments = n(),
@@ -388,7 +381,6 @@ dress_images <- tbl(fp_con, sql(paste(
         "ON p.id = pcv.product_id",
     "WHERE a.attachment_width < 2000",
         "AND a.viewable_type = 'ProductColorValue'",
-        "AND a.attachment_updated_at >= '2015-01-01'",
         "AND a.attachment_file_name ilike '%front-crop%'"))) %>%
     collect() %>%
     filter(!duplicated(product_id)) %>%
@@ -538,3 +530,4 @@ products_sold$height <- factor(
 )
 
 write_feather(products_sold, 'feathers/sales.feather')
+write_feather(products, 'feathers/products.feather')

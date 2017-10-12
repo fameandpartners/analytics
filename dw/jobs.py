@@ -1,8 +1,13 @@
+import os
 from feather import read_dataframe
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.schema import CreateTable, DropTable
 import pandas as pd
-from models import Sale
+from models import Sale, Product
+
+__location__ = os.path.realpath(
+    os.path.join(os.getcwd(), os.path.dirname(__file__)))
+FEATHERS = os.path.join(__location__, 'feathers/')
 
 def convert_date(date, type_of):
     if date != (None,) and not isinstance(date, pd._libs.tslib.NaTType) and date:
@@ -15,28 +20,23 @@ def convert_date(date, type_of):
 
 def load_sales(engine):
     Session = sessionmaker(bind=engine)
-    sales_df = read_dataframe('feathers/sales.feather')
+    sales_df = read_dataframe(FEATHERS + 'sales.feather')
     sales_dicts = sales_df.to_dict(orient='record')
     sales = []
     for record in sales_dicts:
         sale = Sale(
             factory_fault = record.get('factory_fault'),
-            hidden = record.get('hidden'),
             is_shipped = record.get('is_shipped'),
             item_returned = record.get('item_returned'),
             repeat_purchase = record.get('repeat_purchase'),
             return_requested = record.get('return_requested'),
-            acquisition_date = convert_date(record.get('acquisition_date'), 'Date'),
             correct_ship_date = convert_date(record.get('correct_ship_date'), 'Date'),
             estimated_ship_date = convert_date(record.get('estimated_ship_date'), 'Date'),
             li_ship_date = convert_date(record.get('li_ship_date'), 'Date'),
             o_ship_date = convert_date(record.get('o_ship_date'), 'Date'),
             order_date = convert_date(record.get('order_date'), 'Date'),
             ship_date = convert_date(record.get('ship_date'), 'Date'),
-            available_on = convert_date(record.get('available_on'), 'DateTime'),
             completed_timestamp = convert_date(record.get('completed_timestamp'), 'DateTime'),
-            refunded_at = convert_date(record.get('refunded_at'), 'DateTime'),
-            requested_at = convert_date(record.get('requested_at'), 'DateTime'),
             adjustments_total_percentage = record.get('adjustments_total_percentage'),
             adjustments_usd = record.get('adjustments_usd'),
             avg_order_shipping_cost = record.get('avg_order_shipping_cost'),
@@ -97,6 +97,7 @@ def load_sales(engine):
             dress_image_tag = record.get('dress_image_tag'),
             dress_image_url = record.get('dress_image_url'),
             email = record.get('email'),
+            factory_name = record.get('factory_name'),
             g_size = record.get('g_size'),
             height = record.get('height'),
             length = record.get('length'),
@@ -129,4 +130,27 @@ def load_sales(engine):
     session.execute(CreateTable(Sale.__table__))
     session.add_all(sales)
     session.commit()
-    return sales[0:9]
+    session.close()
+
+def load_products(engine):
+    Session = sessionmaker(bind=engine)
+    products_df = read_dataframe(FEATHERS + 'products.feather')
+    products_dicts = products_df.to_dict(orient='record')
+    products = []
+    for record in products_dicts:
+        product = Product(
+            product_id = record.get('product_id'),
+            style_number = record.get('style_number'),
+            style_name = record.get('style_name'),
+            factory_name = record.get('factory_name'),
+            available_on = convert_date(record.get('available_on'), 'Date'),
+            live = record.get('live')
+        )
+        products.append(product)
+    session = Session()
+    if Product.__tablename__ in engine.table_names():
+        session.execute(DropTable(Product.__table__))
+    session.execute(CreateTable(Product.__table__))
+    session.add_all(products)
+    session.commit()
+    session.close()

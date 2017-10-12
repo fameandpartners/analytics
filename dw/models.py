@@ -46,22 +46,19 @@ class Sale(Base):
     lip_height = Column(String)
     style_number = Column(String)
     style_name = Column(String)
-    hidden = Column(Boolean)
-    available_on = Column(DateTime)
     product_live = Column(String)
     ship_city = Column(String)
     ship_state = Column(String)
     ship_country = Column(String)
     li_ship_date = Column(Date)
     o_ship_date = Column(Date)
-    requested_at = Column(DateTime)
-    refunded_at = Column(DateTime)
     refund_amount = Column(Float)
     return_comments = Column(String)
     reason_category = Column(String)
     reason_sub_category = Column(String)
     acceptance_status = Column(String)
     factory_fault = Column(Boolean)
+    factory_name = Column(String)
     order_payments = Column(Float)
     total_payment_amount = Column(Float)
     o_other_adjustments = Column(Float)
@@ -73,7 +70,6 @@ class Sale(Base):
     assigned_cohort = Column(String)
     correct_ship_date = Column(Date)
     making_option = Column(String)
-    acquisition_date = Column(Date)
     payments = Column(Float)
     item_total_usd = Column(Float)
     promotions_usd = Column(Float)
@@ -116,3 +112,18 @@ class Sale(Base):
 
     def __repr__(self):
         return f'<Sale(item:{self.line_item_id} number:{self.order_number})>'
+
+class Product(Base):
+    __tablename__ = 'products'
+
+    id = Column(Integer, primary_key=True)
+    created_at = Column(DateTime, default=_get_time)
+    product_id = Column(Integer)
+    style_number = Column(String)
+    style_name = Column(String)
+    factory_name = Column(String)
+    available_on = Column(Date)
+    live = Column(Boolean)
+
+    def __repr__(self):
+        return f'<Product(style_name:{self.style_name} style_number:{self.style_number})>'
