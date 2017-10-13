@@ -111,28 +111,24 @@ utm <- tbl(fp_con, sql(paste(
 
 # build cohorts based on utm and mailchimp data
 
-utm_cohorts <-
-    utm %>%
+utm_cohorts <- utm %>%
     mutate(full_utm = paste(utm_source, utm_medium, utm_campaign, sep = " | ") %>% tolower()) %>%
     filter(str_detect(full_utm, "prom|wedding|bridal|contemporary")) %>%
     mutate(utm_cohort = ifelse(str_detect(full_utm, "prom"), "Prom",
                                ifelse(str_detect(full_utm, "wedding|bridal"), "Bridal",
                                       ifelse(str_detect(full_utm, "contemporary"), "Contemporary", NA))))
 
-user_cohorts <-
-    utm_cohorts %>%
+user_cohorts <- utm_cohorts %>%
     filter(!is.na(user_id)) %>%
     group_by(user_id) %>%
     summarise(utm_cohort_u = utm_cohort[1])
 
-order_cohorts <-
-    utm_cohorts %>%
+order_cohorts <- utm_cohorts %>%
     filter(!is.na(order_id)) %>%
     group_by(order_id) %>%
     summarise(utm_cohort_o = utm_cohort[1])
 
-utm_cohort_assignments <-
-    orders %>%
+utm_cohort_assignments <- orders %>%
     left_join(user_cohorts, by = "user_id") %>%
     left_join(order_cohorts, by = "order_id") %>%
     mutate(utm_cohort = ifelse(is.na(utm_cohort_u), utm_cohort_o, utm_cohort_u)) %>%
