@@ -12,9 +12,9 @@ QUERIES = os.path.join(__location__, 'queries/')
 
 def connect_to_fame():
     return psql.connect(
-        user='peterm', 
-        password=PASS, 
-        dbname='fandp_web_production', 
+        user='peterm',
+        password=PASS,
+        dbname='fandp_web_production',
         host='postgres-read-replica.production.fameandpartners.com'
     )
 
@@ -33,42 +33,19 @@ def sql_to_dataframe(sql_file, connection):
     curs.close()
     return df
 
-def pull_all():
-    """Queries the Spree database to get the sales DataFrame
-    """
-    conn = connect_to_fame()
-    ordered_units = sql_to_dataframe(QUERIES + 'ordered_units.sql', conn)
-    customizations = sql_to_dataframe(QUERIES + 'customizations.sql', conn)
-    products = sql_to_dataframe(QUERIES + 'products.sql', conn)
-    shipments = sql_to_dataframe(QUERIES + 'shipments.sql', conn)
-    addresses = sql_to_dataframe(QUERIES + 'addresses.sql', conn)
-    returns = sql_to_dataframe(QUERIES + 'returns.sql', conn)
-    return_events = sql_to_dataframe(QUERIES + 'return_events.sql', conn)
-    payments = sql_to_dataframe(QUERIES + 'payments.sql', conn)
-    adjustments = sql_to_dataframe(QUERIES + 'adjustments.sql', conn)
-    promotions = sql_to_dataframe(QUERIES + 'promotions.sql', conn)
-    product_taxons = sql_to_dataframe(QUERIES + 'product_taxons.sql', conn)
-    dress_images = sql_to_dataframe(QUERIES + 'dress_images.sql', conn)
-    slow_fast_items = sql_to_dataframe(QUERIES + 'slow_fast_items.sql', conn)
-    conn.close()
-
-    results = [
-        ordered_units,customizations,products,shipments,addresses,returns,
-        return_events,payments,adjustments,promotions,product_taxons,
-        dress_images,slow_fast_items,
-    ]
-    return results
-
-LOCAL_DROPBOX = '/Users/Peter 1/Dropbox (Team Fame)/data/board/inputs/'
+STATIC_DATA = 'Rscripts/static-data/'
 
 def pull_direct_csv():
-    return pd.read_csv(LOCAL_DROPBOX + 'monthly_direct.csv')
+    return pd.read_csv(STATIC_DATA + 'monthly_direct.csv')
+
+def pull_daily_direct_csv():
+    return pd.read_csv(STATIC_DATA + 'daily_direct.csv')
 
 def pull_direct_factory_csv():
-    return pd.read_csv(LOCAL_DROPBOX + 'monthly_factory_direct.csv')
+    return pd.read_csv(STATIC_DATA + 'monthly_factory_direct.csv')
 
 def pull_cohort_assignments_csv():
-    return pd.read_csv(LOCAL_DROPBOX + 'cohort_assignments.csv')
+    return pd.read_csv(STATIC_DATA + 'cohort_assignments.csv')
 
 def pull_acquisitions():
     conn = connect_to_fame()
@@ -79,8 +56,8 @@ def pull_direct_net_revenue():
     monthly_direct['A'] = 'Net Revenue'
 
     base_cols = ['year_month','A','D']
-    
-    customers = monthly_direct.melt(id_vars=base_cols, 
+
+    customers = monthly_direct.melt(id_vars=base_cols,
                                     value_vars=['Repeat Customers',
                                                 'New Customers'])\
                                .rename(columns={'variable':'C'})

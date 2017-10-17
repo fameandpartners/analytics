@@ -1,9 +1,9 @@
 import pandas as pd
 
-LOCAL_DROPBOX = '/Users/Peter 1/Dropbox (Team Fame)/data/board/inputs/'
+STATIC_DATA = 'Rscripts/static-data/'
 
 def pull_reconciled_demand_returns():
-    demand_returns = pd.read_csv(LOCAL_DROPBOX + 'reconciled_demand_returns.csv')
+    demand_returns = pd.read_csv(STATIC_DATA + 'reconciled_demand_returns.csv')
     inventory_returns = demand_returns[['year_month','inventory_returns']]\
                                       .rename(columns={'inventory_returns':'value'})\
                                       .groupby(['year_month'])\

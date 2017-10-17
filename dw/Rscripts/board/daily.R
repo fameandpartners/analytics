@@ -16,7 +16,7 @@ products_sold$Cohort <- products_sold$assigned_cohort %>%
     coalesce("Not Assigned")
 
 # ---- 3PL ----
-tpl <- read_csv("/Users/Peter 1/Dropbox (Team Fame)/data/3PL/3PL Orders - COMBINED.csv",
+tpl <- read_csv("Rscripts/static-data/3PL Orders - COMBINED.csv",
                 col_types = cols(
                     order_number = col_character(),
                     ship_date = col_date(format = "")
@@ -28,7 +28,7 @@ confirmed_sales <- products_sold %>%
     filter(order_state != "canceled") %>%
     mutate(refulfilled = order_number %in% tpl$order_number)
 
-monthly_direct_demand <- confirmed_sales %>%
+daily_direct_demand <- confirmed_sales %>%
     group_by(order_date) %>%
     summarise(`Gross Revenue` = sum(gross_revenue_usd),
               `Net Sales` = sum(sales_usd),
@@ -55,7 +55,7 @@ customer_acquisitions <- tbl(dw, "sales") %>%
     collect()
 
 # Daily
-monthly_repeats <- confirmed_sales %>%
+daily_repeats <- confirmed_sales %>%
     filter(!return_requested) %>%
     left_join(customer_acquisitions, by = "email") %>%
     mutate(new_repeat = ifelse(order_date <= coalesce(acquisition_date,
@@ -64,35 +64,11 @@ monthly_repeats <- confirmed_sales %>%
     group_by(order_date, new_repeat) %>%
     summarise(Customers = n_distinct(email)) %>%
     spread(new_repeat, Customers, fill = 0) %>%
-    filter(year(order_date) >= 2016)
-
-# ---- Monthly Factory Direct ----
-monthly_factory_direct <- confirmed_sales %>%
-    filter(year(order_date) >= 2017 & is_shipped) %>%
-    group_by(order_date, Factory = factory_name) %>%
-    summarise(Units = sum(quantity),
-              `Total Make Time` = sum(difftime(ship_date, 
-                                               order_date, 
-                                               units = "days")) %>%
-                  as.numeric()) %>%
-    rbind(confirmed_sales %>%
-              filter(year(order_date) >= 2017 & is_shipped) %>%
-              group_by(year_month = order_year_month,
-                       Factory = "All") %>%
-              summarise(Units = sum(quantity),
-                        `Total Make Time` = sum(difftime(ship_date, 
-                                                         order_date, 
-                                                         units = "days")) %>%
-                            as.numeric()))
-
-# ---- MERGE MONTHLY KPIs ----
-
-monthly_direct <- monthly_direct_demand %>%
-    left_join(monthly_repeats, by = "order_date") %>%
+    filter(year(order_date) >= 2016) %>%
     ungroup()
 
 # ---- DEMAND BASED RETURNS ----
-reconciled_returns <- read_csv("/Users/Peter 1/Dropbox (Team Fame)/data/finance/returns_reconciled_2017-07-26.csv",
+reconciled_returns <- read_csv("Rscripts/static-data/returns_reconciled_2017-07-26.csv",
                                col_types = cols(
                                    response_code = col_character(),
                                    amount = col_double(),
@@ -110,20 +86,19 @@ reconciled_returns <- read_csv("/Users/Peter 1/Dropbox (Team Fame)/data/finance/
                                    match_status = col_character(),
                                    payment_processor = col_character()
                                ))
-demand_returns <- reconciled_returns %>%
+daily_demand_returns <- reconciled_returns %>%
     mutate(estimated_order_date = coalesce(last_order_date, date - 30),
            amount_usd = ifelse(currency == "AUD", abs(amount) * 0.74, abs(amount))) %>%
     left_join(products_sold %>%
-                  group_by(order_id,order_number) %>%
-                  summarise(manufacturing_cost = mean(coalesce(manufacturing_cost, 70)),
-                            Cohort = Cohort[1]),
+                  group_by(order_id) %>%
+                  summarise(manufacturing_cost = mean(coalesce(manufacturing_cost, 70))),
               by = "order_id") %>%
     mutate(refulfilled = order_number %in% tpl$order_number) %>%
     group_by(order_date = estimated_order_date) %>%
     summarise(adjusted_returns = sum(amount_usd),
               inventory_returns = sum(coalesce(manufacturing_cost, 70)),
               refulfilled_return_units = sum(refulfilled)) %>%
-    filter(year(order_date) >= 2017 & year(order_date) <= 4) %>%
+    filter(year(order_date) >= 2017 & month(order_date) <= 4) %>%
     rename(returns = adjusted_returns) %>%
     ungroup() %>%
     rbind(confirmed_sales %>%
@@ -133,5 +108,18 @@ demand_returns <- reconciled_returns %>%
                         inventory_returns = sum(return_requested * coalesce(manufacturing_cost, 70) * 0.9),
                         refulfilled_return_units = 0) %>%
               ungroup() %>%
-              filter(year(order_date) >= 2017 & month(order_date) %in% c(5,6))) 
+              filter(year(order_date) >= 2017 & month(order_date) %in% c(5,6))) %>%
+    filter(order_date <= today()) %>%
+    rename(Returns = returns, 
+           `Inventory Returns` = inventory_returns,
+           `Refulfilled Return Units` = refulfilled_return_units)
 
+# ---- MERGE DAILY KPIs ----
+daily_direct <- daily_direct_demand %>%
+    left_join(daily_repeats, by = "order_date") %>%
+    left_join(daily_demand_returns, by = "order_date") %>%
+    rename(Date = order_date) %>%
+    replace(is.na(.), 0)
+
+static_data <- "Rscripts/static-data/"
+write_csv(daily_direct, paste0(static_data, "daily_direct.csv"))

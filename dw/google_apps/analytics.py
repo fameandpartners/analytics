@@ -12,11 +12,11 @@ def pull_traffic():
     ga_conn = initialize_analyticsreporting()
 
     device_traffic = get_report(
-        ga_conn=ga_conn, 
+        ga_conn=ga_conn,
         dimensions=[{'name': 'ga:deviceCategory'},{'name': 'ga:yearMonth'},])
-    device_traffic = melt_ga(device_traffic, 
-                                a='Traffic', 
-                                c='Device', 
+    device_traffic = melt_ga(device_traffic,
+                                a='Traffic',
+                                c='Device',
                                 d='deviceCategory')
 
     geo_traffic = get_report(
@@ -27,22 +27,22 @@ def pull_traffic():
     geo_traffic = geo_traffic.groupby(['yearMonth','country'])\
                              .sum()\
                              .reset_index()
-    geo_traffic = melt_ga(geo_traffic, 
-                             a='Traffic', 
-                             c='Geography', 
+    geo_traffic = melt_ga(geo_traffic,
+                             a='Traffic',
+                             c='Geography',
                              d='country')
 
     channel_traffic = get_report(
-        ga_conn=ga_conn, 
+        ga_conn=ga_conn,
         dimensions=[{'name': 'ga:channelGrouping'},{'name': 'ga:yearMonth'},])
     bucketed_channels = channel_traffic.apply(lambda row: bucket_channels(row), axis=1)
     channel_traffic['channelGrouping'] = bucketed_channels
     channel_traffic = channel_traffic.groupby(['yearMonth','channelGrouping'])\
                                      .sum()\
                                      .reset_index()
-    channel_traffic = melt_ga(channel_traffic, 
-                                 a='Traffic', 
-                                 c='Channel', 
+    channel_traffic = melt_ga(channel_traffic,
+                                 a='Traffic',
+                                 c='Channel',
                                  d='channelGrouping')
     df_out = pd.concat([device_traffic, geo_traffic, channel_traffic])
     return df_out
@@ -50,7 +50,7 @@ def pull_traffic():
 def pull_all_channels():
     ga_conn = initialize_analyticsreporting()
     channel_traffic = get_report(
-        ga_conn=ga_conn, 
+        ga_conn=ga_conn,
         date_ranges=[{'startDate': '2017-01-01', 'endDate': 'today'}],
         dimensions=[{'name': 'ga:channelGrouping'},])
     return channel_traffic
@@ -79,11 +79,11 @@ def initialize_analyticsreporting():
     return ga_conn
 
 def get_report(
-        ga_conn, 
+        ga_conn,
         date_ranges=[{'startDate': '2016-01-01', 'endDate': 'today'}],
         metrics=[{'expression': 'ga:sessions'},{'expression': 'ga:transactions'}],
         dimensions=[{'name': 'ga:yearMonth'}]):
-    """Queries the Analytics Reporting API V4 and returns the results in a 
+    """Queries the Analytics Reporting API V4 and returns the results in a
     pandas DataFrame.
     """
     results = ga_conn.reports().batchGet(
@@ -122,21 +122,20 @@ def bucket_channels(channel_row):
     channel = channel_row['channelGrouping']
     if channel in ['Facebook','Paid Search','Referral','Display',]:
         return 'Paid'
-    else: 
+    else:
         return 'Organic & Direct'
 
 def melt_ga(df, a, c, d):
-    new_df = df.melt(id_vars=['yearMonth', d], 
+    new_df = df.melt(id_vars=['yearMonth', d],
                      value_vars=['sessions','transactions'])\
                .rename(columns={'yearMonth': 'year_month',
                                 'variable': 'B',
                                 d: 'D'})
-    new_df['A'] = a 
+    new_df['A'] = a
     new_df['B'] = new_df['B'].apply(lambda v: v.title())
-    new_df['C'] = c 
+    new_df['C'] = c
     new_df['D'] = new_df['D'].apply(lambda d: d.title())
     new_df['year_month'] = (new_df['year_month'].apply(lambda d: d[:4])
                             + '-'
                             + new_df['year_month'].apply(lambda d: d[4:]))
     return new_df[['A','B','C','D','year_month','value']]
-

@@ -180,14 +180,14 @@ touches <- bind_rows(list(
 step_state_map <- data_frame(state = c("complete","cart","payment","address","canceled","resumed","awaiting_return"),
                              step = c("Purchase","Cart","Checkout","Checkout","Checkout","Checkout","Purchase"))
 
-all_touches <- touches %>%
+touch_points <- touches %>%
     full_join(orders %>% select(-email, -user_id), by = "order_id") %>%
     left_join(cohort_assignments, by = "email") %>%
     mutate(cohort = coalesce(cohort, "Not Assigned"),
            utm_s = coalesce(utm_source, "No UTM Source")) %>%
     left_join(step_state_map, by = "state")
 
-write_feather(all_touches, "feathers/all_touches.feather")
+write_feather(touch_points, "feathers/touch_points.feather")
 
 cohort_assignments <- bind_rows(list(
     mc_csv %>%

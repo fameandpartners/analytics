@@ -5,8 +5,7 @@ from sqlalchemy.schema import CreateTable, DropTable
 import pandas as pd
 from models import Sale, Product
 
-__location__ = os.path.realpath(
-    os.path.join(os.getcwd(), os.path.dirname(__file__)))
+__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 FEATHERS = os.path.join(__location__, 'feathers/')
 
 def convert_date(date, type_of):

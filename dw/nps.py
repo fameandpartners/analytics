@@ -26,6 +26,15 @@ def fetch():
            .fillna('Not Assigned')
     return nps_df
 
+def pull_daily():
+    nps_df = fetch()
+    nps_df = nps_df.groupby('first_order_date')\
+                   .agg([promoter_count, detractor_count, len])\
+                   .reset_index()
+    nps_df.columns = pd.Index(['Date','Promoters','Detractors','Responses'])
+    nps_df = nps_df[nps_df.Date.apply(lambda date: date.year) >= 2016]
+    return nps_df
+
 def pull():
     nps_df = fetch()
     nps_df['year_month'] = nps_df['first_order_date'].apply(lambda d: d.isoformat()[:7])

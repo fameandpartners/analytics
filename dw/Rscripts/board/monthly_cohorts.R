@@ -16,7 +16,7 @@ products_sold$Cohort <- products_sold$assigned_cohort %>%
     coalesce("Not Assigned")
 
 # ---- 3PL ----
-tpl <- read_csv("/Users/Peter 1/Dropbox (Team Fame)/data/3PL/3PL Orders - COMBINED.csv",
+tpl <- read_csv("Rscripts/static-data/3PL Orders - COMBINED.csv",
                 col_types = cols(
                     order_number = col_character(),
                     ship_date = col_date(format = "")
@@ -144,7 +144,7 @@ monthly_style_sales_distribution_2017 <- products_sold_2017 %>%
 
 
 # ---- DEMAND BASED RETURNS ----
-reconciled_returns <- read_csv("/Users/Peter 1/Dropbox (Team Fame)/data/finance/returns_reconciled_2017-07-26.csv",
+reconciled_returns <- read_csv("Rscripts/static-data/returns_reconciled_2017-07-26.csv",
                                col_types = cols(
                                    response_code = col_character(),
                                    amount = col_double(),
@@ -166,7 +166,7 @@ demand_returns <- reconciled_returns %>%
     mutate(estimated_order_date = coalesce(last_order_date, date - 30),
            amount_usd = ifelse(currency == "AUD", abs(amount) * 0.74, abs(amount))) %>%
     left_join(products_sold %>%
-                  group_by(order_id,order_number) %>%
+                  group_by(order_id) %>%
                   summarise(manufacturing_cost = mean(coalesce(manufacturing_cost, 70)),
                             Cohort = Cohort[1]),
               by = "order_id") %>%
@@ -212,3 +212,12 @@ customization_trend <- confirmed_sales %>%
     summarise(`Week Ending` = max(order_date),
               `Customization Rate` = sum(physically_customized * quantity) / sum(quantity)) %>%
     select(-order_year_week)
+
+static_data <- "Rscripts/static-data/"
+write_csv(monthly_direct, paste0(static_data,"monthly_direct.csv"), na="")
+write_csv(monthly_factory_direct, paste0(static_data, "monthly_factory_direct.csv", na=""))
+write_csv(customer_acquisitions, paste0(static_data,"customer_acquisitions.csv", na=""))
+write_csv(monthly_style_sales_distribution_2017, paste0(static_data,"monthly_style_distribution.csv"),na="")
+write_csv(demand_returns, paste0(static_data, "reconciled_demand_returns.csv"))
+write_csv(return_reasons, paste0(static_data, "return_reasons.csv"))
+write_csv(customization_trend, paste0(static_data, "customization_trend.csv"))
