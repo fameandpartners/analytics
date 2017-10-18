@@ -27,6 +27,7 @@ def daily_kpis():
     del nps_df['Date']
     daily_kpis = daily_df.merge(nps_df, how='left', on='date_str')
     del daily_kpis['date_str']
+    daily_kpis['Date'] = pd.to_datetime(daily_kpis.Date)
     return daily_kpis.fillna(0)
 
 def revenue_attribution():

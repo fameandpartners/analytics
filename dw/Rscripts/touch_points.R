@@ -1,13 +1,13 @@
-library(dplyr)
-library(scales)
-library(readr)
-library(stringr)
-library(lubridate)
-library(feather)
+suppressMessages(library(dplyr))
+suppressMessages(library(scales))
+suppressMessages(library(readr))
+suppressMessages(library(stringr))
+suppressMessages(library(lubridate))
+suppressMessages(library(feather))
 
-source("fp_init.R")
+source("Rscripts/fp_init.R")
 
-br_csv <- read_csv("~/data/Contacts-All.csv",
+br_csv <- read_csv("Rscripts/static-data/Contacts-All.csv",
                    col_types = cols(
                        .default = col_character()),
                    skip = 0) %>%
@@ -15,22 +15,7 @@ br_csv <- read_csv("~/data/Contacts-All.csv",
                as.Date(format = "%m/%d/%Y") %>%
            as.POSIXct())
 
-mc_csv <- read_csv("~/data/subscribed_members_export_3ccca61159.csv",
-                   col_types = cols(
-                       .default = col_character(),
-                       Birthday = col_date(format = ""),
-                       `Facebook UID` = col_double(),
-                       MEMBER_RATING = col_integer(),
-                       OPTIN_TIME = col_datetime(format = ""),
-                       CONFIRM_TIME = col_datetime(format = ""),
-                       LAST_CHANGED = col_datetime(format = ""),
-                       LEID = col_integer()
-                   ))
-
 mc <- bind_rows(list(
-    mc_csv %>%
-        rename(email = `Email Address`, event_type_d = `Event Type`) %>%
-        select(email, event_type_d, utm_source, utm_medium, utm_campaign, CONFIRM_TIME),
     br_csv %>%
         rename(email = `Email Address`, event_type_d = `EventType`) %>%
         select(email, event_type_d, utm_source, utm_medium, utm_campaign, CONFIRM_TIME))) %>%
@@ -190,9 +175,6 @@ touch_points <- touches %>%
 write_feather(touch_points, "feathers/touch_points.feather")
 
 cohort_assignments <- bind_rows(list(
-    mc_csv %>%
-        rename(email = `Email Address`, event_type_d = `Event Type`) %>%
-        select(email, event_type_d, utm_source, utm_medium, utm_campaign, CONFIRM_TIME),
     br_csv %>%
         rename(email = `Email Address`, event_type_d = `EventType`) %>%
         select(email, event_type_d, utm_source, utm_medium, utm_campaign, CONFIRM_TIME))) %>%

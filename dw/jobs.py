@@ -3,7 +3,8 @@ from feather import read_dataframe
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.schema import CreateTable, DropTable
 import pandas as pd
-from models import Sale, Product
+from models import Sale, Product, DailyKPI, CohortAssignment
+import reports
 
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 FEATHERS = os.path.join(__location__, 'feathers/')
@@ -151,5 +152,64 @@ def load_products(engine):
         session.execute(DropTable(Product.__table__))
     session.execute(CreateTable(Product.__table__))
     session.add_all(products)
+    session.commit()
+    session.close()
+
+def load_daily_kpis(engine):
+    Session = sessionmaker(bind=engine)
+    daily_kpis_df = reports.daily_kpis()
+    daily_kpis_dicts = daily_kpis_df.to_dict(orient='record')
+    daily_kpis = []
+    for record in daily_kpis_dicts:
+        daily_kpi = DailyKPI(
+            date = convert_date(record.get('Date'), 'DateTime'),
+            gross_revenue = record.get('Gross Revenue'),
+            net_sales = record.get('Net Sales'),
+            orders = record.get('Orders'),
+            units = record.get('Units'),
+            customized_units = record.get('Customized Units'),
+            refulfilled_units = record.get('Re-fulfilled Units'),
+            cogs = record.get('COGS'),
+            packaging_materials = record.get('Packaging Materials'),
+            product_cost = record.get('Product Cost'),
+            discounts = record.get('Discounts'),
+            shipping = record.get('Shipping'),
+            taxes = record.get('Taxes'),
+            other_adjustments = record.get('Other Adjustments'),
+            transactions = record.get('Transactions'),
+            new_customers = record.get('New Customers'),
+            repeat_customers = record.get('Repeat Customers'),
+            returns = record.get('Returns'),
+            inventory_returns = record.get('Inventory Returns'),
+            refulfilled_return_units = record.get('Refulfilled Return Units'),
+            promoters = record.get('Promoters'),
+            detractors = record.get('Detractors'),
+            responses = record.get('Responses')
+        )
+        daily_kpis.append(daily_kpi)
+    session = Session()
+    if DailyKPI.__tablename__ in engine.table_names():
+        session.execute(DropTable(DailyKPI.__table__))
+    session.execute(CreateTable(DailyKPI.__table__))
+    session.add_all(daily_kpis)
+    session.commit()
+    session.close()
+
+def load_cohort_assignments(engine):
+    Session = sessionmaker(bind=engine)
+    cohort_assignments_df = read_dataframe(FEATHERS + 'cohort_assignments.feather')
+    cohort_assignments_dicts = cohort_assignments_df.to_dict(orient='record')
+    cohort_assignments = []
+    for record in cohort_assignments_dicts:
+        cohort_assignment = CohortAssignment(
+            email = record.get('email'),
+            cohort = record.get('assigned_cohort')
+        )
+        cohort_assignments.append(cohort_assignment)
+    session = Session()
+    if CohortAssignment.__tablename__ in engine.table_names():
+        session.execute(DropTable(CohortAssignment.__table__))
+    session.execute(CreateTable(CohortAssignment.__table__))
+    session.add_all(cohort_assignments)
     session.commit()
     session.close()

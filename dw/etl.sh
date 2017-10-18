@@ -1,5 +1,7 @@
 echo 'Running sales.R'
 Rscript Rscripts/sales.R
+echo 'Running touch_points.R'
+Rscript Rscripts/touch_points.R
 echo 'Running update.py'
 python update.py
 # python update.py production

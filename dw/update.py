@@ -1,6 +1,8 @@
 from sys import argv
 from sqlalchemy import create_engine
-from jobs import load_sales, load_products
+from jobs import (
+    load_sales, load_products, load_daily_kpis, load_cohort_assignments
+)
 from secrets import DWPASS
 
 def create_dw_engine(production = False):
@@ -29,4 +31,8 @@ if __name__ == '__main__':
     load_sales(engine=dw_engine)
     print('Loading Product Data')
     load_products(engine=dw_engine)
-    print('Done :)')
+    print('Loading Daily KPIs')
+    load_daily_kpis(engine=dw_engine)
+    print('Loading Cohort Assignments')
+    load_cohort_assignments(engine=dw_engine)
+    print('All Data Loaded into Warehouse')

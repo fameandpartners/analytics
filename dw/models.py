@@ -127,3 +127,47 @@ class Product(Base):
 
     def __repr__(self):
         return f'<Product(style_name:{self.style_name} style_number:{self.style_number})>'
+
+class DailyKPI(Base):
+    __tablename__ = 'daily_kpis'
+
+    id = Column(Integer, primary_key=True)
+    created_at = Column(DateTime, default=_get_time)
+    date = Column(Date)
+    gross_revenue = Column(Float)
+    net_sales = Column(Float)
+    orders = Column(Float)
+    units = Column(Float)
+    customized_units = Column(Float)
+    refulfilled_units = Column(Float)
+    cogs = Column(Float)
+    packaging_materials = Column(Float)
+    product_cost = Column(Float)
+    discounts = Column(Float)
+    shipping = Column(Float)
+    taxes = Column(Float)
+    other_adjustments = Column(Float)
+    transactions = Column(Float)
+    new_customers = Column(Float)
+    repeat_customers = Column(Float)
+    returns = Column(Float)
+    inventory_returns = Column(Float)
+    refulfilled_return_units = Column(Float)
+    promoters = Column(Float)
+    detractors = Column(Float)
+    responses = Column(Float)
+
+    def __repr__(self):
+        date_str = str(self.date)
+        return f'<DailyKPI {date_str}>'
+
+class CohortAssignment(Base):
+    __tablename__ = 'cohort_assignments'
+
+    id = Column(Integer, primary_key=True)
+    created_at = Column(DateTime, default=_get_time)
+    email = Column(String)
+    cohort = Column(String)
+
+    def __repr__(self):
+        return f'<CohortAssignment {self.email} {self.cohort}>'
