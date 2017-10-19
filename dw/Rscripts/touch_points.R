@@ -20,10 +20,10 @@ mc <- bind_rows(list(
         rename(email = `Email Address`, event_type_d = `EventType`) %>%
         select(email, event_type_d, utm_source, utm_medium, utm_campaign, CONFIRM_TIME))) %>%
     filter(!duplicated(email)) %>%
-    mutate(mc_cohort = ifelse(tolower(event_type_d) == "bridal party", "Bridesmaid",
+    mutate(mc_cohort = ifelse(tolower(event_type_d) == "bridal party", "Bridal",
                        ifelse(str_detect(tolower(event_type_d), "bridal"), "Bridal",
-                       ifelse(str_detect(tolower(event_type_d), "formal|cocktail|wedding guest|daytime|work"),"Contemporary",
-                       ifelse(tolower(event_type_d) == "prom", "Prom", NA)))))
+                       ifelse(str_detect(tolower(event_type_d), "cocktail|wedding guest|daytime|work"),"Contemporary",
+                       ifelse(str_detect(tolower(event_type_d), "formal|prom"), "Prom", NA)))))
 
 # order carts that were created from 2016 to present
 orders <- tbl(fp_con, sql(paste(
@@ -98,10 +98,12 @@ utm <- tbl(fp_con, sql(paste(
 
 utm_cohorts <- utm %>%
     mutate(full_utm = paste(utm_source, utm_medium, utm_campaign, sep = " | ") %>% tolower()) %>%
-    filter(str_detect(full_utm, "prom|wedding|bridal|contemporary")) %>%
-    mutate(utm_cohort = ifelse(str_detect(full_utm, "prom"), "Prom",
-                               ifelse(str_detect(full_utm, "wedding|bridal"), "Bridal",
-                                      ifelse(str_detect(full_utm, "contemporary"), "Contemporary", NA))))
+    filter(str_detect(full_utm, "formal|prom|wedding|bridal|contemporary")) %>%
+    mutate(utm_cohort = ifelse(str_detect(full_utm, "formal|prom"), "Prom",
+                               ifelse(str_detect(full_utm, "bridal party"), "Bridal",
+                                      ifelse(str_detect(full_utm, "contemporary"), "Contemporary", 
+                                             ifelse(str_detect(full_utm, "wedding|bridal"), "Bridal",
+                                                    NA)))))
 
 user_cohorts <- utm_cohorts %>%
     filter(!is.na(user_id)) %>%
@@ -187,4 +189,4 @@ cohort_assignments <- bind_rows(list(
     transmute(email, assigned_cohort = mc_cohort) %>%
     filter(!duplicated(email))
 
-write_feather(cohort_assignments, "feathers/cohort_assignments.feather")
+write_csv(cohort_assignments, "Rscripts/static-data/cohort_assignments.csv")

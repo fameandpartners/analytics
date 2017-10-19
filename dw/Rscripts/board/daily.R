@@ -8,6 +8,7 @@ dw <- src_postgres(dbname = "dw_dev",host = "localhost")
 
 products_sold <- tbl(dw, "sales") %>% 
     filter(order_date >= "2015-12-15") %>%
+    select(-id,-created_at) %>%
     collect() %>%
     mutate(packaging_cost = 2.5)
 
@@ -50,6 +51,7 @@ daily_direct_demand <- confirmed_sales %>%
 
 # Repeat Rate
 customer_acquisitions <- tbl(dw, "sales") %>%
+    filter(!return_requested) %>%
     group_by(email) %>%
     summarise(acquisition_date = min(order_date)) %>%
     collect()

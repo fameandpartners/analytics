@@ -5,6 +5,14 @@ from apiclient.discovery import build
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
 
+def pull_daily_traffic():
+    ga_conn = initialize_analyticsreporting()
+
+    by_device = get_report(ga_conn=ga_conn,
+                           dimensions=[{'name': 'ga:deviceCategory'},
+                                       {'name': 'ga:date'}])
+    return by_device
+
 def pull_traffic():
     """Queries Google Analytics to create a few reports and then merges the
     reports into one report in a standard format.
@@ -78,11 +86,10 @@ def initialize_analyticsreporting():
 
     return ga_conn
 
-def get_report(
-        ga_conn,
-        date_ranges=[{'startDate': '2016-01-01', 'endDate': 'today'}],
-        metrics=[{'expression': 'ga:sessions'},{'expression': 'ga:transactions'}],
-        dimensions=[{'name': 'ga:yearMonth'}]):
+def get_report(ga_conn,
+               date_ranges=[{'startDate': '2016-01-01', 'endDate': 'today'}],
+               metrics=[{'expression': 'ga:sessions'},{'expression': 'ga:transactions'}],
+               dimensions=[{'name': 'ga:yearMonth'}]):
     """Queries the Analytics Reporting API V4 and returns the results in a
     pandas DataFrame.
     """
@@ -97,19 +104,18 @@ def get_report(
                     'dimensions': dimensions
                 }]
             }).execute()
-
     ga_report = results.get('reports')[0]
     rows = []
     for row in ga_report.get('data').get('rows'):
         dimensions = row.get('dimensions')
         metrics = row.get('metrics')[0].get('values')
         rows.append(dimensions + list(map(int, metrics)))
-    df = pd.DataFrame(rows)
+    report = pd.DataFrame(rows)
     d_cols = [d.split(':')[1] for d in ga_report.get('columnHeader').get('dimensions')]
     m_headers = ga_report.get('columnHeader').get('metricHeader').get('metricHeaderEntries')
     m_cols = [m.get('name').split(':')[1] for m in m_headers]
-    df.columns = d_cols + m_cols
-    return df
+    report.columns = d_cols + m_cols
+    return report
 
 def bucket_countries(country_row):
     country = country_row['country']

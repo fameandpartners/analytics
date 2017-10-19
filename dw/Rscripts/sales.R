@@ -75,25 +75,6 @@ shipping_costs <- read_csv("Rscripts/static-data/avg_shipping_costs.csv",
     rename(ship_year = YearNum, ship_month = MonthNum, avg_order_shipping_cost = USD) %>%
     mutate(ship_year_month = year_month(as.Date(paste(ship_year, ship_month, 1, sep = "-"))))
 
-# ---- TOUCH POINTS ----
-all_touches <- read_csv("Rscripts/static-data/all_touches.csv",
-                        col_types = cols(
-                            .default = col_character(),
-                            order_id = col_integer(),
-                            user_id = col_integer(),
-                            touch_time = col_datetime(format = ""),
-                            ordered_at = col_datetime(format = ""),
-                            added_to_cart_at = col_datetime(format = ""),
-                            total = col_double(),
-                            revenue_usd = col_double(),
-                            step = readr::col_factor(levels = c(
-                              "Cart","Checkout","Purchase", ordered = TRUE)),
-                            cohort = readr::col_factor(levels = c(
-                              "Prom", "Bridal", "Contemporary", "Bridesmaid", "Not Assigned",
-                              ordered = TRUE))
-                        )) %>%
-    rename(sales_usd = revenue_usd)
-
 # ---- CONNECT TO REPLICA ----
 # set db connection
 source("Rscripts/fp_init.R")
