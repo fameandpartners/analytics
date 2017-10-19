@@ -3125,7 +3125,6 @@ shinyServer(function(input, output) {
                 ggplot(aes(x = ship_month)) +
                 geom_bar(aes(y = actuals_2017), stat = "identity") + 
                 geom_bar(aes(y = budget_2017), stat = "identity", alpha = 0, color = "black", size = 0.35) +
-                geom_label(aes(label = percent(percent_of_budget), y = actuals_2017), vjust = -0.15, size = 6) + 
                 scale_y_continuous(labels = label_func, limits = c(0, max_lim * 1.1)) +
                 scale_x_continuous(breaks = 1:month(today())) +
                 theme_minimal(base_size = 16) +
