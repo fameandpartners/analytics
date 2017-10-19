@@ -75,7 +75,7 @@ adjusted_cohorts %>%
                    collect(),
                by = "Style Number") %>%
     left_join(sales %>% 
-                  transmute(`Style Number` = style_number, dress_image_url) %>%
+                  transmute(`Style Number` = style_number, dress_image_tag) %>%
                   unique(),
               by = "Style Number") %>% 
     select(-Bridal, -Contemporary, -Prom, -live) %>%
