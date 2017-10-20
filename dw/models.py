@@ -121,6 +121,59 @@ class Product(Base):
     def __repr__(self):
         return f'<Product(style_name:{self.style_name} style_number:{self.style_number})>'
 
+class ProductTaxon(Base):
+    __tablename__ = 'product_taxons'
+
+    id = Column(Integer, primary_key=True)
+    created_at = Column(DateTime, default=_get_time)
+    product_id = Column(Integer)
+    taxon_name = Column(String)
+
+    def __repr__(self):
+        return f'<ProductTaxon {self.taxon_name}>'
+
+class FacebookImage(Base):
+    __tablename__ = 'facebook_images'
+
+    id = Column(Integer, primary_key=True)
+    created_at = Column(DateTime, default=_get_time)
+    ad_name = Column(String)
+    ad_image = Column(String)
+
+class CustomizationValue(Base):
+    __tablename__ = 'customization_values'
+
+    id = Column(Integer, primary_key=True)
+    created_at = Column(DateTime, default=_get_time)
+    customization_value_id = Column(Integer)
+    presentation = Column(String)
+    price = Column(Float)
+
+    def __repr__(self):
+        return f'<CustomizationValue {self.presentation}>'
+
+class LineItemCustomization(Base):
+    __tablename__ = 'line_item_customizations'
+
+    id = Column(Integer, primary_key=True)
+    created_at = Column(DateTime, default=_get_time)
+    line_item_id = Column(Integer)
+    customization_value_id = Column(Integer)
+
+    def __repr__(self):
+        return f'<LineItemCustomization {self.line_item_id}>'
+
+class CohortAssignment(Base):
+    __tablename__ = 'cohort_assignments'
+
+    id = Column(Integer, primary_key=True)
+    created_at = Column(DateTime, default=_get_time)
+    email = Column(String)
+    cohort = Column(String)
+
+    def __repr__(self):
+        return f'<CohortAssignment {self.email} {self.cohort}>'
+
 class DailyKPI(Base):
     __tablename__ = 'daily_kpis'
 
@@ -153,14 +206,3 @@ class DailyKPI(Base):
     def __repr__(self):
         date_str = str(self.date)
         return f'<DailyKPI {date_str}>'
-
-class CohortAssignment(Base):
-    __tablename__ = 'cohort_assignments'
-
-    id = Column(Integer, primary_key=True)
-    created_at = Column(DateTime, default=_get_time)
-    email = Column(String)
-    cohort = Column(String)
-
-    def __repr__(self):
-        return f'<CohortAssignment {self.email} {self.cohort}>'

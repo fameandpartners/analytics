@@ -3,8 +3,15 @@ from feather import read_dataframe
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.schema import CreateTable, DropTable
 import pandas as pd
-from models import Sale, Product, DailyKPI, CohortAssignment
+from models import (
+    Sale, Product, ProductTaxon, FacebookImage, CustomizationValue,
+    LineItemCustomization, DailyKPI, CohortAssignment
+)
 import reports
+import warnings
+
+# ignore numpy's annoying date warnings in convert_date
+warnings.simplefilter("ignore", UserWarning)
 
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 FEATHERS = os.path.join(__location__, 'feathers/')
@@ -145,6 +152,83 @@ def load_products(engine):
         session.execute(DropTable(Product.__table__))
     session.execute(CreateTable(Product.__table__))
     session.add_all(products)
+    session.commit()
+    session.close()
+
+def load_product_taxons(engine):
+    Session = sessionmaker(bind=engine)
+    product_taxons_df = read_dataframe(FEATHERS + 'product_taxons.feather')
+    product_taxons_dicts = product_taxons_df.to_dict(orient='record')
+    product_taxons = []
+    for record in product_taxons_dicts:
+        product_taxon = ProductTaxon(
+            product_id = record.get('product_id'),
+            taxon_name = record.get('taxon_name')
+        )
+        product_taxons.append(product_taxon)
+    session = Session()
+    if ProductTaxon.__tablename__ in engine.table_names():
+        session.execute(DropTable(ProductTaxon.__table__))
+    session.execute(CreateTable(ProductTaxon.__table__))
+    session.add_all(product_taxons)
+    session.commit()
+    session.close()
+
+def load_facebook_images(engine):
+    Session = sessionmaker(bind=engine)
+    facebook_images_df = read_dataframe(FEATHERS + 'facebook_images.feather')
+    facebook_images_dicts = facebook_images_df.to_dict(orient='record')
+    facebook_images = []
+    for record in facebook_images_dicts:
+        facebook_image = FacebookImage(
+            ad_name = record.get('ad_name'),
+            ad_image = record.get('ad_image')
+        )
+        facebook_images.append(facebook_image)
+    session = Session()
+    if FacebookImage.__tablename__ in engine.table_names():
+        session.execute(DropTable(FacebookImage.__table__))
+    session.execute(CreateTable(FacebookImage.__table__))
+    session.add_all(facebook_images)
+    session.commit()
+    session.close()
+
+def load_customization_values(engine):
+    Session = sessionmaker(bind=engine)
+    customization_values_df = read_dataframe(FEATHERS + 'customization_values.feather')
+    customization_values_dicts = customization_values_df.to_dict(orient='record')
+    customization_values = []
+    for record in customization_values_dicts:
+        customization_value = CustomizationValue(
+            customization_value_id = record.get('customization_value_id'),
+            presentation = record.get('presentation'),
+            price = record.get('price')
+        )
+        customization_values.append(customization_value)
+    session = Session()
+    if CustomizationValue.__tablename__ in engine.table_names():
+        session.execute(DropTable(CustomizationValue.__table__))
+    session.execute(CreateTable(CustomizationValue.__table__))
+    session.add_all(customization_values)
+    session.commit()
+    session.close()
+
+def load_line_item_customizations(engine):
+    Session = sessionmaker(bind=engine)
+    line_item_customizations_df = read_dataframe(FEATHERS + 'line_item_customizations.feather')
+    line_item_customizations_dicts = line_item_customizations_df.to_dict(orient='record')
+    line_item_customizations = []
+    for record in line_item_customizations_dicts:
+        line_item_customization = LineItemCustomization(
+            line_item_id = int(record.get('line_item_id')),
+            customization_value_id = int(record.get('customization_value_id'))
+        )
+        line_item_customizations.append(line_item_customization)
+    session = Session()
+    if LineItemCustomization.__tablename__ in engine.table_names():
+        session.execute(DropTable(LineItemCustomization.__table__))
+    session.execute(CreateTable(LineItemCustomization.__table__))
+    session.add_all(line_item_customizations)
     session.commit()
     session.close()
 

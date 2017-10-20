@@ -510,5 +510,9 @@ products_sold$height <- factor(
     levels = c("Petite", "Standard", "Tall", paste0("Length", 1:6))
 )
 
-write_feather(products_sold, 'feathers/sales.feather')
-write_feather(products, 'feathers/products.feather')
+write_feather(products_sold, "feathers/sales.feather")
+write_feather(products, "feathers/products.feather")
+write_feather(product_taxons, "feathers/product_taxons.feather")
+write_feather(fb_images, "feathers/facebook_images.feather")
+write_feather(line_item_customizations, "feathers/line_item_customizations.feather")
+write_feather(customization_values, "feathers/customization_values.feather")

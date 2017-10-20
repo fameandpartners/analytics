@@ -1,7 +1,9 @@
 from sys import argv
 from sqlalchemy import create_engine
 from jobs import (
-    load_sales, load_products, load_daily_kpis, load_cohort_assignments
+    load_sales, load_products, load_product_taxons, load_facebook_images,
+    load_customization_values, load_line_item_customizations, load_daily_kpis,
+    load_cohort_assignments
 )
 from secrets import DWPASS
 
@@ -31,6 +33,14 @@ if __name__ == '__main__':
     load_sales(engine=dw_engine)
     print('Loading Product Data')
     load_products(engine=dw_engine)
+    print('Loading Product Taxons')
+    load_product_taxons(engine=dw_engine)
+    print('Loading Facebook Images')
+    load_facebook_images(engine=dw_engine)
+    print('Loading Customization Values')
+    load_customization_values(engine=dw_engine)
+    print('Loading Line Item Customizations')
+    load_line_item_customizations(engine=dw_engine)
     print('Loading Daily KPIs')
     load_daily_kpis(engine=dw_engine)
     print('Loading Cohort Assignments')
