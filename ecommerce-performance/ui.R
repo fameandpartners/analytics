@@ -244,13 +244,7 @@ shinyUI(fluidPage(
                     dataTableOutput("height_length_return_rate"),
                     downloadButton("height_length_return_rate_down")
                 )
-            ),
-            
-            hr(),
-            
-            h1("Returns Bulk Export"),
-            p("The download will take up to 1 minute"),
-            downloadButton("download_returns")
+            )
         ),
         tabPanel(
             "Conversions",
