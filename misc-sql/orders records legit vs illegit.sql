@@ -1,12 +1,14 @@
 -- How many spree_order records have no bill_address_id month over month
-SELECT 
-	EXTRACT(YEAR FROM created_at) created_year, 
-	EXTRACT(MONTH FROM created_at) created_month, 
-	COUNT(*), 
-	SUM(CASE WHEN bill_address_id IS NOT NULL THEN 1 END) -- orders with billing address
+
+SELECT EXTRACT(YEAR
+               FROM created_at) created_year,
+       EXTRACT(MONTH
+               FROM created_at) created_month,
+       COUNT(*),
+       SUM(CASE WHEN bill_address_id IS NOT NULL THEN 1 END) -- orders with billing address
 FROM spree_orders
-GROUP BY created_year, created_month
--- created_year | created_month |  count  | sum
+GROUP BY created_year,
+         created_month -- created_year | created_month |  count  | sum
 -- --------------+---------------+---------+------
 --          2013 |             8 |      88 |   88
 --          2013 |             9 |      32 |   32

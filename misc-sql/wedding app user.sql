@@ -1,17 +1,16 @@
-SELECT 
-	EXTRACT(year FROM u.created_at) created_year, 
-	EXTRACT(month FROM u.created_at) created_month, 
-	SUM(case when fb.spree_user_id IS NOT NULL 
-		AND fb.value IS NOT NULL 
-		AND fb.value NOT LIKE '%[]%' THEN 1 ELSE 0 END)::DECIMAL
-	/ COUNT(*)::DECIMAL percent_fb_users
-FROM spree_users u 
-LEFT JOIN facebook_data fb 
-	ON fb.spree_user_id = u.id
-GROUP BY 
-	EXTRACT(year FROM u.created_at),
-	EXTRACT(month FROM u.created_at)
--- created_year | created_month |    percent_fb_users
+SELECT EXTRACT(YEAR
+               FROM u.created_at) created_year,
+       EXTRACT(MONTH
+               FROM u.created_at) created_month,
+       SUM(CASE WHEN fb.spree_user_id IS NOT NULL
+           AND fb.value IS NOT NULL
+           AND fb.value NOT LIKE '%[]%' THEN 1 ELSE 0 END)::DECIMAL / COUNT(*)::DECIMAL percent_fb_users
+FROM spree_users u
+LEFT JOIN facebook_data fb ON fb.spree_user_id = u.id
+GROUP BY EXTRACT(YEAR
+                 FROM u.created_at),
+         EXTRACT(MONTH
+                 FROM u.created_at) -- created_year | created_month |    percent_fb_users
 -- --------------+---------------+------------------------
 --          2013 |             7 | 1.00000000000000000000
 --          2013 |             8 | 0.01363271852445870088
