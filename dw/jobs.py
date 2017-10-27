@@ -28,6 +28,20 @@ def convert_date(date, type_of):
 def load_sales(engine):
     Session = sessionmaker(bind=engine)
     sales_df = read_dataframe(FEATHERS + 'sales.feather')
+    # Convert NaN to None so that NaN is null in data warehouse
+    numeric_columns = ['order_id','line_item_id','quantity','order_payments',
+            'units_in_order','total','item_total','o_adjustments','user_id',
+            'ship_address_id','price','product_id','v_height','gross_extra_attributed',
+            'net_extra_attributed','conversion_rate','sales_usd','gross_revenue_usd',
+            'adjustments_total_percentage','adjustments_usd','customized','refund_amount',
+            'total_payment_amount','o_other_adjustments','o_promotions','o_shipping',
+            'o_taxes','payments','item_total_usd','promotions_usd','shipping_usd',
+            'taxes_usd','other_adjustments_usd','refund_amount_usd','price_usd',
+            'return_order_id','payment_processing_cost','physically_customized','us_size',
+            'manufacturing_cost','avg_order_shipping_cost','li_shipping_cost0',
+            'li_shipping_cost','packaging_cost','asset_id','attachment_width',
+            'attachment_height']
+    sales_df[numeric_columns] = sales_df[numeric_columns].where((pd.notnull(sales_df[numeric_columns])), None)
     sales_dicts = sales_df.to_dict(orient='record')
     sales = []
     for record in sales_dicts:
