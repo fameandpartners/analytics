@@ -18,17 +18,11 @@ active_products <- products %>%
            & (is.na(deleted_at) | deleted_at > today())
            & available_on <= today())
 
-traffic <- paste0(
-    path_to_culling_dropbox,
-    list.files(path = path_to_culling_dropbox, pattern = "*.csv")) %>%
-    lapply(
-        read_csv,
-        skip = 6,
-        n_max = 5000,
-        col_types = cols(
-            .default = col_number(),
-            Page = col_character())) %>%
-    bind_rows() %>%
+# ga_cull_traffic*.csv generated with dw/google_apps/cull.py
+traffic <- read_csv(paste0(path_to_culling_dropbox,"ga_cull_traffic_2017-10.csv"),
+                    col_types = cols(
+                        .default = col_number(),
+                        Page = col_character())) %>%
     mutate(product_id = Page %>%
                str_extract_all("dress\\-(.*)\\-[0-9]+") %>%
                str_extract_all("[0-9]+") %>%
@@ -53,7 +47,9 @@ zero_units <- function(df){
 }
 
 ongoing_cull_styles <- product_first_sale_dates %>%
-    filter(first_sale_date < (today() - 120))
+    inner_join(products %>% select(product_id, available_on), by = "product_id") %>%
+    filter((first_sale_date < (today() - 120)) | (available_on < (today() - 120))) %>%
+    transmute(product_id, first_sale_date = coalesce(first_sale_date, as.Date(available_on)))
 
 ongoing_cull_sales <- products_sold %>%
     inner_join(ongoing_cull_styles, by = "product_id") %>%

@@ -1,5 +1,62 @@
-source("~/code/analytics/etl/full_global.R")
-setwd("~/data")
+library(tidyr)
+library(dplyr)
+library(dbplyr)
+library(stringr)
+library(lubridate)
+library(readr)
+library(ggplot2)
+
+# ---- FUNCTIONS ----
+year_month <- function(date_value){
+    paste(year(date_value),
+          formatC(month(date_value), width = 2, flag = "0"),
+          sep = "-")
+}
+
+dollar <- function(number){
+    paste0("$", round(number, digits = 2) %>%
+               format(nsmall = 2, big.mark = ","))
+}
+
+percent <- function(number){
+    paste0(format(100 * round(number, 2), big.mark = ","), "%")
+}
+
+short_dollar <- function(number){
+    ifelse(number < 1000, paste0("$", round(number)),
+           ifelse(number < 1000000, paste0("$", round(number / 1000, 1), "K"),
+                  ifelse(number < 1000000000, paste0("$", round(number / 1000000, 1), "M"),
+                         paste0("$", round(number / 1000000000, 1), "B"))))
+}
+
+short_number <- function(number){
+    ifelse(number < 1000, round(number) %>% as.integer(),
+           ifelse(number < 1000000, paste0(round(number / 1000, 1), "K"),
+                  ifelse(number < 1000000000, paste0((round(number / 1000000, 1)), "M"),
+                         paste0(round(number / 1000000000, 1), "B"))))
+}
+
+h3c <- function(x) h3(x, align = "center")
+
+dress_image_url <- function(asset_id, attachment_file_name){
+    paste0("https://d1msb7dh8kb0o9.cloudfront.net/spree/products/",
+           asset_id,
+           "/original/",
+           attachment_file_name)
+}
+
+sql_convert_to_LA_time <- function(utc_time){
+    paste0("(", utc_time, " at time zone 'UTC') at time zone 'America/Los_Angeles'")
+}
+
+# query conversion rates
+aud_to_usd <- 0.74  # query_aud_to_usd()
+
+# ---- QUERIES ----
+
+dw <- src_postgres(dbname = "dw_dev", host = "localhost")
+
+products_sold <- tbl(dw, "sales") %>% collect()
 
 traffic <- read_csv("~/data/product traffic data.csv") %>%
     inner_join(products_sold %>%
@@ -10,7 +67,7 @@ traffic <- read_csv("~/data/product traffic data.csv") %>%
 # ---- YoY Weekly Sales ----
 weekly_sales <- products_sold %>%
     filter(order_date >= as.Date("2015-01-01")
-           & order_date <= as.Date("2017-10-14") 
+           & order_date <= as.Date("2017-10-21") 
            & payment_state == "paid") %>%
     group_by(order_year = year(order_date) %>% as.character(), 
              order_week = week(order_date)) %>%
@@ -36,7 +93,7 @@ weekly_sales %>%
 products_sold %>%
     filter(ship_country %in% c("United States","Australia")
            & order_date >= as.Date("2015-01-01")
-           & order_date <= as.Date("2017-10-14")  
+           & order_date <= as.Date("2017-10-21")  
            & payment_state == "paid") %>%
     group_by(order_year = year(order_date) %>% as.character(), 
              order_week = week(order_date),
