@@ -1,7 +1,20 @@
 # Short term solution to get the 2017-09 board meeting reports done for Nyree
-setwd("~/code/analytics/ecommerce-performance")
-source("~/code/analytics/ecommerce-performance/global.R")
-setwd("~/data")      
+# setwd("~/code/analytics/ecommerce-performance")
+# source("~/code/analytics/ecommerce-performance/global.R")
+# setwd("~/data")      
+
+suppressMessages(library(tidyr))
+suppressMessages(library(dplyr))
+suppressMessages(library(dbplyr))
+suppressMessages(library(readr))
+suppressMessages(library(lubridate))
+
+dw <- src_postgres(dbname = "dw_dev",host = "localhost")
+
+products_sold <- tbl(dw, "sales") %>% 
+    filter(order_date >= "2015-12-15") %>%
+    collect() %>%
+    mutate(packaging_cost = 2.5)
 
 products_sold$Cohort <- products_sold$assigned_cohort %>%
     as.character() %>%
@@ -43,18 +56,10 @@ monthly_direct_demand <- confirmed_sales %>%
     filter(Year >= 2016)
 
 # Repeat Rate
-customer_acquisitions <- read_csv(
-    "~/code/analytics/ecommerce-performance/static-data/customer_acquisitions.csv",
-    col_types = cols(
-        email = col_character(),
-        date = col_date(format = ""))) %>%
-    bind_rows(list(
-        products_sold %>%
-            filter(!return_requested) %>%
-            group_by(email) %>%
-            summarise(date = min(order_date)))) %>%
-    unique() %>%
-    rename(acquisition_date = date)
+customer_acquisitions <- tbl(dw, "sales") %>%
+    group_by(email) %>%
+    summarise(acquisition_date = min(order_date)) %>%
+    collect()
 
 # Monthly
 monthly_repeats <- confirmed_sales %>%
@@ -91,8 +96,7 @@ monthly_factory_direct <- confirmed_sales %>%
                                                          units = "days")) %>%
                             as.numeric()))
 
-# ---- MERGE KPIs by Year, Quarter and Month ----
-
+# ---- MERGE KPIs ----
 monthly_direct <- monthly_direct_demand %>%
     left_join(monthly_repeats, by = c("Year","Month","Cohort")) %>%
     ungroup() %>%
@@ -100,10 +104,9 @@ monthly_direct <- monthly_direct_demand %>%
     select(-Year, -Month)
 
 # ---- Product Sales Distribution ----
-active_products <- products %>% 
-    filter(!hidden 
-           & (is.na(deleted_at) | deleted_at > today())
-           & available_on <= today())
+active_products <- tbl(dw, "products") %>%
+    filter(live) %>%
+    collect()
 
 products_sold_2017 <- products_sold %>%
     filter(year(order_date) == 2017)
