@@ -17,6 +17,10 @@ def monthly_kpis():
     nps_responses = nps.pull()
     monthly_kpis = pd.concat([traffic, net_revenue_direct, direct_costs,
                               factory_performance,nps_responses,reconciled_returns,])
+    monthly_kpis = monthly_kpis.pivot_table(index=['A','B','C','D'],
+                                            columns='year_month',
+                                            values='value',
+                                            fill_value='')
     return monthly_kpis
 
 def daily_kpis():
@@ -36,5 +40,4 @@ def revenue_attribution():
 
 if __name__ == '__main__':
     from datetime import date
-    monthly_kpis().to_csv('~/data/monthly_kpis_2016_Present_' + str(date.today()) + '.csv', index=False)
-    daily_kpis().to_csv('~/data/daily_kpis_2016_Present_' + str(date.today()) + '.csv', index=False)
+    monthly_kpis().reset_index().to_csv('~/data/monthly_kpis_2016_Present_' + str(date.today()) + '.csv', index=False)

@@ -6,7 +6,7 @@ suppressMessages(library(lubridate))
 
 dw <- src_postgres(dbname = "dw_dev",host = "localhost")
 
-products_sold <- tbl(dw, "sales") %>% 
+products_sold <- tbl(dw, "sales") %>%
     filter(order_date >= "2015-12-15") %>%
     collect() %>%
     mutate(packaging_cost = 2.5)
@@ -29,7 +29,7 @@ confirmed_sales <- products_sold %>%
     mutate(refulfilled = order_number %in% tpl$order_number)
 
 monthly_direct_demand <- confirmed_sales %>%
-    group_by(Year = year(order_date), 
+    group_by(Year = year(order_date),
              Month = month(order_date),
              Cohort) %>%
     summarise(`Gross Revenue` = sum(gross_revenue_usd),
@@ -52,6 +52,7 @@ monthly_direct_demand <- confirmed_sales %>%
 
 # Repeat Rate
 customer_acquisitions <- tbl(dw, "sales") %>%
+    filter(!return_requested) %>%
     group_by(email) %>%
     summarise(acquisition_date = min(order_date)) %>%
     collect()
@@ -61,7 +62,7 @@ monthly_repeats <- confirmed_sales %>%
     filter(!return_requested) %>%
     left_join(customer_acquisitions, by = "email") %>%
     mutate(new_repeat = ifelse(order_date <= coalesce(acquisition_date,
-                                                      order_date), 
+                                                      order_date),
                                "New Customers","Repeat Customers")) %>%
     group_by(`Year` = year(order_date),
              `Month` = month(order_date),
@@ -77,8 +78,8 @@ monthly_factory_direct <- confirmed_sales %>%
     group_by(year_month = order_year_month,
              Factory = factory_name) %>%
     summarise(Units = sum(quantity),
-              `Avg. Make Time` = mean(difftime(ship_date, 
-                                               order_date, 
+              `Avg. Make Time` = mean(difftime(ship_date,
+                                               order_date,
                                                units = "days")) %>%
                   as.numeric()) %>%
     rbind(confirmed_sales %>%
@@ -86,8 +87,8 @@ monthly_factory_direct <- confirmed_sales %>%
               group_by(year_month = order_year_month,
                        Factory = "All") %>%
               summarise(Units = sum(quantity),
-                        `Avg. Make Time` = mean(difftime(ship_date, 
-                                                         order_date, 
+                        `Avg. Make Time` = mean(difftime(ship_date,
+                                                         order_date,
                                                          units = "days")) %>%
                             as.numeric()))
 
@@ -116,7 +117,7 @@ style_sales_distribution_2017 <- products_sold_2017 %>%
               return_request_units = sum(return_requested),
               net_return_request_units = units_ordered - return_request_units) %>%
     bind_rows(list(no_sales_live %>%
-                       transmute(product_id, 
+                       transmute(product_id,
                                  units_ordered = 0,
                                  return_request_units = 0,
                                  net_return_request_units = 0))) %>%
@@ -190,7 +191,7 @@ demand_returns <- reconciled_returns %>%
                         refulfilled_return_units = 0) %>%
               ungroup() %>%
               filter(order_year >= 2017 & order_month %in% c(5,6))) %>%
-    mutate(year_month = paste(order_year, 
+    mutate(year_month = paste(order_year,
                               formatC(order_month, width=2, flag="0"),
                               sep = "-")) %>%
     select(-order_year,-order_month)
@@ -205,10 +206,10 @@ return_reasons <- confirmed_sales %>%
 # ---- Customization Rate Trend ----
 customization_trend <- confirmed_sales %>%
     filter(year(order_date) >= 2017) %>%
-    mutate(order_year_week = paste(year(order_date), 
-                                   formatC(week(order_date), width = 2, flag = "0"), 
+    mutate(order_year_week = paste(year(order_date),
+                                   formatC(week(order_date), width = 2, flag = "0"),
                                    sep = " W")) %>%
-    group_by(order_year_week) %>% 
+    group_by(order_year_week) %>%
     summarise(`Week Ending` = max(order_date),
               `Customization Rate` = sum(physically_customized * quantity) / sum(quantity)) %>%
     select(-order_year_week)

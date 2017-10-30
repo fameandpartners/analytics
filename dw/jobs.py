@@ -28,7 +28,7 @@ def convert_date(date, type_of):
 def load_sales(engine):
     Session = sessionmaker(bind=engine)
     sales_df = read_dataframe(FEATHERS + 'sales.feather')
-    # Convert NaN to None so that NaN is null in data warehouse
+    # Convert NaN to None so that missing data is null in data warehouse
     numeric_columns = ['order_id','line_item_id','quantity','order_payments',
             'units_in_order','total','item_total','o_adjustments','user_id',
             'ship_address_id','price','product_id','v_height','gross_extra_attributed',

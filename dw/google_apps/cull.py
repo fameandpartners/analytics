@@ -1,10 +1,12 @@
 from datetime import date, timedelta
 import pandas as pd
+import feather
 from analytics import initialize_analyticsreporting, VIEW_ID
 
 def get_traffic(ga_conn):
     date_ranges = [{'startDate': str(date.today() - timedelta(days=120)),
                     'endDate': str(date.today() - timedelta(days=30))}]
+    print('Getting PDP traffic data for', date_ranges[0])
     metrics = [{'expression': 'ga:sessions'},{'expression': 'ga:bounces'}]
     dimensions = [{'name': 'ga:pagePathLevel2'}]
     order_bys = [{'fieldName': 'ga:sessions', 'sortOrder': 'DESCENDING'}]
@@ -53,4 +55,4 @@ if __name__ == '__main__':
     ga_conn = initialize_analyticsreporting()
     traffic = get_traffic(ga_conn)
     traffic = traffic.rename(columns={'pagePathLevel2': 'Page', 'sessions': 'Sessions', 'bounces': 'Bounces'})
-    print(traffic.to_csv(index=False))
+    feather.write_dataframe(traffic, 'feathers/ga_cull_traffic.feather')

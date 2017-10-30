@@ -5,8 +5,13 @@ library(readr)
 library(rpart)
 library(feather)
 
-# Need to point this at the sales table in the DW eventually
-source("~/code/analytics/etl/full_global.R")
+dw <- src_postgres(dbname = "dw_dev", host = "localhost")
+
+products_sold <- tbl(dw, "sales") %>%
+    filter(order_date >= "2015-01-01") %>%
+    select(-id, -created_at) %>%
+    collect()
+
 fabric_usage <- read_csv("~/data/fabric_usage.csv")
 
 produced_sales <- products_sold %>%
