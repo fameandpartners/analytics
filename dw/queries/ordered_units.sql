@@ -30,4 +30,4 @@ LEFT JOIN (
 ) pay ON pay.order_id = o.id
 LEFT JOIN global_skus g
     ON g.sku = v.sku
-WHERE completed_at IS NOT NULL;
+WHERE completed_at IS NOT NULL
