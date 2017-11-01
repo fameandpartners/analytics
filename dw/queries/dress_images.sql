@@ -9,5 +9,4 @@ INNER JOIN product_color_values pcv ON a.viewable_id = pcv.id
 INNER JOIN spree_products p ON p.id = pcv.product_id
 WHERE a.attachment_width < 2000
   AND a.viewable_type = 'ProductColorValue'
-  AND a.attachment_updated_at >= '2015-01-01'
   AND a.attachment_file_name ilike '%front-crop%'

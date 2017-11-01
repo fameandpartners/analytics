@@ -1,5 +1,5 @@
 import pandas as pd
-from spree_db import sales, returns
+import sales, returns
 import google_apps.analytics as ga
 import nps
 
