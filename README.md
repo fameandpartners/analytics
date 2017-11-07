@@ -29,8 +29,8 @@ These are scripts written for analysis presentations.  These scripts use ggplot2
 ## Ad-Hoc R/Python ETL Scripts: `/etl/`
 Here are ETL scripts written for ad-hoc report requests or to manually update CSV files in `/ecommerce-performance/static-data/`.  All of these scripts were written to be run locally.  And most should be thought of as scratch paper.  None of these scripts should be run in production.
 
-## Ad-Hoc SQL Queries `/misc-sql/`
+## Ad-Hoc SQL Queries: `/misc-sql/`
 Here are SQL queries written for ad-hoc reports or quick test and experiments. It is essentially SQL scratch paper. Nothing in this folder should be used for any production or mission-critical applications.
 
-## Legacy Repeat Customers Dashboard `/repeat-customers/`
+## Legacy Repeat Customers Dashboard: `/repeat-customers/`
 This is an old Shiny dashboard that has been archived on shinyapps.io and is not used anymore.
