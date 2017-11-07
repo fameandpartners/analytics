@@ -22,7 +22,7 @@ Get a login to Fame & Partners' account and follow these [instructions](https://
 `>rsconnect::deployApp()`
 
 ## Data Warehouse: `/dw/`
-This manages F&P's Data Warehouse.  It uses both R and Python to run ETL jobs.  It relies on [feather](https://github.com/wesm/feather) to exchange Data Frames between R and Python in the data pipelines.  The entry point to these ETL jobs are bash scripts, so run the hourly ETL job run
+This manages F&P's Data Warehouse.  It uses both R and Python to run ETL jobs.  It relies on [feather](https://github.com/wesm/feather) to exchange Data Frames between R and Python in the data pipelines.  The entry point to these ETL jobs are bash scripts, so to run the hourly ETL job run
 
 `$ sh hourly.sh`
 
