@@ -135,6 +135,14 @@ all_refund_transactions <- bind_rows(
               source = paste(unique(source), collapse = " "),
               records = n())
 
+returns_inventory <- read_csv("~/data/bergen_returns_inventory_2017-10-30.csv",
+                              col_types = cols(
+                                  .default = col_character(),
+                                  `Created On` = col_date(format = "%m/%d/%Y"),
+                                  `Arrived On` = col_date(format = "%m/%d/%Y"),
+                                  `Added On` = col_date(format = "%m/%d/%Y"))) %>%
+    filter(`Created On` < `Arrived On` & `Arrived On` < `Added On`) # Filter out records with dates that don't make sense
+
 payment_lkp$response_code_source <- factor(
     payment_lkp$response_code_source,
     levels = c("item_returns","refund_requests",
@@ -161,7 +169,9 @@ orders <- ordered_units %>%
               original_sales_amount = sum(sales_usd),
               db_refund_amount = sum(refund_amount) / 100) %>%
     mutate(estimated_ship_date = coalesce(last_ship_date, 
-                                          last_order_date + 10))
+                                          last_order_date + 10)) %>%
+    left_join(ordered_units %>% select(order_id, order_number) %>% unique(),
+              by = "order_id")
 
 match1 <- all_refund_transactions %>%
     inner_join(payment_lkp, by = "response_code") %>%
@@ -208,11 +218,7 @@ all_refunds <- bind_rows(
                                       "PayPal", "Pin+Assembly"),
            estimated_ship_date = coalesce(esd, date - 45)) %>%
     select(-esd) %>%
-    unique() %>%
-    left_join(ordered_units %>%
-                  select(order_id, order_number) %>%
-                  unique(),
-              by = "order_id")
+    unique()
 
 all_refunds %>% write_csv("~/data/returns_reconciled_2017-07-26.csv", na = "")
 all_refunds %>%
@@ -237,3 +243,14 @@ all_refunds %>%
                by = c("ship_year","ship_month")) %>%
     mutate(return_rate = adjusted_returns/gross_revenue_usd) %>%
     write_csv("~/data/refulfilled_reconciled_returns.csv")
+matched_refunds %>%
+    transmute(order_number, transaction_date = date, shipped_to_customer = estimated_ship_date) %>%
+    unique() %>%
+    inner_join(returns_inventory %>% 
+                   filter(`PO Number` %>% str_detect("R")) %>%
+                   transmute(order_number = `PO Number`,
+                             return_shipped = `Created On`) %>%
+                   unique(),
+               by = "order_number") %>%
+    mutate(days_to_return_shipped = difftime(return_shipped, shipped_to_customer, units = "days")) %>%
+    write_csv("~/data/days_to_return_shipped.csv")

@@ -52,6 +52,8 @@ sql_convert_to_LA_time <- function(utc_time){
 # query conversion rates
 aud_to_usd <- 0.74  # query_aud_to_usd()
 
+last_weeks_saturday <- today() #round_date(today(), "week") - 1
+
 # ---- QUERIES ----
 
 dw <- src_postgres(dbname = "dw_dev", host = "localhost")
@@ -67,7 +69,7 @@ traffic <- read_csv("~/data/product traffic data.csv") %>%
 # ---- YoY Weekly Sales ----
 weekly_sales <- products_sold %>%
     filter(order_date >= as.Date("2015-01-01")
-           & order_date <= as.Date("2017-10-21") 
+           & order_date <= last_weeks_saturday
            & payment_state == "paid") %>%
     group_by(order_year = year(order_date) %>% as.character(), 
              order_week = week(order_date)) %>%
@@ -93,7 +95,7 @@ weekly_sales %>%
 products_sold %>%
     filter(ship_country %in% c("United States","Australia")
            & order_date >= as.Date("2015-01-01")
-           & order_date <= as.Date("2017-10-21")  
+           & order_date <= last_weeks_saturday
            & payment_state == "paid") %>%
     group_by(order_year = year(order_date) %>% as.character(), 
              order_week = week(order_date),
@@ -119,7 +121,7 @@ weekly_sales %>%
     #filter(years_changed %>% str_detect("2017")) %>%
     ggplot(aes(x = order_week, y = percent_change, color = years_changed)) +
     geom_path() + geom_point() +
-    scale_y_continuous(labels = percent, limits = c(-0.3,3)) +
+    scale_y_continuous(labels = percent, limits = c(-0.4,3)) +
     xlab("Order Week") + ylab("Percent Change") +
     theme(legend.title = element_blank())
 
@@ -127,7 +129,7 @@ weekly_sales %>%
 products_sold %>%
     filter(ship_country %in% c("United States","Australia")
            & order_date >= as.Date("2015-01-01")
-           & order_date <= as.Date("2017-09-02") 
+           & order_date <= last_weeks_saturday
            & payment_state == "paid") %>%
     group_by(order_year = year(order_date) %>% as.character(), 
              order_week = week(order_date),
@@ -142,13 +144,13 @@ products_sold %>%
     ggplot(aes(x = order_week, y = percent_change, color = years_changed)) +
     geom_path() + geom_point() +
     facet_grid(ship_country~.) +
-    scale_y_continuous(labels = percent, limits = c(-0.3,3)) +
+    scale_y_continuous(labels = percent, limits = c(-0.5,3)) +
     xlab("Order Week") + ylab("Percent Change") +
     theme(legend.title = element_blank())
 
 # ---- YoY Weekly Shipments ----
 weekly_shipments <- products_sold %>%
-    filter(ship_date <= as.Date("2017-06-10") 
+    filter(ship_date <= last_weeks_saturday
            & payment_state == "paid"
            & year(ship_date) > 2015) %>%
     group_by(ship_year = year(ship_date) %>% as.character(), 
