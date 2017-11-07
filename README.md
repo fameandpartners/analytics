@@ -9,12 +9,14 @@ Here is a Shiny Application hosted at https://fameandpartners.shinyapps.io/ecomm
 
 Add your copy of the `fp_init.R` file that manages the database connection
 
+#### Run development server
 `$ R`
 
 `>shiny::runApp()`
 
 To deploy this app to shinnyapps.io first get a login to Fame & Partners' account and follow these [instructions](https://shiny.rstudio.com/articles/shinyapps.html) to configure your rsconnect folder.  Once your account's credentials are configured, run
 
+#### Deploy app to shinyapps.io
 `$ R`
 
 `>rsconnect::deployApp()`
