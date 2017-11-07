@@ -22,7 +22,7 @@ To deploy this app to shinnyapps.io first get a login to Fame & Partners' accoun
 2. `/dw/`
 This manages F&P's Data Warehouse.  It uses both R and Python to run ETL jobs.  It relies on [feather](https://github.com/wesm/feather) to exchange Data Frames between R and Python in the data pipelines.  The entry point to these ETL jobs are bash scripts, so run the hourly ETL job run
 
-`$ sh hourly.sh`
+  `$ sh hourly.sh`
 
 3. `/etl/`
 Here are ETL scripts written for ad-hoc report requests or to manually update CSV files in `/ecommerce-performance/static-data/`.  All of these scripts were written to be run locally.  And most should be thought of as scratch paper.  None of these scripts should be run in production.
