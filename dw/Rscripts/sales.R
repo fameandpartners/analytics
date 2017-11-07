@@ -49,6 +49,10 @@ sql_convert_to_LA_time <- function(utc_time){
     paste0("(", utc_time, " at time zone 'UTC') at time zone 'America/Los_Angeles'")
 }
 
+read_sql <- function(file_location) {
+    readLines(file_location) %>% str_trim() %>% paste(collapse = " ")
+}
+
 # query conversion rates
 aud_to_usd <- 0.74  # query_aud_to_usd()
 
@@ -80,11 +84,7 @@ shipping_costs <- read_csv("Rscripts/static-data/avg_shipping_costs.csv",
 source("Rscripts/fp_init.R")
 
 # ---- FB Ad Images ----
-fb_images <- tbl(fp_con, sql(paste(
-    "SELECT DISTINCT ads.name ad_name, copy.image_url ad_image",
-    "FROM facebook_ads ads",
-    "INNER JOIN facebook_ad_creatives copy",
-        "ON copy.facebook_ad_id = ads.id"))) %>%
+fb_images <- tbl(fp_con, sql(read_sql("queries/fb_images.sql"))) %>%
     collect() %>%
     group_by(ad_name) %>%
     filter(!duplicated(str_replace_all(ad_image, "\\?(.*)", ""))) %>%
@@ -139,40 +139,7 @@ comp_choices <- c("Spend (USD)","Purchases","CAC","CTR","CPAC","CPL",
                   "T.O.S.","Sessions","Total Carts","Bounce Rate")
 
 # ---- SALES ----
-ordered_units <- tbl(fp_con, sql(paste(
-    "SELECT",
-        "o.id order_id,",
-        "o.number order_number,",
-        "o.state order_state,",
-        "o.payment_state,",
-        sql_convert_to_LA_time("o.completed_at"), "completed_timestamp,",
-        "o.total,",
-        "o.item_total,",
-        "o.adjustment_total o_adjustments,",
-        "o.email,",
-        "o.user_id,",
-        "o.user_first_name || ' ' || o.user_last_name customer_name,",
-        "o.currency,",
-        "o.ship_address_id,",
-        "li.id line_item_id,",
-        "li.quantity,",
-        "li.price,",
-        "v.product_id,",
-        "v.height v_height,",
-        "g.size g_size",
-    "FROM spree_orders o",
-    "INNER JOIN spree_line_items li",
-        "ON li.order_id = o.id",
-    "LEFT JOIN spree_variants v",
-        "ON li.variant_id = v.id",
-    "LEFT JOIN (",
-        "SELECT DISTINCT order_id",
-        "FROM spree_payments",
-        "WHERE state = 'completed'",
-        ") pay ON pay.order_id = o.id",
-    "LEFT JOIN global_skus g",
-        "ON g.sku = v.sku",
-    "WHERE completed_at IS NOT NULL"))) %>%
+ordered_units <- tbl(fp_con, sql(read_sql("queries/ordered_units.sql"))) %>%
     collect() %>%
     group_by(order_id) %>%
     mutate(gross_extra_attributed = (item_total - sum(price)) / n(),
@@ -186,17 +153,7 @@ ordered_units <- tbl(fp_con, sql(paste(
     ungroup()
 
 # ---- CUSTOMIZATIONS + HEIGHTS ----
-customizations <- tbl(fp_con, sql(paste(
-    "SELECT",
-        "lip.line_item_id,",
-        "MAX(CASE WHEN lip.customization_value_ids SIMILAR TO '%([1-9])%'",
-            "THEN 1 ELSE 0 END) customized,",
-        "STRING_AGG(DISTINCT lip.size, ', ') lip_size,",
-        "STRING_AGG(DISTINCT lip.customization_value_ids, '/n') customisation_value_ids,",
-        "INITCAP(STRING_AGG(DISTINCT lip.color, ', ')) color,",
-        "INITCAP(STRING_AGG(DISTINCT lip.height, ', ')) lip_height",
-    "FROM line_item_personalizations lip",
-    "GROUP BY line_item_id"))) %>%
+customizations <- tbl(fp_con, sql(read_sql("queries/customizations.sql"))) %>%
     collect()
 
 line_item_customizations <- customizations %>%
@@ -211,30 +168,11 @@ line_item_customizations <- customizations %>%
     transmute(line_item_id,
               customization_value_id = as.integer(customization_value_id_char))
 
-customization_values <- tbl(fp_con, sql(paste(
-    "SELECT id customization_value_id, presentation, price",
-    "FROM customisation_values"))) %>%
+customization_values <- tbl(fp_con, sql(read_sql("queries/customization_values.sql"))) %>%
     collect()
 
 # ---- PRODUCTS ----
-products <- tbl(fp_con, sql(paste(
-    "SELECT",
-        "p.id product_id,",
-        "g.style style_number,",
-        "INITCAP(p.name) style_name,",
-        "INITCAP(f.name) factory_name,",
-        "p.hidden,",
-        "p.deleted_at,",
-        "p.available_on",
-    "FROM spree_products p",
-    "LEFT JOIN (",
-        "SELECT product_id, STRING_AGG(DISTINCT UPPER(sku), ',') style",
-        "FROM spree_variants",
-        "WHERE is_master",
-        "GROUP BY product_id",
-    ") g ON g.product_id = p.id",
-    "LEFT JOIN factories f",
-        "ON p.factory_id = f.id"))) %>%
+products <- tbl(fp_con, sql(read_sql("queries/products.sql"))) %>%
     collect() %>%
     mutate(live = ifelse(!hidden
                          & (is.na(deleted_at) | deleted_at > today())
@@ -243,32 +181,11 @@ products <- tbl(fp_con, sql(paste(
     select(-hidden, -deleted_at)
 
 # ---- ADDRESSES ----
-addresses <- tbl(fp_con, sql(paste(
-    "SELECT",
-        "sa.id ship_address_id,",
-        "INITCAP(sa.city) ship_city,",
-        "INITCAP(COALESCE(ss.name, sa.state_name)) ship_state,",
-        "INITCAP(sc.name) ship_country",
-    "FROM spree_addresses sa",
-    "LEFT JOIN spree_states ss",
-        "ON ss.id = sa.state_id",
-    "LEFT JOIN spree_countries sc",
-        "ON sc.id = sa.country_id"))) %>%
+addresses <- tbl(fp_con, sql(read_sql("queries/addresses.sql"))) %>%
     collect()
 
 # ---- SHIPMENTS ----
-shipment_data <- tbl(fp_con, sql(paste(
-    "SELECT s.order_id, liu.line_item_id ship_line_item_id, s.shipped_at",
-    "FROM spree_shipments s",
-    "LEFT JOIN (",
-        "SELECT DISTINCT line_item_id, shipment_id",
-        "FROM line_item_updates",
-        "WHERE match_errors not like '%:%'",
-            "AND shipment_errors not similar to '%([a-zA-Z])%'",
-            "AND line_item_id is not null",
-            "AND shipment_id is not null",
-    ") liu ON liu.line_item_id = s.id",
-    "WHERE s.shipped_at IS NOT NULL"))) %>%
+shipment_data <- tbl(fp_con, sql(read_sql("queries/shipment_data.sql"))) %>%
     collect()
 o_shipments <- shipment_data %>%
     select(order_id, shipped_at)%>%
@@ -300,29 +217,18 @@ returns <- tbl(fp_con, "item_returns") %>%
     rename(return_comments = comments) %>%
     collect()
 
-return_events <- tbl(fp_con, sql(paste(
-    "SELECT item_return_uuid, STRING_AGG(DISTINCT TRIM(SPLIT_PART(SPLIT_PART(ire.data, '@', 1), 'user:', 2)), ' and ') return_processed_by",
-    "FROM item_return_events ire",
-    "WHERE ire.event_type = 'receive_item'",
-    "GROUP BY item_return_uuid"))) %>%
+return_events <- tbl(fp_con, sql(read_sql("queries/return_events.sql"))) %>%
     collect()
 
 # ---- PAYMENTS ----
-payments <- tbl(fp_con, sql(paste(
-    "SELECT order_id, amount p_amount",
-    "FROM spree_payments",
-    "WHERE state = 'completed'"))) %>%
+payments <- tbl(fp_con, sql(read_sql("queries/payments.sql"))) %>%
     collect() %>%
     group_by(order_id) %>%
     summarise(order_payments = n(),
               total_payment_amount = sum(p_amount))
 
 # ---- ADJUSTMENTS ----
-adjustments <- tbl(fp_con, sql(paste(
-    "SELECT adjustable_id order_id, originator_type, SUM(amount) adjustments",
-    "FROM spree_adjustments",
-    "WHERE amount != 0 AND eligible AND adjustable_type = 'Spree::Order'",
-    "GROUP BY order_id, originator_type"))) %>%
+adjustments <- tbl(fp_con, sql(read_sql("queries/adjustments.sql"))) %>%
     collect() %>%
     left_join(data_frame(originator_type = c("Spree::TaxRate","Spree::ShippingMethod","Spree::PromotionAction",NA),
                          adjustment_type = c("o_taxes","o_shipping","o_promotions","o_other_adjustments")),
@@ -331,38 +237,18 @@ adjustments <- tbl(fp_con, sql(paste(
     spread(adjustment_type, adjustments, fill = 0)
 
 # ---- PROMOTIONS ----
-promotions <- tbl(fp_con, sql(paste(
-    "SELECT adjustable_id order_id, STRING_AGG(label, ' ') labels",
-    "FROM spree_adjustments",
-    "WHERE amount != 0",
-        "AND eligible",
-        "AND adjustable_type = 'Spree::Order'",
-        "AND originator_type = 'Spree::PromotionAction'",
-    "GROUP BY order_id"))) %>%
+promotions <- tbl(fp_con, sql(read_sql("queries/promotions.sql"))) %>%
     collect() %>%
     mutate(coupon_code = labels %>%
                str_replace_all("Promotion |\\(|\\)", "")) %>%
     select(-labels)
 
 # ---- PRODUCT TAXONS ----
-product_taxons <- tbl(fp_con, sql(paste(
-    "SELECT pt.product_id, t.name taxon_name",
-    "FROM spree_products_taxons pt",
-    "JOIN spree_taxons t on t.id = pt.taxon_id"))) %>%
+product_taxons <- tbl(fp_con, sql(read_sql("queries/product_taxons.sql"))) %>%
     collect()
 
 # ---- DRESS IMAGES ----
-dress_images <- tbl(fp_con, sql(paste(
-    "SELECT p.id product_id, a.id asset_id, a.attachment_file_name, ",
-        "a.attachment_width, a.attachment_height",
-    "FROM spree_assets a",
-    "INNER JOIN product_color_values pcv ",
-        "ON a.viewable_id = pcv.id",
-    "INNER JOIN spree_products p",
-        "ON p.id = pcv.product_id",
-    "WHERE a.attachment_width < 2000",
-        "AND a.viewable_type = 'ProductColorValue'",
-        "AND a.attachment_file_name ilike '%front-crop%'"))) %>%
+dress_images <- tbl(fp_con, sql(read_sql("queries/dress_images.sql"))) %>%
     collect() %>%
     filter(!duplicated(product_id)) %>%
     mutate(
@@ -382,11 +268,7 @@ dress_images <- tbl(fp_con, sql(paste(
     )
 
 # ---- SLOW AND FAST MAKING ----
-slow_fast_items <- tbl(fp_con, sql(paste(
-    "SELECT limo.line_item_id, pmo.option_type making_option",
-    "FROM line_item_making_options limo",
-    "INNER JOIN product_making_options pmo",
-        "ON pmo.id = limo.making_option_id"))) %>%
+slow_fast_items <- tbl(fp_con, sql(read_sql("queries/slow_fast_items.sql"))) %>%
     collect()
 
 # ---- MERGE + TRANSFORM QUERIES INTO MASTER SALES DF ----

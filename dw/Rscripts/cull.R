@@ -1,7 +1,18 @@
 # Any products that have sold less than 10 net return units in 365 days
 # are UNPROFITABLE so they MUST BE CULLED
 # NO MERCY!!
-source("~/code/analytics/etl/full_global.R")
+suppressMessages(library(readr))
+suppressMessages(library(dplyr))
+suppressMessages(library(dbplyr))
+suppressMessages(library(tidyr))
+suppressMessages(library(lubridate))
+suppressMessages(library(stringr))
+suppressMessages(library(feather))
+
+dw <- src_postgres(dbname = "dw_dev", host = "localhost")
+collect_dw <- function(conn) conn %>% select(-id, -created_at) %>% collect()
+products_sold <- tbl(dw, "sales") %>% collect_dw()
+products <- tbl(dw, "products") %>% collect_dw()
 
 real_head <- function(x){
     if(length(x) > 0){
@@ -11,18 +22,12 @@ real_head <- function(x){
     }
 }
 
-path_to_culling_dropbox <- "/Users/Peter 1/Dropbox (Team Fame)/data/culling/"
+FEATHERS <- "feathers/"
 
-active_products <- products %>% 
-    filter(!hidden 
-           & (is.na(deleted_at) | deleted_at > today())
-           & available_on <= today())
+active_products <- products %>% filter(live)
 
 # ga_cull_traffic*.csv generated with dw/google_apps/cull.py
-traffic <- read_csv(paste0(path_to_culling_dropbox,"ga_cull_traffic_2017-10.csv"),
-                    col_types = cols(
-                        .default = col_number(),
-                        Page = col_character())) %>%
+traffic <- suppressWarnings(read_feather(paste0(FEATHERS,"ga_cull_traffic.feather"))) %>%
     mutate(product_id = Page %>%
                str_extract_all("dress\\-(.*)\\-[0-9]+") %>%
                str_extract_all("[0-9]+") %>%
@@ -40,7 +45,7 @@ product_first_sale_dates <- products_sold %>%
 
 zero_units <- function(df){
     df %>%
-        transmute(product_id, 
+        transmute(product_id,
                   units_ordered = 0,
                   return_request_units = 0,
                   net_return_request_units = 0)
@@ -80,21 +85,4 @@ ongoing_cull <- ongoing_cull_sales %>%
     semi_join(active_products, by = "product_id") %>%
     unique()
 
-write_csv(ongoing_cull %>% 
-              left_join(collections %>% 
-                            rename(collection = collection_na), 
-                        by = "product_id"), 
-          paste0(path_to_culling_dropbox, 
-                 "styles/Endangered ", today(), ".csv"),
-          na = "")
-
-write_csv(dress_images %>%
-              select(product_id, 
-                     attachment_width, 
-                     attachment_height, 
-                     dress_image_url) %>%
-              unique() %>%
-              semi_join(ongoing_cull, by = "product_id"),
-          paste0(path_to_culling_dropbox, 
-                 "styles/Endangered Images ", today(), ".csv"),
-          na = "")
+ongoing_cull

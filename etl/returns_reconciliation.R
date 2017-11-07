@@ -127,7 +127,8 @@ all_refund_transactions <- bind_rows(
                       date = as.Date(`Created (UTC)`),
                       source = "stripe"))) %>%
     group_by(response_code) %>%
-    summarise(amount = sum(abs(amount)),
+    summarise(min_amount = min(abs(amount)),
+              amount = sum(abs(amount)),
               currency = paste(unique(currency), collapse = " "),
               date_char = paste(unique(date_char), collapse = " "),
               date = max(date),

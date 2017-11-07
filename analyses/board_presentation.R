@@ -79,7 +79,7 @@ direct_summary <- function(df){
     df %>%
         summarise(`Direct Gross Revenue` = sum(gross_revenue),
                   `Direct Gross Margin` = sum(net_sales - returns - cogs) 
-                                 / sum(net_sales - returns),
+                  / sum(net_sales - returns),
                   `Return Rate` = sum(returns) / sum(gross_revenue),
                   Orders = sum(orders),
                   AOV = sum(gross_revenue) / sum(orders),
@@ -219,9 +219,9 @@ nps_summary <- function(df){
     df %>%
         summarise(`NPS Responses` = sum(Promoter + Passive + Detractor),
                   `NPS Score` = 100 * (sum(Promoter) 
-                                      / sum(Promoter + Passive + Detractor))
-                              - 100 * (sum(Detractor) 
-                                      / sum(Promoter + Passive + Detractor))) %>%
+                                       / sum(Promoter + Passive + Detractor))
+                  - 100 * (sum(Detractor) 
+                           / sum(Promoter + Passive + Detractor))) %>%
         filter(`NPS Responses` > 50)
 }
 # Annual
@@ -264,7 +264,7 @@ repeat_summary <- function(df){
         summarise(Customers = n_distinct(email)) %>%
         spread(New_Repeat, Customers) %>%
         mutate(`Repeat Rate` = `Repeat Customers` 
-                             / (`New Customers` + `Repeat Customers`))
+               / (`New Customers` + `Repeat Customers`))
 }
 
 # Annual
@@ -312,10 +312,10 @@ quarterly_kpis <- quarterly_direct %>%
     rename(Year = `Ship Year`, Quarter = `Ship Quarter`) %>%
     left_join(quarterly_nps %>% rename(Year = acquisition_year,
                                        Quarter = acquisition_quarter),
-               by = c("Year", "Quarter")) %>%
+              by = c("Year", "Quarter")) %>%
     left_join(quarterly_repeats %>% rename(Year = `Ship Year`, 
                                            Quarter = `Ship Quarter`),
-               by = c("Year","Quarter")) %>%
+              by = c("Year","Quarter")) %>%
     left_join(quarterly_marketing, by = c("Year","Quarter"))
 # Monthly
 monthly_kpis <- monthly_direct %>%

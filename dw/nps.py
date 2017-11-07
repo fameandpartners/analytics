@@ -1,6 +1,6 @@
 import delighted
 import pandas as pd
-import spree_db.sales as sales
+import sales
 from secrets import DKEY
 
 

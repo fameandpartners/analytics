@@ -14,22 +14,7 @@ br_csv <- read_csv("~/data/Contacts-All.csv",
                as.Date(format = "%m/%d/%Y") %>%
            as.POSIXct())
 
-mc_csv <- read_csv("~/data/subscribed_members_export_3ccca61159.csv",
-                   col_types = cols(
-                       .default = col_character(),
-                       Birthday = col_date(format = ""),
-                       `Facebook UID` = col_double(),
-                       MEMBER_RATING = col_integer(),
-                       OPTIN_TIME = col_datetime(format = ""),
-                       CONFIRM_TIME = col_datetime(format = ""),
-                       LAST_CHANGED = col_datetime(format = ""),
-                       LEID = col_integer()
-                   ))
-
 mc <- bind_rows(list(
-    mc_csv %>%
-        rename(email = `Email Address`, event_type_d = `Event Type`) %>%
-        select(email, event_type_d, utm_source, utm_medium, utm_campaign, CONFIRM_TIME),
     br_csv %>%
         rename(email = `Email Address`, event_type_d = `EventType`) %>%
         select(email, event_type_d, utm_source, utm_medium, utm_campaign, CONFIRM_TIME))) %>%
@@ -194,9 +179,6 @@ all_touches <-
 write_csv(all_touches, "~/code/analytics/ecommerce-performance/static-data/all_touches.csv", na = "")
 
 bind_rows(list(
-    mc_csv %>%
-        rename(email = `Email Address`, event_type_d = `Event Type`) %>%
-        select(email, event_type_d, utm_source, utm_medium, utm_campaign, CONFIRM_TIME),
     br_csv %>%
         rename(email = `Email Address`, event_type_d = `EventType`) %>%
         select(email, event_type_d, utm_source, utm_medium, utm_campaign, CONFIRM_TIME))) %>%
@@ -209,3 +191,19 @@ bind_rows(list(
     transmute(email, assigned_cohort = mc_cohort) %>%
     filter(!duplicated(email)) %>%
     write_csv("~/code/analytics/ecommerce-performance/static-data/cohort_assignments.csv")
+
+quantile((all_touches %>% filter(!is.na(step) & year(touch_time) == 2017) %>% 
+              group_by(cart_year_month = round_date(touch_time, "day"), step) %>% 
+              summarise(o = n_distinct(order_id)) %>% 
+              arrange(cart_year_month, desc(step)) %>% 
+              mutate(Orders = cumsum(o)) %>%
+              group_by(cart_year_month) %>%
+              summarise(`Cart to Purchase` = min(Orders) / max(Orders)))$`Cart to Purchase`, seq(0,1,0.01))[1:6]
+
+all_touches %>% filter(!is.na(step) & touch_time > today() - 120) %>% 
+    group_by(cart_year_month = round_date(touch_time, "day"), step) %>% 
+    summarise(o = n_distinct(order_id)) %>% 
+    arrange(cart_year_month, desc(step)) %>% 
+    mutate(Orders = cumsum(o)) %>%
+    group_by(cart_year_month) %>%
+    summarise(`Cart to Purchase` = min(Orders) / max(Orders))
