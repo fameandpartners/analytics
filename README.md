@@ -5,18 +5,21 @@ Here is a Shiny Application hosted at https://fameandpartners.shinyapps.io/ecomm
 
 [Shiny](https://shiny.rstudio.com/) is a framework for building interactive dashboards in R.  
 
-`git clone git@github.com:fameandpartners/analytics.git
-cd analytics/ecommerce-performance`
+`git clone git@github.com:fameandpartners/analytics.git`
+
+`cd analytics/ecommerce-performance`
 
 Add your copy of the fp_init.R file that manages the database connection
 
-`$ R
->shiny::runApp()`
+`$ R`
+
+`>shiny::runApp()`
 
 To deploy this app to shinnyapps.io first get a login to Fame & Partners' account and follow these [instructions](https://shiny.rstudio.com/articles/shinyapps.html) to configure your rsconnect folder.  Once your account's credentials are configured, run
 
-`$ R
->rsconnect::deployApp()`
+`$ R`
+
+`>rsconnect::deployApp()`
 
 ## Data Warehouse: `/dw/`
 This manages F&P's Data Warehouse.  It uses both R and Python to run ETL jobs.  It relies on [feather](https://github.com/wesm/feather) to exchange Data Frames between R and Python in the data pipelines.  The entry point to these ETL jobs are bash scripts, so run the hourly ETL job run
