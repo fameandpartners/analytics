@@ -14,9 +14,9 @@ Add your copy of the `fp_init.R` file that manages the database connection
 
 `>shiny::runApp()`
 
-To deploy this app to shinnyapps.io first get a login to Fame & Partners' account and follow these [instructions](https://shiny.rstudio.com/articles/shinyapps.html) to configure your rsconnect folder.  Once your account's credentials are configured, run
-
 #### Deploy app to shinyapps.io
+Get a login to Fame & Partners' account and follow these [instructions](https://shiny.rstudio.com/articles/shinyapps.html) to configure your rsconnect folder.  Once your account's credentials are configured, run
+
 `$ R`
 
 `>rsconnect::deployApp()`
