@@ -5,11 +5,9 @@ Here is a Shiny Application hosted at https://fameandpartners.shinyapps.io/ecomm
 
 [Shiny](https://shiny.rstudio.com/) is a framework for building interactive dashboards in R.  
 
-`git clone git@github.com:fameandpartners/analytics.git`
+`cd ecommerce-performance`
 
-`cd analytics/ecommerce-performance`
-
-Add your copy of the fp_init.R file that manages the database connection
+Add your copy of the `fp_init.R` file that manages the database connection
 
 `$ R`
 
