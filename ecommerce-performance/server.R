@@ -1,5 +1,5 @@
 shinyServer(function(input, output) {
- # ---- Styles Tab ----
+    # ---- Styles Tab ----
     # ---- Styles Data Set Filters ----
     
     collection_filter <- reactive({
@@ -66,22 +66,23 @@ shinyServer(function(input, output) {
             summarise(`Style Name` = paste(unique(style_name), collapse = ","),
                       `Dress Image` = dress_image_tag[1],
                       Units = sum(quantity),
+                      `Gross Revenue` = sum(gross_revenue_usd),
                       Sales = sum(sales_usd),
                       ASP = mean(sales_usd),
                       `Avg. Days to Ship` = round(mean(difftime(ship_date, 
-                                                               order_date, 
-                                                               units = "days"),
-                                                      na.rm = T), 2) %>% as.numeric(),
+                                                                order_date, 
+                                                                units = "days"),
+                                                       na.rm = T), 2) %>% as.numeric(),
                       `Refund Request Rate` = sum(sales_usd * return_requested) / sum(sales_usd),
                       `Customization Rate` = sum(quantity * physically_customized) / sum(quantity),
                       `Gross Margin %` = (sum(net_sales) 
                                           - sum(net_sales * 0.9 * return_requested) 
                                           - sum(cogs)) 
-                                       / (sum(net_sales) 
-                                          - sum(net_sales * 0.9 * return_requested)),
+                      / (sum(net_sales) 
+                         - sum(net_sales * 0.9 * return_requested)),
                       `Avg. Gross Margin` = sum(net_sales
-                                             - net_sales * return_requested * 0.9
-                                             - cogs) / sum(quantity)) %>%
+                                                - net_sales * return_requested * 0.9
+                                                - cogs) / sum(quantity)) %>%
             arrange(desc(Sales))
     })
     
@@ -92,7 +93,7 @@ shinyServer(function(input, output) {
             datatable(class = "hover row-border", style = "bootstrap", escape = FALSE,
                       options = list(lengthMenu = c(5, 10, 50), pageLength = 5)) %>%
             formatCurrency(c("Units"), digits = 0, currency = "") %>%
-            formatCurrency(c("Sales","ASP","Avg. Gross Margin")) %>%
+            formatCurrency(c("Sales","Gross Revenue","ASP","Avg. Gross Margin")) %>%
             formatPercentage(c("Refund Request Rate",
                                "Customization Rate",
                                "Gross Margin %"))
@@ -134,6 +135,7 @@ shinyServer(function(input, output) {
                    net_revenue = gross_revenue_usd + adjustments_usd,
                    cogs = coalesce(manufacturing_cost, 70) + li_shipping_cost + payment_processing_cost) %>%
             summarise(quantity = sum(quantity), 
+                      gross_revenue_usd = sum(coalesce(gross_revenue_usd, 0)),
                       sales_usd = sum(sales_usd), 
                       refunds_requested_usd = sum(return_request_amount),
                       refund_amount_usd = sum(coalesce(refund_amount_usd, 0)),
@@ -142,6 +144,7 @@ shinyServer(function(input, output) {
                       days_to_ship = difftime(max(ship_date), min(order_date), units = "days"),
                       cogs = sum(cogs)) %>%
             summarise(`Total Units` = short_number(sum(quantity)),
+                      `Total Gross Revenue` = short_dollar(sum(gross_revenue_usd)),
                       `Total Sales` = short_dollar(sum(sales_usd)),
                       ASP = dollar(sum(sales_usd) / sum(quantity)),
                       `AOV` = short_dollar(mean(sales_usd)),
@@ -153,12 +156,12 @@ shinyServer(function(input, output) {
                                               - cogs)
                                           / sum(net_revenue
                                                 - refunds_requested_usd * 0.9)
-                                          ) %>% percent(),
+                      ) %>% percent(),
                       `Avg. Gross Margin` = dollar(sum(net_revenue
-                                                    - refunds_requested_usd * 0.9
-                                                    - cogs)
-                                                / sum(quantity))
-                      )
+                                                       - refunds_requested_usd * 0.9
+                                                       - cogs)
+                                                   / sum(quantity))
+            )
     })
     
     # ---- Daily Sales ----
@@ -208,7 +211,7 @@ shinyServer(function(input, output) {
             coord_flip() +
             theme(axis.title.y = element_blank())
     })
-
+    
     # ---- Sales by Country ----
     output$sales_by_country <- renderPlot({
         all_countries <- selected_sales() %>%
@@ -418,7 +421,7 @@ shinyServer(function(input, output) {
         }
     )
     
-# ---- Factories Tab ----
+    # ---- Factories Tab ----
     # ---- Factories Data Set Filters ----
     factory_collection_filter <- reactive({
         if(length(input$factory_collections) > 0) {
@@ -440,7 +443,7 @@ shinyServer(function(input, output) {
             filter(style_name %in% factory_style_filter()) %>%
             filter(between(us_size, input$factory_us_size[1], input$factory_us_size[2]))
     })
-# ---- Returns Tab ----
+    # ---- Returns Tab ----
     return_collections_filter <- reactive({
         if(length(input$collections_r) > 0) {
             input$collections_r
@@ -523,7 +526,7 @@ shinyServer(function(input, output) {
     
     output$sec_return_reasons <- renderPlot({
         returns_df <- sec_return_reasons_data()
-    
+        
         returns_df$sec_reason <- factor(
             returns_df$sec_reason,
             levels = c(returns_df$sec_reason[returns_df$sec_reason != "Other Reason"], "Other Reason")
@@ -600,7 +603,7 @@ shinyServer(function(input, output) {
                       `Return Rate` = `Processed Returns` / `Gross Revenue`)
     })
     output$monthly_return_rates <- renderPlot({
-         return_rates_data() %>% 
+        return_rates_data() %>% 
             ggplot(aes(x = ship_year_month), size = 2) +
             geom_path(aes(y = `Return Rate`, color = "Return Rate"), group = 1) +
             geom_point(aes(y = `Return Rate`, color = "Return Rate")) +
@@ -666,7 +669,7 @@ shinyServer(function(input, output) {
         }
     )
     
-# ---- Conversions Tab ----
+    # ---- Conversions Tab ----
     
     cohort_filter <- reactive({
         if(length(input$cohort_select) > 0) {
@@ -993,7 +996,7 @@ shinyServer(function(input, output) {
         
     })
     
-# ---- ODG Tab ----
+    # ---- ODG Tab ----
     # ---- Filter Functions ----
     conv_platform_filter <- reactive({
         if(length(input$conv_platform) > 0){
@@ -1191,31 +1194,31 @@ shinyServer(function(input, output) {
     })
     
     output$conv_creative_summary_down <- downloadHandler(
-            filename = function() {paste0("FB & IG Creative ", today(), ".csv")},
-            content = function(file) {
-                write_csv(filtered_ga_fb() %>% 
-                              group_by(Creative = creative,
-                                       `Creative String` = creative_no_image) %>% 
-                              conv_kpi_summarise() %>%
-                              ungroup() %>%
-                              arrange(desc(`Spend (USD)`)) %>%
-                              transmute(Creative, 
-                                        `Creative String`,
-                                        `Spend (USD)`, 
-                                        Purchases, 
-                                        Leads,
-                                        CAC = ifelse(CAC == 0, NA, CAC), 
-                                        CTR, 
-                                        CPC = ifelse(CPC == 0, NA, CPC), 
-                                        CPAC = ifelse(CPAC == 0, NA, CPAC), 
-                                        CPL = ifelse(CPL == 0, NA, CPL),
-                                        `T.O.S.` = `Avg. Session Duration`, 
-                                        Sessions,
-                                        `Total Carts` = Adds_to_Cart,
-                                        `Bounce Rate`), 
-                          file, na = "")
-            }
-        )
+        filename = function() {paste0("FB & IG Creative ", today(), ".csv")},
+        content = function(file) {
+            write_csv(filtered_ga_fb() %>% 
+                          group_by(Creative = creative,
+                                   `Creative String` = creative_no_image) %>% 
+                          conv_kpi_summarise() %>%
+                          ungroup() %>%
+                          arrange(desc(`Spend (USD)`)) %>%
+                          transmute(Creative, 
+                                    `Creative String`,
+                                    `Spend (USD)`, 
+                                    Purchases, 
+                                    Leads,
+                                    CAC = ifelse(CAC == 0, NA, CAC), 
+                                    CTR, 
+                                    CPC = ifelse(CPC == 0, NA, CPC), 
+                                    CPAC = ifelse(CPAC == 0, NA, CPAC), 
+                                    CPL = ifelse(CPL == 0, NA, CPL),
+                                    `T.O.S.` = `Avg. Session Duration`, 
+                                    Sessions,
+                                    `Total Carts` = Adds_to_Cart,
+                                    `Bounce Rate`), 
+                      file, na = "")
+        }
+    )
     
     # ---- Comparisons ----
     output$conv_cohort_comp <- renderPlot({
@@ -1971,7 +1974,7 @@ shinyServer(function(input, output) {
             df <- creative_type_summary %>%
                 filter(`Spend (USD)` > 0) %>%
                 arrange(desc(`Spend (USD)`))
-        df$creative_type <- factor(df$creative_type, levels = df$creative_type)
+            df$creative_type <- factor(df$creative_type, levels = df$creative_type)
             if(nrow(df) > 0){
                 df %>%
                     ggplot(aes(x = creative_type, fill = creative_type, y = `Spend (USD)`)) +
@@ -3083,7 +3086,7 @@ shinyServer(function(input, output) {
             theme(axis.title.y = element_blank(),
                   legend.title = element_blank())
     })
-# ---- Finances Tab ----
+    # ---- Finances Tab ----
     quarter_filter <- reactive({
         if(input$quarter == "All Year") {
             seq(1, 4)
@@ -3264,11 +3267,136 @@ shinyServer(function(input, output) {
                                  + li_shipping_cost 
                                  + payment_processing_cost)) %>%
             mutate(`Gross Margin` = (`Net Sales` - `Est. Returns` - COGS) 
-                                  / (`Net Sales` - `Est. Returns`))
+                   / (`Net Sales` - `Est. Returns`))
     })
     
     output$download_customer_contribution <- downloadHandler(
         filename = function() { paste0("Finances - Customer Contribution ", today(), ".csv")},
         content = function(file) { write_csv(customer_contribution(), file, na = "")}
+    )
+    
+    monthly_direct_demand <- reactive({
+        confirmed_sales <- products_sold %>%
+            filter(order_state != "canceled")
+        monthly_direct_demand <- confirmed_sales %>%
+            group_by(Year = year(order_date),
+                     Month = month(order_date),
+                     Cohort = coalesce(assigned_cohort, "Not Assigned")) %>%
+            summarise(`Gross Revenue` = sum(gross_revenue_usd),
+                      `Net Sales` = sum(sales_usd),
+                      Orders = n_distinct(order_id),
+                      `Units` = sum(quantity),
+                      `Customized Units` = sum(coalesce(as.double(customized * quantity), 0)),
+                      COGS = sum(coalesce(manufacturing_cost, 70))
+                      + sum(coalesce(li_shipping_cost, 20))
+                      + sum(payment_processing_cost),
+                      `Packaging Materials` = sum(packaging_cost),
+                      `Product Cost` = sum(coalesce(manufacturing_cost, 70)),
+                      Discounts = sum(coalesce(promotions_usd, 0)),
+                      Shipping = sum(coalesce(li_shipping_cost, 20)),
+                      Taxes = sum(coalesce(taxes_usd, 0)),
+                      `Other Adjustments` = sum(coalesce(other_adjustments_usd, 0)),
+                      Transactions = n_distinct(order_id)) %>%
+            filter(Year >= 2016)
+        monthly_repeats <- confirmed_sales %>%
+            filter(!return_requested) %>%
+            left_join(customer_acquisitions %>% rename(acquisition_date = date), 
+                      by = "email") %>%
+            mutate(new_repeat = ifelse(order_date <= coalesce(acquisition_date,
+                                                              order_date),
+                                       "New Customers","Repeat Customers")) %>%
+            group_by(`Year` = year(order_date),
+                     `Month` = month(order_date),
+                     Cohort = coalesce(assigned_cohort, "Not Assigned"),
+                     new_repeat) %>%
+            summarise(Customers = n_distinct(email)) %>%
+            spread(new_repeat, Customers, fill = 0) %>%
+            filter(Year >= 2016)
+        
+        # ---- MERGE MONTHLY KPIs ----
+        
+        monthly_direct_demand %>%
+            left_join(monthly_repeats, by = c("Year","Month","Cohort")) %>%
+            ungroup() %>%
+            mutate(year_month = paste(Year, formatC(Month, width=2, flag="0"), sep="-")) %>%
+            select(-Year, -Month)
+    })
+    
+    output$download_monthly_direct_demand  <- downloadHandler(
+        filename = function() { paste0("Finances - Monthly Direct Demand ", today(), ".csv")},
+        content = function(file) { write_csv(monthly_direct_demand(), file, na = "")}
+    )
+    
+    customer_acquisitions_export <- reactive({
+        customer_acquisitions %>% rename(acquisition_date = date)
+    })
+    output$download_customer_acquisitions  <- downloadHandler(
+        filename = function() { paste0("Finances - Customer Acquisitions ", today(), ".csv")},
+        content = function(file) { write_csv(customer_acquisitions_export(), file, na = "")}
+    )
+    
+    monthly_factory_direct <- reactive({
+        products_sold %>%
+            filter(order_state != "canceled") %>%
+            filter(year(order_date) >= 2017 & is_shipped) %>%
+            group_by(year_month = order_year_month,
+                     Factory = factory_name) %>%
+            summarise(Units = sum(quantity),
+                      `Avg. Make Time` = mean(difftime(ship_date,
+                                                       order_date,
+                                                       units = "days")) %>%
+                          as.numeric()) %>%
+            rbind(products_sold %>%
+                      filter(order_state != "canceled") %>%
+                      filter(year(order_date) >= 2017 & is_shipped) %>%
+                      group_by(year_month = order_year_month,
+                               Factory = "All") %>%
+                      summarise(Units = sum(quantity),
+                                `Avg. Make Time` = mean(difftime(ship_date,
+                                                                 order_date,
+                                                                 units = "days")) %>%
+                                    as.numeric()))
+    })
+    output$download_monthly_factory_direct_demand <- downloadHandler(
+        filename = function() { paste0("Finances - Monthly Factory Direct Demand ", today(), ".csv")},
+        content = function(file) { write_csv(monthly_factory_direct(), file, na = "")}
+    )
+    
+    monthly_style_sales_distribution_2017_forward <- reactive({
+        products_sold %>%
+            filter(year(order_date) >= 2017)  %>%
+            group_by(order_year_month, product_id) %>%
+            summarise(units_ordered = sum(quantity),
+                      return_request_units = sum(return_requested),
+                      net_return_request_units = units_ordered - return_request_units) %>%
+            mutate(quintile = ntile(net_return_request_units, 5)) %>%
+            group_by(order_year_month, quintile) %>%
+            summarise(products = n_distinct(product_id),
+                      total_net_return_units = sum(net_return_request_units)) %>%
+            mutate(percent_of_total_units = total_net_return_units / sum(total_net_return_units)) %>%
+            select(order_year_month, quintile, percent_of_total_units) %>%
+            spread(quintile, percent_of_total_units) %>%
+            rename(`Top 20%` = `5`, `60% to 80%` = `4`, `40% to 60%` = `3`,
+                   `20% to 40%` = `2`, `Bottom 20%` = `1`)
+    })
+    output$download_monthly_style_sales_distribution_2017_forward <- downloadHandler(
+        filename = function() { paste0("Finances - Monthly Style Demand Distribution ", today(), ".csv")},
+        content = function(file) { write_csv(monthly_style_sales_distribution_2017_forward(), file, na = "")}
+    )
+    
+    customization_trend <- reactive({
+        products_sold %>%
+            filter(year(order_date) >= 2017 & order_state != "canceled") %>%
+            mutate(order_year_week = paste(year(order_date),
+                                           formatC(week(order_date), width = 2, flag = "0"),
+                                           sep = " W")) %>%
+            group_by(order_year_week) %>%
+            summarise(`Week Ending` = max(order_date),
+                      `Customization Rate` = sum(physically_customized * quantity) / sum(quantity)) %>%
+            select(-order_year_week)
+    })
+    output$download_weekly_customization_trend <- downloadHandler(
+        filename = function() { paste0("Finances - Weekly Customization Demand Trend ", today(), ".csv")},
+        content = function(file) { write_csv(customization_trend(), file, na = "")}
     )
 })

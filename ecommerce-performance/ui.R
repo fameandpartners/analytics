@@ -132,45 +132,6 @@ shinyUI(fluidPage(
                 downloadButton("download_all")
             )
         ),
-        # tabPanel(
-        #     "Factories",
-        #     fluidRow(
-        #         column(
-        #             3,
-        #             dateRangeInput(
-        #                 "factory_order_dates",
-        #                 label = "Order Date",
-        #                 start = today() - 90,
-        #                 end = today()
-        #             ),
-        #             dateRangeInput(
-        #                 "factory_ship_dates",
-        #                 label = "Ship Date",
-        #                 start = today() - 100,
-        #                 end = today()
-        #             ),
-        #             selectInput(
-        #                 "factory_collections",
-        #                 label = "Collection",
-        #                 choices = sort(unique(collections$collection_na)),
-        #                 multiple = TRUE
-        #             ),
-        #             selectInput(
-        #                 "factory_styles",
-        #                 label = "Style",
-        #                 choices = sort(unique(products_sold$style_name)),
-        #                 multiple = TRUE
-        #             ),
-        #             sliderInput(
-        #                 "factory_us_size",
-        #                 "Size (US):",
-        #                 min = 0,
-        #                 max = 26,
-        #                 value = c(0,26)
-        #             )
-        #         )
-        #     )
-        # ),
         tabPanel(
             "Returns",
             fluidRow(
@@ -244,7 +205,13 @@ shinyUI(fluidPage(
                     dataTableOutput("height_length_return_rate"),
                     downloadButton("height_length_return_rate_down")
                 )
-            )
+            ),
+            
+            hr(),
+            
+            h1("Returns Bulk Export"),
+            p("The download will take up to 1 minute"),
+            downloadButton("download_returns")
         ),
         tabPanel(
             "Conversions",
@@ -352,11 +319,11 @@ shinyUI(fluidPage(
                                               selectInput("conv_cohort_metric",
                                                           label = "", 
                                                           choices = comp_choices)
-                                              ),
+                                          ),
                                           column(
                                               10,
                                               plotOutput("conv_cohort_comp"))
-                                          ),
+                                 ),
                                  tabPanel("Target", 
                                           column(
                                               2,
@@ -625,22 +592,52 @@ shinyUI(fluidPage(
             fluidRow(
                 hr(),
                 column(
-                    2,
+                    1,
                     em("Line Item Details"),
                     br(),
                     downloadButton("download_finances_line_items")
                 ),
                 column(
-                    2, 
+                    1, 
                     em("Monthly Summary"), 
                     br(),
                     downloadButton("download_finances_summary")
                 ),
                 column(
-                    2,
+                    1,
                     em("Customer Contribution"),
                     br(),
                     downloadButton("download_customer_contribution")
+                ),
+                column(
+                    1,
+                    em("Monthly Direct Demand"),
+                    br(),
+                    downloadButton("download_monthly_direct_demand")
+                ),
+                column(
+                    1,
+                    em("Customer Acquisitions"),
+                    br(),
+                    downloadButton("download_customer_acquisitions")
+                ),
+                column(
+                    1,
+                    em("Monthly Factory Direct Demand"),
+                    br(),
+                    downloadButton("download_monthly_factory_direct_demand")
+                ),
+                column(
+                    1,
+                    em("Monthly Style Demand Distribution"),
+                    br(),
+                    downloadButton("download_monthly_style_sales_distribution_2017_forward")
+                ),
+                column(
+                    1,
+                    em("Weekly Customization Demand Trend"),
+                    br(),
+                    downloadButton("download_weekly_customization_trend")
                 )
             )
         )
