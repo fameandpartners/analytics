@@ -3,9 +3,6 @@ import sales, returns
 import google_apps.analytics as ga
 import nps
 
-# Hacky way to make sure I don't put the password in git
-from secrets import PASS, DKEY
-
 def monthly_kpis():
     """Merges the above reports utilizing their standard formatting.
     """

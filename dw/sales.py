@@ -3,8 +3,7 @@ import os
 from dateutil.parser import parse
 import psycopg2 as psql
 import pandas as pd
-
-from secrets import PASS
+import os
 
 __location__ = os.path.realpath(
     os.path.join(os.getcwd(), os.path.dirname(__file__)))
@@ -12,10 +11,10 @@ QUERIES = os.path.join(__location__, 'queries/')
 
 def connect_to_fame():
     return psql.connect(
-        user='peterm',
-        password=PASS,
-        dbname='fandp_web_production',
-        host='postgres-read-replica.production.fameandpartners.com'
+        user=os.environ['RDS_USERNAME'],
+        password=os.environ['RDS_PASSWORD'],
+        dbname=os.environ['RDS_DB_NAME'],
+        host=os.environ['RDS_HOSTNAME']
     )
 
 def sql_to_dataframe(sql_file, connection):
