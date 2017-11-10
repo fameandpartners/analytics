@@ -206,3 +206,18 @@ class DailyKPI(Base):
     def __repr__(self):
         date_str = str(self.date)
         return f'<DailyKPI {date_str}>'
+
+class MonthlyCohortKPI(Base):
+    __tablename__ = 'monthly_kpis'
+
+    id = Column(Integer, primary_key=True)
+    created_at = Column(DateTime, default=_get_time)
+    a = Column(String)
+    b = Column(String)
+    c = Column(String)
+    d = Column(String)
+    value = Column(Float)
+    year_month = Column(String)
+
+    def __repr__(self):
+        return f'<MonthlyCohortKPI {self.a} | {self.b} | {self.c} | {self.d} | {self.year_month}>'

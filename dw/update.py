@@ -2,7 +2,7 @@ from sys import argv
 from sqlalchemy import create_engine
 from jobs import (
     load_sales, load_products, load_product_taxons, load_facebook_images,
-    load_customization_values, load_line_item_customizations, load_daily_kpis,
+    load_customization_values, load_line_item_customizations,
     load_cohort_assignments
 )
 import os
@@ -41,8 +41,6 @@ if __name__ == '__main__':
     load_customization_values(engine=dw_engine)
     print('Loading Line Item Customizations')
     load_line_item_customizations(engine=dw_engine)
-    print('Loading Daily KPIs')
-    load_daily_kpis(engine=dw_engine)
     print('Loading Cohort Assignments')
     load_cohort_assignments(engine=dw_engine)
-    print('All Data Loaded into Warehouse')
+    print('Data Loaded into Warehouse')

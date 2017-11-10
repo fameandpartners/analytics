@@ -5,7 +5,7 @@ from sqlalchemy.schema import CreateTable, DropTable
 import pandas as pd
 from models import (
     Sale, Product, ProductTaxon, FacebookImage, CustomizationValue,
-    LineItemCustomization, DailyKPI, CohortAssignment
+    LineItemCustomization, DailyKPI, CohortAssignment, MonthlyCohortKPI
 )
 import reports
 import warnings
@@ -283,6 +283,29 @@ def load_daily_kpis(engine):
         session.execute(DropTable(DailyKPI.__table__))
     session.execute(CreateTable(DailyKPI.__table__))
     session.add_all(daily_kpis)
+    session.commit()
+    session.close()
+
+def load_monthly_cohort_kpis(engine):
+    mc_kpis_df = reports.monthly_kpis()
+    mc_kpis_dicts = mc_kpis_df.to_dict(orient='record')
+    mc_kpis = []
+    for record in mc_kpis_dicts:
+        monthly_cohort_kpi = MonthlyCohortKPI(
+            a = record.get('A'),
+            b = record.get('B'),
+            c = record.get('C'),
+            d = record.get('D'),
+            value = record.get('value'),
+            year_month = record.get('year_month')
+        )
+        mc_kpis.append(monthly_cohort_kpi)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    if MonthlyCohortKPI.__tablename__ in engine.table_names():
+        session.execute(DropTable(MonthlyCohortKPI.__table__))
+    session.execute(CreateTable(MonthlyCohortKPI.__table__))
+    session.add_all(mc_kpis)
     session.commit()
     session.close()
 
