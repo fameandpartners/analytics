@@ -1,5 +1,5 @@
 suppressMessages(library(readr))
-suppressMessages(library(RPostgreSQL))
+suppressMessages(library(dbplyr))
 suppressMessages(library(dplyr))
 suppressMessages(library(tidyr))
 suppressMessages(library(lubridate))
