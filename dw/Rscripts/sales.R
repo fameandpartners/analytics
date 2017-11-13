@@ -83,14 +83,6 @@ shipping_costs <- read_csv("Rscripts/static-data/avg_shipping_costs.csv",
 # set db connection
 source("Rscripts/fp_init.R")
 
-# ---- FB Ad Images ----
-fb_images <- tbl(fp_con, sql(read_sql("queries/fb_images.sql"))) %>%
-    collect() %>%
-    group_by(ad_name) %>%
-    filter(!duplicated(str_replace_all(ad_image, "\\?(.*)", ""))) %>%
-    summarise(ad_images = paste(paste0("<img height=200px width=350px src=",
-                                       ad_image, ">"), collapse = ""))
-
 # ---- GA & FB ----
 col_args <- function(){
     cols(.default = col_number(),
@@ -122,11 +114,7 @@ ga_fb <- read_csv("Rscripts/static-data/ga_fb.csv",
                       prospecting = col_logical(),
                       Date = col_date(format = ""))) %>%
     mutate(Amount_Spent_USD = Amount_Spent_AUD * aud_to_usd) %>%
-    left_join(fb_images %>%
-                  rename(utm_campaign = ad_name),
-              by = "utm_campaign") %>%
-    rename(creative_no_image = creative) %>%
-    mutate(creative = coalesce(ad_images, creative_no_image))
+    rename(creative_no_image = creative)
 
 # ---- COHORTS ----
 cohort_assignments <- read_csv("Rscripts/static-data/cohort_assignments.csv",
@@ -395,6 +383,5 @@ products_sold$height <- factor(
 write_feather(products_sold, "feathers/sales.feather")
 write_feather(products, "feathers/products.feather")
 write_feather(product_taxons, "feathers/product_taxons.feather")
-write_feather(fb_images, "feathers/facebook_images.feather")
 write_feather(line_item_customizations, "feathers/line_item_customizations.feather")
 write_feather(customization_values, "feathers/customization_values.feather")
