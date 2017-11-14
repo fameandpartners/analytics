@@ -4,9 +4,14 @@ suppressMessages(library(dbplyr))
 suppressMessages(library(readr))
 suppressMessages(library(lubridate))
 
-dw <- src_postgres(dbname = "dw_dev",host = "localhost")
+dw <- src_postgres(
+  host = Sys.getenv("RDS_HOST"),
+  dbname = "dw",
+  user = Sys.getenv("RDS_USER"),
+  password = Sys.getenv("RDS_PASS")
+)
 
-products_sold <- tbl(dw, "sales") %>% 
+products_sold <- tbl(dw, "sales") %>%
     filter(order_date >= "2015-12-15") %>%
     select(-id,-created_at) %>%
     collect() %>%
@@ -61,7 +66,7 @@ daily_repeats <- confirmed_sales %>%
     filter(!return_requested) %>%
     left_join(customer_acquisitions, by = "email") %>%
     mutate(new_repeat = ifelse(order_date <= coalesce(acquisition_date,
-                                                      order_date), 
+                                                      order_date),
                                "New Customers","Repeat Customers")) %>%
     group_by(order_date, new_repeat) %>%
     summarise(Customers = n_distinct(email)) %>%
@@ -112,7 +117,7 @@ daily_demand_returns <- reconciled_returns %>%
               ungroup() %>%
               filter(year(order_date) >= 2017 & month(order_date) %in% c(5,6))) %>%
     filter(order_date <= today()) %>%
-    rename(Returns = returns, 
+    rename(Returns = returns,
            `Inventory Returns` = inventory_returns,
            `Refulfilled Return Units` = refulfilled_return_units)
 
