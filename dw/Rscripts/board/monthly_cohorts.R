@@ -4,7 +4,12 @@ suppressMessages(library(dbplyr))
 suppressMessages(library(readr))
 suppressMessages(library(lubridate))
 
-dw <- src_postgres(dbname = "dw_dev",host = "localhost")
+dw <- src_postgres(
+  host = Sys.getenv("RDS_HOST"),
+  dbname = "dw",
+  user = Sys.getenv("RDS_USER"),
+  password = Sys.getenv("RDS_PASS")
+)
 
 products_sold <- tbl(dw, "sales") %>%
     filter(order_date >= "2015-12-15") %>%
