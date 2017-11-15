@@ -213,6 +213,7 @@ shinyUI(fluidPage(
             p("The download will take up to 1 minute"),
             downloadButton("download_returns")
         ),
+        # Static Data updated with etl/all_touches.R
         tabPanel(
             "Conversions",
             fluidRow(
@@ -282,6 +283,7 @@ shinyUI(fluidPage(
                 )
             )
         ),
+        # Static Data updated with etl/marketing_funnel.R
         tabPanel(
             "ODG",
             sidebarLayout(
@@ -463,134 +465,7 @@ shinyUI(fluidPage(
         ),
         tabPanel(
             "Finances",
-            sidebarLayout(
-                sidebarPanel(
-                    h2("Budget vs. Actual", align = "center"),
-                    selectizeInput(
-                        "year",
-                        "Year",
-                        seq(2017, today() %>% year())
-                    ),
-                    selectizeInput(
-                        "quarter",
-                        "Quarter",
-                        c("All Year","Q1","Q2","Q3","Q4")
-                    ),
-                    hr(),
-                    tags$table(
-                        id = "finance_summary",
-                        tags$th(
-                            tags$td(strong("Actuals")),
-                            tags$td(strong("Percent of Budget")),
-                            tags$td(strong("Percent Change YoY"))
-                        ),
-                        tags$tr(
-                            tags$td(h4("Gross Revenue:")),
-                            tags$td(textOutput("gross_revenue_actual")),
-                            tags$td(textOutput("gross_revenue_pob")),
-                            tags$td(textOutput("gross_revenue_yoy"))
-                        ),
-                        tags$tr(
-                            tags$td(h4("Units Shipped:")),
-                            tags$td(textOutput("units_shipped_actual")),
-                            tags$td(textOutput("units_shipped_pob")),
-                            tags$td(textOutput("units_shipped_yoy"))
-                        ),
-                        tags$tr(
-                            tags$td(h4("ASP:")),
-                            tags$td(textOutput("asp_actual")),
-                            tags$td(textOutput("asp_pob")),
-                            tags$td(textOutput("asp_yoy"))
-                        ),
-                        tags$tr(
-                            tags$td(h4("COGS:")),
-                            tags$td(textOutput("cogs_actual")),
-                            tags$td(textOutput("cogs_pob")),
-                            tags$td(textOutput("cogs_yoy"))
-                        ),
-                        tags$tr(
-                            tags$td(h4("Avg. Unit COGS:")),
-                            tags$td(textOutput("average_unit_cogs_actual")),
-                            tags$td(textOutput("average_unit_cogs_pob")),
-                            tags$td(textOutput("average_unit_cogs_yoy"))
-                        ),
-                        tags$tr(
-                            tags$td(h4("Returns:")),
-                            tags$td(textOutput("returns_actual")),
-                            tags$td(textOutput("returns_pob")),
-                            tags$td(textOutput("returns_yoy"))
-                        ),
-                        tags$tr(
-                            tags$td(h4("Return Rate:")),
-                            tags$td(textOutput("return_rate_actual")),
-                            tags$td(textOutput("return_rate_pob")),
-                            tags$td(textOutput("return_rate_yoy"))
-                        ),
-                        tags$tr(
-                            tags$td(h4("Returns per Unit:")),
-                            tags$td(textOutput("returns_per_unit_actual")),
-                            tags$td(textOutput("returns_per_unit_pob")),
-                            tags$td(textOutput("returns_per_unit_yoy"))
-                        ),
-                        tags$tr(
-                            tags$td(h4("Gross Margin:")),
-                            tags$td(textOutput("gross_margin_actual")),
-                            tags$td(textOutput("gross_margin_pob")),
-                            tags$td(textOutput("gross_margin_yoy"))
-                        )
-                    )
-                ),
-                mainPanel(
-                    tabsetPanel(
-                        tabPanel(
-                            "Sales",
-                            h3c("Gross Revenue"),
-                            plotOutput("gross_revenue", height = "300px"),
-                            downloadButton("gross_revenue_down"),
-                            hr(),
-                            h3c("Units Shipped"),
-                            plotOutput("units_shipped", height = "300px"),
-                            downloadButton("units_shipped_down"),
-                            hr(),
-                            h3c("Avgerage Selling Price"),
-                            plotOutput("average_selling_price", height = "300px"),
-                            downloadButton("average_selling_price_down")
-                        ),
-                        tabPanel(
-                            "COGS",
-                            h3c("Cost of Goods Sold"),
-                            plotOutput("cogs", height = "300px"),
-                            downloadButton("cogs_down"),
-                            hr(),
-                            h3c("Avgerage Unit COGS"),
-                            plotOutput("average_unit_cogs", height = "300px"),
-                            downloadButton("average_unit_cogs_down")
-                        ),
-                        tabPanel(
-                            "Returns",
-                            h3c("Returns"),
-                            plotOutput("returns", height = "300px"),
-                            downloadButton("returns_down"),
-                            hr(),
-                            h3c("Return Rate"),
-                            plotOutput("return_rate", height = "300px"),
-                            downloadButton("return_rate_down"),
-                            hr(),
-                            h3c("Returns per Unit"),
-                            plotOutput("returns_per_unit", height = "300px"),
-                            downloadButton("returns_per_unit_down")
-                        ),
-                        tabPanel(
-                            "Margin",
-                            h3c("Gross Margin"),
-                            plotOutput("gross_margin", height = "300px"),
-                            downloadButton("gross_margin_down")
-                        )
-                    )
-                )
-            ),
             fluidRow(
-                hr(),
                 column(
                     1,
                     em("Line Item Details"),
@@ -638,6 +513,61 @@ shinyUI(fluidPage(
                     em("Weekly Customization Demand Trend"),
                     br(),
                     downloadButton("download_weekly_customization_trend")
+                ),
+                column(
+                    1,
+                    em("Monthly KPIs"),
+                    br(),
+                    downloadButton("download_monthly_kpis")
+                )
+            ),
+            fluidRow(hr()),
+            fluidRow(
+                tabsetPanel(
+                    tabPanel(
+                        "Sales",
+                        h3c("Gross Revenue"),
+                        plotOutput("gross_revenue", height = "300px"),
+                        downloadButton("gross_revenue_down"),
+                        hr(),
+                        h3c("Units Shipped"),
+                        plotOutput("units_shipped", height = "300px"),
+                        downloadButton("units_shipped_down"),
+                        hr(),
+                        h3c("Avgerage Selling Price"),
+                        plotOutput("average_selling_price", height = "300px"),
+                        downloadButton("average_selling_price_down")
+                    ),
+                    tabPanel(
+                        "COGS",
+                        h3c("Cost of Goods Sold"),
+                        plotOutput("cogs", height = "300px"),
+                        downloadButton("cogs_down"),
+                        hr(),
+                        h3c("Avgerage Unit COGS"),
+                        plotOutput("average_unit_cogs", height = "300px"),
+                        downloadButton("average_unit_cogs_down")
+                    ),
+                    tabPanel(
+                        "Returns",
+                        h3c("Returns"),
+                        plotOutput("returns", height = "300px"),
+                        downloadButton("returns_down"),
+                        hr(),
+                        h3c("Return Rate"),
+                        plotOutput("return_rate", height = "300px"),
+                        downloadButton("return_rate_down"),
+                        hr(),
+                        h3c("Returns per Unit"),
+                        plotOutput("returns_per_unit", height = "300px"),
+                        downloadButton("returns_per_unit_down")
+                    ),
+                    tabPanel(
+                        "Margin",
+                        h3c("Gross Margin"),
+                        plotOutput("gross_margin", height = "300px"),
+                        downloadButton("gross_margin_down")
+                    )
                 )
             )
         )
