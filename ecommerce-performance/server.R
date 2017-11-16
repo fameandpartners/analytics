@@ -376,7 +376,7 @@ shinyServer(function(input, output) {
                 summarise(`Week Ending` = as.character(max(order_date)),
                           Units = sum(physically_customized * quantity) / sum(quantity)) %>% 
                 ggplot(aes(x = `Week Ending`, y = Units)) + 
-                geom_bar(stat = "identity") +
+                geom_bar(stat = "identity", fill = "#8d9fcb") +
                 scale_y_continuous(labels = percent) +
                 theme_bw(base_size = 14) +
                 theme(legend.title = element_blank(),
