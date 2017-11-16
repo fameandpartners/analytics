@@ -122,14 +122,37 @@ shinyUI(fluidPage(
                     plotOutput("top_customizations")
                 )
             ),
-            
             fluidRow(
                 h3c("Weekly Customization Rates"),
                 plotOutput("cust_rates")
             ),
-            
             fluidRow(
+                em("Sales Logs"),
+                br(),
                 downloadButton("download_all")
+            ),
+            hr(),
+            fluidRow(
+                h3c("Weekly Sales YoY"),
+                tabsetPanel(
+                    tabPanel(
+                        "YoY Actuals",
+                        plotOutput("weekly_sales_yoy", height = "500px")
+                    ),
+                    tabPanel(
+                        "YoY Growth",
+                        plotOutput("weekly_sales_yoy_growth", height = "500px")
+                    ),
+                    tabPanel(
+                        "YoY Actuals by Country",
+                        plotOutput("weekly_sales_yoy_by_country", height = "1000px")
+                    ),
+                    tabPanel(
+                        "YoY Growth by Country",
+                        plotOutput("weekly_sales_yoy_growth_by_country", height = "1000px")
+                    )
+                ),
+                em("Missing data points are growth metrics outside of the plot's range (-50% to 300%)")
             )
         ),
         tabPanel(

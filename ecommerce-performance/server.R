@@ -184,6 +184,42 @@ shinyServer(function(input, output) {
             scale_fill_brewer(palette = "Set3")
     })
     
+    # ---- Size Distribution ----
+    output$size_dist <- renderPlot({
+        if(nrow(selected_sales()) > 0){
+            old_heights <- selected_sales() %>%
+                filter(height %in% c("Petite", "Standard", "Tall"))
+            if(nrow(old_heights) > 1){
+                selected_sales() %>%
+                    filter(height %in% c("Petite", "Standard", "Tall")) %>%
+                    group_by(height, us_size) %>%
+                    summarise(Units = sum(quantity)) %>%
+                    arrange(desc(us_size)) %>%
+                    ggplot(aes(x = us_size, y = Units)) +
+                    geom_bar(stat = "identity") +
+                    scale_x_continuous(breaks = seq(min(selected_sales()$us_size), 
+                                                    max(selected_sales()$us_size), 2)) +
+                    theme_bw(base_size = 14) +
+                    #coord_flip() +
+                    xlab("Size (US)") +
+                    facet_grid(height ~ .)
+            } else {
+                selected_sales() %>%
+                    group_by(us_size) %>%
+                    summarise(Units = sum(quantity)) %>%
+                    arrange(desc(us_size)) %>%
+                    ggplot(aes(x = us_size, y = Units)) +
+                    geom_bar(stat = "identity") +
+                    scale_x_continuous(breaks = seq(min(selected_sales()$us_size), 
+                                                    max(selected_sales()$us_size), 2)) +
+                    theme_bw(base_size = 14) +
+                    #coord_flip() +
+                    xlab("Size (US)")
+            }
+        }
+    })
+    
+    
     # ---- Top Colors ---- 
     
     top_colors_data <- reactive({
@@ -348,41 +384,89 @@ shinyServer(function(input, output) {
         }
     })
     
-    # ---- Size Distribution ----
-    output$size_dist <- renderPlot({
-        if(nrow(selected_sales()) > 0){
-            old_heights <- selected_sales() %>%
-                filter(height %in% c("Petite", "Standard", "Tall"))
-            if(nrow(old_heights) > 1){
-                selected_sales() %>%
-                    filter(height %in% c("Petite", "Standard", "Tall")) %>%
-                    group_by(height, us_size) %>%
-                    summarise(Units = sum(quantity)) %>%
-                    arrange(desc(us_size)) %>%
-                    ggplot(aes(x = us_size, y = Units)) +
-                    geom_bar(stat = "identity") +
-                    scale_x_continuous(breaks = seq(min(selected_sales()$us_size), 
-                                                    max(selected_sales()$us_size), 2)) +
-                    theme_bw(base_size = 14) +
-                    #coord_flip() +
-                    xlab("Size (US)") +
-                    facet_grid(height ~ .)
-            } else {
-                selected_sales() %>%
-                    group_by(us_size) %>%
-                    summarise(Units = sum(quantity)) %>%
-                    arrange(desc(us_size)) %>%
-                    ggplot(aes(x = us_size, y = Units)) +
-                    geom_bar(stat = "identity") +
-                    scale_x_continuous(breaks = seq(min(selected_sales()$us_size), 
-                                                    max(selected_sales()$us_size), 2)) +
-                    theme_bw(base_size = 14) +
-                    #coord_flip() +
-                    xlab("Size (US)")
-            }
-        }
+    # ---- Weekly Sales YoY ----
+    wsales_yoy <- reactive({
+        last_weeks_saturday <- floor_date(today(), "week") - 1
+        tbl(dw, sql(paste(
+            "select order_date, sum(sales_usd) sales_usd from sales",
+            "where order_date between '2015-01-01' and '", as.character(last_weeks_saturday), "'",
+            "and payment_state = 'paid'",
+            "group by order_date order by order_date"))) %>% 
+            collect() %>% 
+            group_by(order_year = year(order_date) %>% as.character(), 
+                     order_week = week(order_date)) %>% 
+            summarise(`Net Sales` = sum(sales_usd))
     })
-    
+    output$weekly_sales_yoy <- renderPlot({
+        wsales_yoy() %>% 
+            ggplot(aes(x = order_week)) +
+            geom_path(aes(y = `Net Sales`, color = order_year), group = 4) +
+            geom_point(aes(y = `Net Sales`, color = order_year)) +
+            scale_x_continuous(limits = c(1, 52)) +
+            scale_y_continuous(labels = short_dollar) +
+            xlab("Order Week") +
+            theme_bw(base_size = 16) +
+            theme(legend.title = element_blank())
+    })
+    output$weekly_sales_yoy_growth <- renderPlot({
+        wsales_yoy() %>%
+            group_by(order_week) %>%
+            arrange(order_week, order_year) %>%
+            mutate(`Prior Net Sales` = lag(`Net Sales`),
+                   percent_change = `Net Sales`/`Prior Net Sales` - 1,
+                   years_changed = paste(lag(order_year), "to", order_year)) %>%
+            filter(!is.na(`Prior Net Sales`)) %>%
+            arrange(order_year, order_week) %>%
+            ggplot(aes(x = order_week, y = percent_change, color = years_changed)) +
+            geom_path() + geom_point() +
+            scale_y_continuous(labels = percent, limits = c(-0.5,3)) +
+            xlab("Order Week") + ylab("Percent Change") +
+            theme_bw(base_size = 16) +
+            theme(legend.title = element_blank())
+    })
+    wcsales_yoy <- reactive({
+        last_weeks_saturday <- floor_date(today(), "week") - 1
+        tbl(dw, sql(paste(
+            "select ship_country, order_date, sum(sales_usd) sales_usd from sales",
+            "where order_date between '2015-01-01' and '", as.character(last_weeks_saturday), "'",
+                "and payment_state = 'paid'",
+                "and ship_country IN ('United States','Australia')",
+            "group by ship_country, order_date order by ship_country, order_date"))) %>% 
+            collect() %>% 
+            group_by(order_year = year(order_date) %>% as.character(), 
+                     order_week = week(order_date),
+                     ship_country) %>% 
+            summarise(`Net Sales` = sum(sales_usd))
+    })
+    output$weekly_sales_yoy_by_country <- renderPlot({
+        wcsales_yoy() %>% 
+            ggplot(aes(x = order_week)) +
+            geom_path(aes(y = `Net Sales`, color = order_year), group = 4) +
+            geom_point(aes(y = `Net Sales`, color = order_year)) +
+            scale_x_continuous(limits = c(1, 52)) +
+            scale_y_continuous(labels = short_dollar) +
+            xlab("Order Week") +
+            facet_grid(ship_country~.) +
+            theme_bw(base_size = 16) +
+            theme(legend.title = element_blank())
+    })
+    output$weekly_sales_yoy_growth_by_country <- renderPlot({
+        wcsales_yoy() %>%
+            group_by(ship_country, order_week) %>%
+            arrange(ship_country, order_week, order_year) %>%
+            mutate(`Prior Net Sales` = lag(`Net Sales`),
+                   percent_change = `Net Sales`/`Prior Net Sales` - 1,
+                   years_changed = paste(lag(order_year), "to", order_year)) %>%
+            filter(!is.na(`Prior Net Sales`)) %>%
+            arrange(order_year, order_week) %>%
+            ggplot(aes(x = order_week, y = percent_change, color = years_changed)) +
+            geom_path() + geom_point() +
+            scale_y_continuous(labels = percent, limits = c(-0.5,3)) +
+            facet_grid(ship_country~.) +
+            xlab("Order Week") + ylab("Percent Change") +
+            theme_bw(base_size = 16) +
+            theme(legend.title = element_blank())
+    })
     # ---- Download All Data ----
     output$download_all <- downloadHandler(
         filename = function() { paste("eCommerce Performance Details ", today(), ".csv", sep='') },
