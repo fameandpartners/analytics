@@ -2,6 +2,7 @@ library(dplyr)
 library(tidyr)
 library(stringr)
 library(readr)
+library(lubridate)
 library(rpart)
 library(feather)
 
@@ -12,7 +13,7 @@ products_sold <- tbl(dw, "sales") %>%
     select(-id, -created_at) %>%
     collect()
 
-fabric_usage <- read_csv("~/data/fabric_usage.csv")
+fabric_usage <- read_csv("Rscripts/static-data/fabric_usage.csv")
 
 produced_sales <- products_sold %>%
     filter(order_status != "Canceled" & year(order_date) >= 2016)
@@ -27,7 +28,7 @@ annual_fabrics <- produced_sales %>%
     ungroup()
 
 monthly_seasonality <- products_sold %>%
-    group_by(order_year = year(order_date), 
+    group_by(order_year = year(order_date),
              order_month = month(order_date)) %>%
     summarise(units_sold = sum(quantity)) %>%
     filter(order_year >= 2015) %>%
@@ -41,7 +42,7 @@ monthly_seasonality <- products_sold %>%
     select(order_month, deseason)
 
 monthly_fabrics <- produced_sales %>%
-    group_by(order_year = year(order_date), 
+    group_by(order_year = year(order_date),
              order_month = month(order_date),
              product_id) %>%
     summarise(units_sold = sum(quantity)) %>%
@@ -62,7 +63,7 @@ monthly_fabrics <- produced_sales %>%
     ungroup()
 
 weekly_seasonality <- products_sold %>%
-    group_by(order_year = year(order_date), 
+    group_by(order_year = year(order_date),
              order_week = week(order_date)) %>%
     summarise(units_sold = sum(quantity)) %>%
     filter(order_year >= 2015) %>%
@@ -77,7 +78,7 @@ weekly_seasonality <- products_sold %>%
 
 weekly_fabrics <- produced_sales %>%
     filter(!(year(order_date) == year(today()) & week(order_date) == week(today()))) %>%
-    group_by(order_year = year(order_date), 
+    group_by(order_year = year(order_date),
              order_quarter = quarter(order_date),
              order_week = week(order_date),
              product_id) %>%
@@ -100,25 +101,25 @@ weekly_fabrics <- produced_sales %>%
 # weekly_st_lm <- lm(meters ~ (prior_meters * prior_yr_meters) / deseason, weekly_fabrics)
 # Perhaps V2 could use this recursively to forecast long-term
 monthly_st_lm <- lm(meters ~ (prior_meters * prior_yr_meters) / deseason , data = monthly_fabrics)
-# Long-term model 
+# Long-term model
 weekly_lt_lm <- lm(meters ~ prior_yr_meters / deseason, weekly_fabrics)
 
 the_future <- data_frame(order_date = seq(today(), today() + 364, 1)) %>%
     transmute(order_year = year(order_date),
               order_month = month(order_date),
               order_week = week(order_date)) %>%
-    unique() 
+    unique()
 
 last_month <- today() %m+% months(-1)
 this_month <- monthly_fabrics %>%
     filter(order_year == year(last_month) & order_month == month(last_month)) %>%
     transmute(order_year, order_month = 10, fabric, prior_meters = meters) %>%
     inner_join(monthly_fabrics %>%
-                   transmute(order_year = order_year + 1, order_month, fabric, 
+                   transmute(order_year = order_year + 1, order_month, fabric,
                              prior_yr_meters = meters),
                by = c("order_year","order_month","fabric")) %>%
     inner_join(monthly_seasonality, by = "order_month")
-    
+
 this_month_forecasts <- predict(
     monthly_st_lm, newdata = this_month,
     interval = "confidence", level = 0.75) %>%
@@ -132,7 +133,7 @@ weekly_future <- the_future %>%
                    select(order_year, order_week, fabric, meters) %>%
                    mutate(next_year = order_year + 1) %>%
                    select(-order_year) %>%
-                   rename(order_year = next_year, 
+                   rename(order_year = next_year,
                           prior_yr_meters = meters),
                by = c("order_year","order_week")) %>%
     inner_join(weekly_seasonality, by = "order_week")
