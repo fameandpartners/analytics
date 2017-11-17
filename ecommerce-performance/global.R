@@ -128,7 +128,7 @@ product_taxons <- tbl(dw, "product_taxons") %>%
     collect()
 
 products_sold <- tbl(dw, "sales") %>%
-    filter(order_date >= '2015-12-15') %>%
+    filter(order_date >= "2015-12-15") %>%
     collect() %>%
     left_join(products %>% transmute(product_id, product_live = live),
               by = "product_id") %>%
@@ -194,9 +194,6 @@ comp_choices <- c("Spend (USD)","Purchases","CAC","CTR","CPAC","CPL",
 
 # ---- BUDGET DATA ----
 
-monthly_budget_2017 <- read_csv("static-data/direct_2017_monthly_budget.csv",
-                                col_types = "iddddddddddddddd")
-
 returns_reconciled <- read_csv("static-data/reconciled_returns.csv",
                                col_types = cols(.default = col_number())) %>%
     filter(ship_month <= 4)
@@ -225,116 +222,3 @@ monthly_actuals_2017 <- products_sold %>%
            returns_per_unit = returns / units_shipped,
            average_discount = abs(total_adjustments) / gross_revenue) %>%
     select(-spree_returns, -adjusted_returns)
-# NOTES:
-# 98% of returns are processed within 90 days
-# less_than_90_days n `n/sum(n)`
-# 1 FALSE           87 0.01549145
-# 2 TRUE          5529 0.98450855
-
-# # 74% of refund request dollars are refunded
-# # This observation drives the crude estimate of 0.65 * refunds requesteds
-# # We anticipate that this rate will drop this year because of bridal returns
-# # refunded
-# # 1 0.7391868
-
-monthly_budget_actuals_2017 <- monthly_actuals_2017 %>%
-    gather(metric, value, -ship_month, -ship_year) %>%
-    mutate(year_colname = paste("actuals", ship_year, sep = "_")) %>%
-    ungroup() %>%
-    select(-ship_year) %>%
-    spread(year_colname, value) %>%
-    filter(!is.na(actuals_2017)) %>%
-    inner_join(monthly_budget_2017 %>%
-                   gather(metric, budget_2017, -ship_month),
-               by = c("ship_month","metric")) %>%
-    transmute(ship_quarter = ceiling(ship_month / 3),
-              ship_month,
-              metric,
-              actuals_2016 = round(actuals_2016, 2),
-              actuals_2017 = round(actuals_2017, 2),
-              budget_2017  = round(budget_2017, 2),
-              percent_change_yoy = (actuals_2017 - actuals_2016) / actuals_2016,
-              percent_of_budget = actuals_2017 / budget_2017) %>%
-    arrange(metric, ship_month)
-
-quarterly_budget_2017 <- monthly_budget_2017 %>%
-    group_by(ship_quarter = ceiling(ship_month / 3)) %>%
-    summarise(gross_revenue = sum(gross_revenue),
-              units_shipped = sum(units_shipped),
-              cogs = sum(cogs),
-              returns = sum(returns)) %>%
-    mutate(average_selling_price = gross_revenue / units_shipped,
-           average_unit_cogs = cogs / units_shipped,
-           return_rate = returns / gross_revenue,
-           gross_margin = (gross_revenue - returns - cogs)
-           / (gross_revenue - returns),
-           returns_per_unit = returns / units_shipped) %>%
-    gather(metric, budget_2017, -ship_quarter)
-
-quarterly_budget_actuals_2017 <- monthly_actuals_2017 %>%
-    group_by(ship_year,
-             ship_quarter = ceiling(ship_month / 3)) %>%
-    summarise(gross_revenue = sum(gross_revenue),
-              units_shipped = sum(units_shipped),
-              cogs = sum(cogs),
-              returns = sum(returns),
-              total_adjustments = sum(total_adjustments)) %>%
-    mutate(average_selling_price = gross_revenue / units_shipped,
-           average_unit_cogs = cogs / units_shipped,
-           return_rate = returns / gross_revenue,
-           gross_margin = (gross_revenue + total_adjustments - cogs - returns)
-           / (gross_revenue + total_adjustments - returns),
-           returns_per_unit = returns / units_shipped) %>%
-    gather(metric, value, -ship_quarter, -ship_year) %>%
-    mutate(year_colname = paste("actuals", ship_year, sep = "_")) %>%
-    ungroup() %>%
-    select(-ship_year) %>%
-    spread(year_colname, value) %>%
-    filter(!is.na(actuals_2017)) %>%
-    inner_join(quarterly_budget_2017, by = c("ship_quarter", "metric")) %>%
-    mutate(percent_change_yoy = (actuals_2017 - actuals_2016) / actuals_2016,
-           percent_of_budget = round(actuals_2017 / budget_2017, 4)) %>%
-    transmute(ship_quarter, metric,
-              actuals_2016 = round(actuals_2016, 2),
-              actuals_2017 = round(actuals_2017, 2),
-              budget_2017  = round(budget_2017, 2),
-              percent_change_yoy, percent_of_budget)
-
-annual_budget_2017 <- monthly_budget_2017 %>%
-    summarise(gross_revenue = sum(gross_revenue),
-              units_shipped = sum(units_shipped),
-              cogs = sum(cogs),
-              returns = sum(returns)) %>%
-    mutate(average_selling_price = gross_revenue / units_shipped,
-           average_unit_cogs = cogs / units_shipped,
-           return_rate = returns / gross_revenue,
-           gross_margin = (gross_revenue - returns - cogs)
-           / (gross_revenue - returns),
-           returns_per_unit = returns / units_shipped) %>%
-    gather(metric, budget_2017)
-
-annual_budget_actuals_2017 <- monthly_actuals_2017 %>%
-    group_by(ship_year) %>%
-    summarise(gross_revenue = sum(gross_revenue),
-              units_shipped = sum(units_shipped),
-              cogs = sum(cogs),
-              returns = sum(returns),
-              total_adjustments = sum(total_adjustments)) %>%
-    mutate(average_selling_price = gross_revenue / units_shipped,
-           average_unit_cogs = cogs / units_shipped,
-           return_rate = returns / gross_revenue,
-           gross_margin = (gross_revenue + total_adjustments - cogs - returns)
-           / (gross_revenue + total_adjustments - returns),
-           returns_per_unit = returns / units_shipped) %>%
-    gather(metric, value, -ship_year) %>%
-    mutate(year_colname = paste("actuals", ship_year, sep = "_")) %>%
-    ungroup() %>%
-    select(-ship_year) %>%
-    spread(year_colname, value) %>%
-    inner_join(annual_budget_2017, by = c("metric")) %>%
-    transmute(metric,
-              actuals_2016 = round(actuals_2016, 2),
-              actuals_2017 = round(actuals_2017, 2),
-              budget_2017  = round(budget_2017, 2),
-              percent_change_yoy = (actuals_2017 - actuals_2016) / actuals_2016,
-              percent_of_budget = round(actuals_2017 / budget_2017, 4))
