@@ -1,5 +1,4 @@
 # Fame & Partners Analytics
-
 ## eCommerce Performance Dashboard: `/ecommerce-performance/`
 Here is a Shiny Application hosted at https://fameandpartners.shinyapps.io/ecommerce-performance/
 
@@ -22,9 +21,26 @@ Get a login to Fame & Partners' account and follow these [instructions](https://
 `>rsconnect::deployApp()`
 
 ## Data Warehouse: `/dw/`
-This manages F&P's Data Warehouse.  It uses both R and Python to run ETL jobs.  It relies on [feather](https://github.com/wesm/feather) to exchange Data Frames between R and Python in the data pipelines.  The entry point to these ETL jobs are bash scripts, so to run the hourly ETL job run
+### Requirements
+- `python 3.6.1`
+- `pip 9.0.1 (python 3.6)`
+- `R 3.4.2`
+
+To install python dependencies run
+`$ cd dw`
+`$ pip install -r requirements.txt`
+
+To install R dependencies run
+`$ cd dw/Rscripts`
+`$ Rscript dependencies.R`
+
+`/dw/` manages F&P's Data Warehouse.  It uses both R and Python to run ETL jobs.  It relies on [feather](https://github.com/wesm/feather) to exchange Data Frames between R and Python in the data pipelines.  The entry point to these ETL jobs are bash scripts, so to run the hourly ETL job is this command
 
 `$ sh hourly.sh`
+
+or to run the culling algorithm is this command
+
+`$ sh culling.sh`
 
 ## Analysis Presentations: `/analyses/`
 These are scripts written for analysis presentations.  These scripts use ggplot2 heavily and were written to be run locally and generate files for analysis presentations.
