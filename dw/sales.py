@@ -11,10 +11,10 @@ QUERIES = os.path.join(__location__, 'queries/')
 
 def connect_to_fame():
     return psql.connect(
-        user=os.environ['RDS_USERNAME'],
-        password=os.environ['RDS_PASSWORD'],
-        dbname=os.environ['RDS_DB_NAME'],
-        host=os.environ['RDS_HOSTNAME']
+        user=os.environ['FAME_USERNAME'],
+        password=os.environ['FAME_PASSWORD'],
+        dbname=os.environ['FAME_DB_NAME'],
+        host=os.environ['FAME_HOSTNAME']
     )
 
 def sql_to_dataframe(sql_file, connection):
