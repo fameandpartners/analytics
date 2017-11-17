@@ -9,7 +9,12 @@ suppressMessages(library(lubridate))
 suppressMessages(library(stringr))
 suppressMessages(library(feather))
 
-dw <- src_postgres(dbname = "dw_dev", host = "localhost")
+dw <- src_postgres(
+  host = Sys.getenv("RDS_HOST"),
+  dbname = "dw",
+  user = Sys.getenv("RDS_USER"),
+  password = Sys.getenv("RDS_PASS")
+)
 collect_dw <- function(conn) conn %>% select(-id, -created_at) %>% collect()
 products_sold <- tbl(dw, "sales") %>% collect_dw()
 products <- tbl(dw, "products") %>% collect_dw()
@@ -85,4 +90,4 @@ ongoing_cull <- ongoing_cull_sales %>%
     semi_join(active_products, by = "product_id") %>%
     unique()
 
-ongoing_cull
+write_csv(ongoing_cull, "Rscripts/static-data/ongoing_cull.csv")
