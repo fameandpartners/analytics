@@ -52,7 +52,7 @@ sql_convert_to_LA_time <- function(utc_time){
 # query conversion rates
 aud_to_usd <- 0.74  # query_aud_to_usd()
 
-last_weeks_saturday <- round_date(today(), "week") - 1
+last_weeks_saturday <- floor_date(today(), "week") - 1
 
 # ---- QUERIES ----
 

@@ -5,12 +5,12 @@ from jobs import (
     load_customization_values, load_line_item_customizations,
     load_cohort_assignments
 )
-from secrets import DWPASS
+import os
 
 def create_dw_engine(production = False):
     if production:
-        password = DWPASS
-        host = 'fp-dw.cs60zg0gg0au.us-east-1.rds.amazonaws.com'
+        password = os.environ['RDS_PASSWORD']
+        host = os.environ['RDS_HOSTNAME']
         engine = create_engine(f'postgresql+psycopg2://peter:{password}@{host}:5432/dw')
     else:
         host = 'localhost'

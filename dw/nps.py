@@ -1,11 +1,11 @@
 import delighted
 import pandas as pd
 import sales
-from secrets import DKEY
+import os
 
 
 def fetch():
-    delighted.api_key = DKEY
+    delighted.api_key = os.environ['DKEY']
     responses = []
     for page in range(1, 1000):
         delighted_page = delighted.SurveyResponse.all(
