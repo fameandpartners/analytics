@@ -54,7 +54,10 @@ Here are SQL queries written for ad-hoc reports or quick test and experiments. I
 ## Legacy Repeat Customers Dashboard: `/repeat-customers/`
 This is an old Shiny dashboard that has been archived on shinyapps.io and is not used anymore.
 
-## "Static" Data `/ecommerce-performance/static-data/` and `dw/Rscripts/static-data/`
+## "Static" Data Folders
+- `/ecommerce-performance/static-data/`
+- `dw/Rscripts/static-data/`
+
 Both of these `static-data` folders are lookup tables that either shiny or the data warehouse needs to reference.
 
 A copy of the Static Data folder can be found in [here in dropbox](https://www.dropbox.com/sh/837pif44bgtiij4/AADA_hOPiT5xZBDf7jn7GMz9a?dl=0)
