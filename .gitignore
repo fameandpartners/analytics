@@ -4,7 +4,6 @@
 *.Ruserdata
 *__pycache__
 *.json
-*.csv
 *.DS_Store
 *fp_init.R
 *secrets.py
