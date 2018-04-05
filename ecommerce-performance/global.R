@@ -390,7 +390,7 @@ product_taxons <- tbl(fp_con, sql(paste(
 
 # ---- DRESS IMAGES ----
 dress_images <- tbl(fp_con, sql(paste(
-    "SELECT p.id product_id, a.id asset_id, a.attachment_file_name, ",
+    "(SELECT p.id product_id, a.id asset_id, a.attachment_file_name, ",
     "a.attachment_width, a.attachment_height",
     "FROM spree_assets a",
     "INNER JOIN product_color_values pcv ",
@@ -402,7 +402,18 @@ dress_images <- tbl(fp_con, sql(paste(
     "AND a.attachment_updated_at >= '2015-01-01'",
     "AND a.attachment_file_name ilike '%front-crop%'",
     "AND p.id IN (", paste(ordered_units$product_id %>% 
-                               unique(), collapse = ","), ")"))) %>%
+                           unique(), collapse = ","), ")) UNION ",
+    "(SELECT p.id product_id, a.id asset_id, a.attachment_file_name,a.attachment_width, a.attachment_height",
+    "FROM spree_assets a",
+    "INNER JOIN fabrics_products fp ON a.viewable_id = fp.id",
+    "INNER JOIN spree_products p ON p.id = fp.product_id",
+    "WHERE",
+    "a.attachment_width < 2000",
+    "AND a.viewable_type = 'FabricsProduct'",
+    "AND a.attachment_updated_at >= '2015-01-01'",
+    "AND a.attachment_file_name ilike '%front-crop%'",
+    "AND p.id IN (", paste(ordered_units$product_id %>% 
+                           unique(), collapse = ","), "))"))) %>%
     collect() %>%
     filter(!duplicated(product_id)) %>%
     mutate(
