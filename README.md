@@ -19,6 +19,11 @@ Get a login to Fame & Partners' account and follow these [instructions](https://
 
 `$ R`
 
+ >library(rsconnect)
+ >rsconnect::setAccountInfo(name='fameandpartners',
+			  token='8AD2DE89B7AD805AF5B085B1B5A6FFDD',
+			  secret='nFzTk0SUqAJJeKmF5rbUMJm59UO0njy4DifDd72G')
+
 `>rsconnect::deployApp()`
 
 ## Data Warehouse: `/dw/`
